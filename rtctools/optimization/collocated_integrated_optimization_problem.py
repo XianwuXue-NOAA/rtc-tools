@@ -5,7 +5,7 @@ import itertools
 import logging
 
 from rtctools._internal.alias_tools import AliasDict
-from rtctools._internal.casadi_helpers import is_affine, nullvertcat, reduce_matvec, substitute_in_external, interpolate
+from rtctools._internal.casadi_helpers import is_affine, nullvertcat, substitute_in_external, interpolate
 
 from .optimization_problem import OptimizationProblem
 from .timeseries import Timeseries
@@ -231,81 +231,7 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
         options = self.solver_options()
         function_options = {'max_num_dir': options['optimized_num_dir']}
 
-        # Update the store of all ensemble-member-specific data for all ensemble members
-        # with initial states, derivatives, and path variables.
-        for ensemble_member in range(self.ensemble_size):
-            ensemble_data = ensemble_store[ensemble_member]
-
-            # Store initial state and derivatives
-            initial_state = []
-            initial_derivatives = []
-            for variable in collocated_variables:
-                variable = variable.name()
-                value = self.state_vector(
-                    variable, ensemble_member=ensemble_member)[0]
-                nominal = self.variable_nominal(variable)
-                if nominal != 1:
-                    value *= nominal
-                initial_state.append(value)
-                initial_derivatives.append(self.der_at(
-                    variable, t0, ensemble_member=ensemble_member))
-            ensemble_data["initial_state"] = ca.vertcat(*initial_state)
-            ensemble_data["initial_derivatives"] = ca.vertcat(
-                *initial_derivatives)
-
-            # Store initial path variables
-            initial_path_variables = []
-            for j, variable in enumerate(self.path_variables):
-                variable = variable.name()
-                values = self.state_vector(
-                    variable, ensemble_member=ensemble_member)
-                initial_path_variables.append(values[0])
-            ensemble_data["initial_path_variables"] = nullvertcat(
-                *initial_path_variables)
-
-        # Aggregate ensemble data
-        ensemble_aggregate = {}
-        ensemble_aggregate["parameters"] = ca.horzcat(
-            *[d["parameters"] for d in ensemble_store])
-        ensemble_aggregate["initial_constant_inputs"] = ca.horzcat(*[nullvertcat(*[float(d["constant_inputs"][variable.name()][0])
-                                                                                   for variable in self.dae_variables['constant_inputs']]) for d in ensemble_store])
-        ensemble_aggregate["initial_state"] = ca.horzcat(
-            *[d["initial_state"] for d in ensemble_store])
-        ensemble_aggregate["initial_state"] = reduce_matvec(
-            ensemble_aggregate["initial_state"], self.solver_input)
-        ensemble_aggregate["initial_derivatives"] = ca.horzcat(
-            *[d["initial_derivatives"] for d in ensemble_store])
-        ensemble_aggregate["initial_derivatives"] = reduce_matvec(
-            ensemble_aggregate["initial_derivatives"], self.solver_input)
-        ensemble_aggregate["initial_path_variables"] = ca.horzcat(
-            *[d["initial_path_variables"] for d in ensemble_store])
-        ensemble_aggregate["initial_path_variables"] = reduce_matvec(
-            ensemble_aggregate["initial_path_variables"], self.solver_input)
-
         if self.__dae_residual_function_collocated is None:
-            # Insert lookup tables.  No support yet for different lookup tables per ensemble member.
-            lookup_tables = self.lookup_tables(0)
-
-            for sym in self.dae_variables['lookup_tables']:
-                sym_name = sym.name()
-
-                try:
-                    lookup_table = lookup_tables[sym_name]
-                except KeyError:
-                    raise Exception(
-                        "Unable to find lookup table function for {}".format(sym_name))
-                else:
-                    input_syms = [self.variable(input_sym.name())
-                                  for input_sym in lookup_table.inputs]
-
-                    value = lookup_table.function(*input_syms)
-                    [dae_residual] = ca.substitute(
-                        [dae_residual], [sym], [value])
-
-            if len(self.dae_variables['lookup_tables']) > 0 and self.ensemble_size > 1:
-                logger.warning(
-                    "Using lookup tables of ensemble member #0 for all members.")
-
             dae_residual_collocated = dae_residual
 
             # Initialize an Function for the DAE residual (collocated part)
@@ -336,94 +262,16 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                                                 [path_constraint_expressions], function_options)
         path_constraints_function = path_constraints_function.expand()
 
-        # Set up accumulation over time (integration, and generation of
-        # collocation constraints)
-        accumulated_X = ca.MX.sym('accumulated_X', 0)
-        accumulated_U = ca.MX.sym('accumulated_U', 2 * (len(collocated_variables) + len(
-            self.dae_variables['constant_inputs']) + 1) + len(self.path_variables))
-
-        collocated_states_0 = accumulated_U[0:len(collocated_variables)]
-        collocated_states_1 = accumulated_U[
-            len(collocated_variables):2 * len(collocated_variables)]
-        constant_inputs_0 = accumulated_U[2 * len(collocated_variables):2 * len(
-            collocated_variables) + len(self.dae_variables['constant_inputs'])]
-        constant_inputs_1 = accumulated_U[2 * len(collocated_variables) + len(self.dae_variables[
-            'constant_inputs']):2 * len(collocated_variables) + 2 * len(self.dae_variables['constant_inputs'])]
-        collocation_time_0 = accumulated_U[
-            2 * (len(collocated_variables) + len(self.dae_variables['constant_inputs'])) + 0]
-        collocation_time_1 = accumulated_U[
-            2 * (len(collocated_variables) + len(self.dae_variables['constant_inputs'])) + 1]
-        path_variables_1 = accumulated_U[
-            2 * (len(collocated_variables) + len(self.dae_variables['constant_inputs']) + 1):]
-
-        # Approximate derivatives using backwards finite differences
-        dt = collocation_time_1 - collocation_time_0
-        collocated_finite_differences = (
-            collocated_states_1 - collocated_states_0) / dt
-
-        # We use ca.vertcat to compose the list into an MX.  This is, in
-        # CasADi 2.4, faster.
-        accumulated_Y = []
-
-        # Call DAE residual at collocation point
-        # Time stamp following paragraph 3.6.7 of the Modelica
-        # specifications, version 3.3.
-        if len(collocated_variables) > 0:
-            # Obtain state vector
-            [dae_residual_1] = dae_residual_function_collocated.call([symbolic_parameters,
-                                                                        ca.vertcat(*(collocated_states_1,
-                                                                                    collocated_finite_differences,
-                                                                                    constant_inputs_1,
-                                                                                    collocation_time_1 - t0))],
-                                                                        False, True)
-            accumulated_Y.append(dae_residual_1)
-
-        accumulated_Y.extend(path_objective_function.call([symbolic_parameters,
-                                                           ca.vertcat(*(collocated_states_1,
-                                                                      collocated_finite_differences,
-                                                                      constant_inputs_1,
-                                                                      collocation_time_1 - t0,
-                                                                      path_variables_1))],
-                                                          False, True))
-
-        accumulated_Y.extend(path_constraints_function.call([symbolic_parameters,
-                                                             ca.vertcat(*(collocated_states_1,
-                                                                        collocated_finite_differences,
-                                                                        constant_inputs_1,
-                                                                        collocation_time_1 - t0,
-                                                                        path_variables_1))],
-                                                            False, True))
-
-        # Use map/mapaccum to capture integration and collocation constraint generation over the entire
-        # time horizon with one symbolic operation.  This saves a lot of
-        # memory.
-        accumulated = ca.Function('accumulated',
-                                    [accumulated_X, accumulated_U, symbolic_parameters],
-                                    [ca.vertcat(*accumulated_Y)], function_options)
-        accumulation = accumulated.map(n_collocation_times - 1, 'openmp')
+        # Add constraints for initial conditions
+        initial_residual_function = ca.Function('initial_residual_total', [symbolic_parameters, ca.vertcat(*self.dae_variables['states'] + self.dae_variables['algebraics'] + self.dae_variables[
+                'control_inputs'] + collocated_derivatives + self.dae_variables['constant_inputs'] + self.dae_variables['time'])], [ca.veccat(dae_residual, initial_residual)],
+                function_options)
 
         # Start collecting constraints
         f = []
         g = []
         lbg = []
         ubg = []
-
-        # Add constraints for initial conditions
-        if self.__initial_residual_with_params_fun_map is None:
-            initial_residual_with_params_fun = ca.Function('initial_residual_total', [symbolic_parameters, ca.vertcat(*self.dae_variables['states'] + self.dae_variables['algebraics'] + self.dae_variables[
-                'control_inputs'] + collocated_derivatives + self.dae_variables['constant_inputs'] + self.dae_variables['time'])], [ca.veccat(dae_residual, initial_residual)],
-                function_options)
-            self.__initial_residual_with_params_fun_map = initial_residual_with_params_fun.map(
-                self.ensemble_size)
-        initial_residual_with_params_fun_map = self.__initial_residual_with_params_fun_map
-        [res] = initial_residual_with_params_fun_map.call([ensemble_aggregate["parameters"], ca.vertcat(
-            *[ensemble_aggregate["initial_state"], ensemble_aggregate["initial_derivatives"], ensemble_aggregate["initial_constant_inputs"], ca.repmat([0.0], 1, self.ensemble_size)])], False, True)
-
-        res = ca.vec(res)
-        g.append(res)
-        zeros = [0.0] * res.size1()
-        lbg.extend(zeros)
-        ubg.extend(zeros)
 
         # Process the objectives and constraints for each ensemble member separately.
         # Note that we don't use map here for the moment, so as to allow each ensemble member to define its own
@@ -434,14 +282,7 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
             logger.info(
                 "Transcribing ensemble member {}/{}".format(ensemble_member + 1, self.ensemble_size))
 
-            initial_state = ensemble_aggregate["initial_state"][:,
-                                                                ensemble_member]
-            initial_derivatives = ensemble_aggregate["initial_derivatives"][:,
-                                                                            ensemble_member]
-            initial_path_variables = ensemble_aggregate["initial_path_variables"][:, ensemble_member]
-            initial_constant_inputs = ensemble_aggregate["initial_constant_inputs"][:, ensemble_member]
-            parameters = ensemble_aggregate["parameters"][:, ensemble_member]
-
+            parameters = self.__parameter_values_ensemble_member_0
             constant_inputs = ensemble_store[ensemble_member]["constant_inputs"]
 
             # Initial conditions specified in history timeseries
@@ -470,82 +311,58 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                 lbg.extend(initial_state_constraint_values)
                 ubg.extend(initial_state_constraint_values)
 
-            # Input for map
-            logger.info("Interpolating states")
+            # Collocate initial residual
+            initial_state = ca.vertcat(*[self.state_vector(variable.name())[0] for variable in collocated_variables])
+            initial_differences = ca.vertcat(*[self.der_at(variable.name(), t0, ensemble_member) for variable in collocated_variables])
+            initial_constant_inputs = ca.vertcat(*[constant_inputs[variable.name()][0] for variable in self.dae_variables['constant_inputs']])
+            initial_path_variables = ca.vertcat(*[self.state_vector(variable.name())[0] for variable in self.path_variables])
 
-            accumulation_U = [
-                None] * (1 + 2 * len(self.dae_variables['constant_inputs']) + 3)
+            [initial_residual] = initial_residual_function.call([parameters,
+                                                                    ca.vertcat(*(initial_state,
+                                                                                initial_differences,
+                                                                                initial_constant_inputs,
+                                                                                0))],
+                                                                    False, True)
+            g.append(initial_residual)
+            zeros = np.zeros(initial_residual.size())
+            lbg.append(zeros)
+            ubg.append(zeros)
 
-            interpolated_states = [None] * (2 * len(collocated_variables))
-            for j, variable in enumerate(collocated_variables):
-                variable = variable.name()
-                times = self.times(variable)
-                values = self.state_vector(
-                    variable, ensemble_member=ensemble_member)
-                if len(collocation_times) != len(times):
-                    interpolated = interpolate(
-                        times, values, collocation_times, self.equidistant)
-                else:
-                    interpolated = values
-                nominal = self.variable_nominal(variable)
-                if nominal != 1:
-                    interpolated *= nominal
-                interpolated_states[j] = interpolated[0:n_collocation_times - 1]
-                interpolated_states[len(collocated_variables) +
-                                    j] = interpolated[1:n_collocation_times]
-            # We do not cache the Jacobians, as the structure may change from ensemble member to member,
-            # and from goal programming/homotopy run to run.
-            # We could, of course, pick the states apart into controls and states,
-            # and generate Jacobians for each set separately and for each ensemble member separately, but
-            # in this case the increased complexity may well offset the performance gained by caching.
-            accumulation_U[0] = reduce_matvec(ca.horzcat(
-                *interpolated_states), self.solver_input)
+            # Collocate first and final time step
+            assert n_collocation_times == 2
 
-            for j, variable in enumerate(self.dae_variables['constant_inputs']):
-                variable = variable.name()
-                constant_input = constant_inputs[variable]
-                accumulation_U[
-                    1 + j] = ca.MX(constant_input[0:n_collocation_times - 1])
-                accumulation_U[1 + len(self.dae_variables[
-                    'constant_inputs']) + j] = ca.MX(constant_input[1:n_collocation_times])
+            collocated_states_1 = ca.vertcat(*[self.state_vector(variable.name())[1] for variable in collocated_variables])
+            dt = collocation_times[1] - collocation_times[0]
+            def diff(var_name):
+                v = self.state_vector(var_name)
+                return (v[1] - v[0]) / dt
+            collocated_finite_differences = ca.vertcat(*[diff(variable.name()) for variable in collocated_variables])
+            constant_inputs_1 = ca.vertcat(*[constant_inputs[variable.name()][1] for variable in self.dae_variables['constant_inputs']])
+            path_variables_1 = ca.vertcat(*[self.state_vector(variable.name())[1] for variable in self.path_variables])
+            collocation_time_1 = self.times()[1]
 
-            accumulation_U[1 + 2 * len(self.dae_variables[
-                'constant_inputs'])] = ca.MX(collocation_times[0:n_collocation_times - 1])
-            accumulation_U[1 + 2 * len(self.dae_variables[
-                'constant_inputs']) + 1] = ca.MX(collocation_times[1:n_collocation_times])
+            [collocation_constraints] = dae_residual_function_collocated.call([parameters,
+                                                                    ca.vertcat(*(collocated_states_1,
+                                                                                collocated_finite_differences,
+                                                                                constant_inputs_1,
+                                                                                collocation_time_1 - t0))],
+                                                                    False, True)
 
-            path_variables = [None] * len(self.path_variables)
-            for j, variable in enumerate(self.path_variables):
-                variable = variable.name()
-                values = self.state_vector(
-                    variable, ensemble_member=ensemble_member)
-                path_variables[j] = values[1:n_collocation_times]
-            accumulation_U[1 + 2 * len(
-                self.dae_variables['constant_inputs']) + 2] = reduce_matvec(ca.horzcat(*path_variables), self.solver_input)
+            [discretized_path_objective] = path_objective_function.call([parameters,
+                                                           ca.vertcat(*(collocated_states_1,
+                                                                      collocated_finite_differences,
+                                                                      constant_inputs_1,
+                                                                      collocation_time_1 - t0,
+                                                                      path_variables_1))],
+                                                          False, True)
 
-            # Construct matrix using O(states) CasADi operations
-            # This is faster than using blockcat, presumably because of the
-            # row-wise scaling operations.
-            logger.info("Aggregating and de-scaling variables")
-
-            accumulation_U = ca.transpose(ca.horzcat(*accumulation_U))
-
-            # Map to all time steps
-            logger.info("Mapping")
-
-            integrators_and_collocation_and_path_constraints = accumulation(
-                ca.MX(), accumulation_U, ca.repmat(parameters, 1, n_collocation_times - 1))            
-            if integrators_and_collocation_and_path_constraints.numel() > 0:
-                collocation_constraints = ca.vec(integrators_and_collocation_and_path_constraints[:
-                    dae_residual_collocated_size, 0:n_collocation_times - 1])
-                discretized_path_objective = ca.vec(integrators_and_collocation_and_path_constraints[
-                    dae_residual_collocated_size:dae_residual_collocated_size + path_objective.size1(), 0:n_collocation_times - 1])
-                discretized_path_constraints = ca.vec(integrators_and_collocation_and_path_constraints[
-                    dae_residual_collocated_size + path_objective.size1():, 0:n_collocation_times - 1])
-            else:
-                collocation_constraints = ca.MX()
-                discretized_path_objective = ca.MX()
-                discretized_path_constraints = ca.MX()
+            [discretized_path_constraints] = path_constraints_function.call([parameters,
+                                                             ca.vertcat(*(collocated_states_1,
+                                                                        collocated_finite_differences,
+                                                                        constant_inputs_1,
+                                                                        collocation_time_1 - t0,
+                                                                        path_variables_1))],
+                                                            False, True)
 
             logger.info("Composing NLP segment")
 
@@ -553,60 +370,6 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
             if collocation_constraints.size1() > 0:
                 g.append(collocation_constraints)
                 zeros = np.zeros(collocation_constraints.size1())
-                lbg.extend(zeros)
-                ubg.extend(zeros)
-
-            # Delayed feedback
-            for (out_variable_name, in_variable_name, delay) in delayed_feedback:
-                # Resolve aliases
-                in_canonical, in_sign = self.alias_relation.canonical_signed(
-                    in_variable_name)
-                in_times = self.times(in_canonical)
-                in_nominal = self.variable_nominal(in_canonical)
-                in_values = in_nominal * \
-                    self.state_vector(
-                        in_canonical, ensemble_member=ensemble_member)
-                if in_sign < 0:
-                    in_values *= in_sign
-
-                out_canonical, out_sign = self.alias_relation.canonical_signed(
-                    out_variable_name)
-                out_times = self.times(out_canonical)
-                out_nominal = self.variable_nominal(out_canonical)
-                try:
-                    out_values = constant_inputs[out_canonical]
-                except KeyError:
-                    out_values = out_nominal * \
-                        self.state_vector(
-                            out_canonical, ensemble_member=ensemble_member)
-                    try:
-                        history_timeseries = history[out_canonical]
-                        if np.any(np.isnan(history_timeseries.values[:-1])):
-                            raise Exception(
-                                'History for delayed variable {} contains NaN.'.format(out_variable_name))
-                        out_times = np.concatenate(
-                            [history_timeseries.times[:-1], out_times])
-                        out_values = ca.vertcat(
-                            history_timeseries.values[:-1], out_values)
-                    except KeyError:
-                        logger.warning("No history available for delayed variable {}. Extrapolating t0 value backwards in time.".format(
-                            out_variable_name))
-                if out_sign < 0:
-                    out_values *= out_sign
-
-                # Set up delay constraints
-                if len(collocation_times) != len(in_times):
-                    x_in = interpolate(in_times, in_values,
-                                       collocation_times, self.equidistant)
-                else:
-                    x_in = in_values
-                x_out_delayed = interpolate(
-                    out_times, out_values, collocation_times - delay, self.equidistant)
-
-                nominal = 0.5 * (in_nominal + out_nominal)
-
-                g.append((x_in - x_out_delayed) / nominal)
-                zeros = np.zeros(n_collocation_times)
                 lbg.extend(zeros)
                 ubg.extend(zeros)
 

@@ -313,13 +313,13 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
 
             # Collocate initial residual
             initial_state = ca.vertcat(*[self.state_vector(variable.name())[0] for variable in collocated_variables])
-            initial_differences = ca.vertcat(*[self.der_at(variable.name(), t0, ensemble_member) for variable in collocated_variables])
+            initial_derivatives = ca.vertcat(*[self.der_at(variable.name(), t0, ensemble_member) for variable in collocated_variables])
             initial_constant_inputs = ca.vertcat(*[constant_inputs[variable.name()][0] for variable in self.dae_variables['constant_inputs']])
             initial_path_variables = ca.vertcat(*[self.state_vector(variable.name())[0] for variable in self.path_variables])
 
             [initial_residual] = initial_residual_function.call([parameters,
                                                                     ca.vertcat(*(initial_state,
-                                                                                initial_differences,
+                                                                                initial_derivatives,
                                                                                 initial_constant_inputs,
                                                                                 0))],
                                                                     False, True)

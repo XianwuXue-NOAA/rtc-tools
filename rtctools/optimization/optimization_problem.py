@@ -114,9 +114,10 @@ class OptimizationProblem(metaclass = ABCMeta):
         del options['solver']
 
         # Already consumed
-        del options['optimized_num_dir']
+        
 
-        nlpsol_options = {my_solver: options}
+        nlpsol_options = {my_solver: options, 'common_options': {'max_num_dir': options['optimized_num_dir']}}
+        del options['optimized_num_dir']
         if self.__mixed_integer:
             nlpsol_options['discrete'] = discrete
 

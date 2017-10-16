@@ -80,8 +80,8 @@ class OrderedSet(collections.MutableSet):
 
 class AliasRelation:
     def __init__(self):
-        self._aliases = {}
-        self._canonical_variables = OrderedSet()
+        self.__aliases = {}
+        self.__canonical_variables = OrderedSet()
 
     def add(self, a, b):
         # Get the canonical names and signs
@@ -103,17 +103,17 @@ class AliasRelation:
         for v in aliases:
             if self.__is_negative(v):
                 # If v is negative, we make it positive and store the inverse alias set
-                self._aliases[self.__toggle_sign(v)] = inverted_aliases
+                self.__aliases[self.__toggle_sign(v)] = inverted_aliases
             else:
-                self._aliases[v] = aliases
+                self.__aliases[v] = aliases
 
-        # Update _canonical_variables with new canonical var and remove old ones
-        self._canonical_variables.add(aliases[0])
+        # Update __canonical_variables with new canonical var and remove old ones
+        self.__canonical_variables.add(aliases[0])
         for v in aliases[1:]:
             if self.__is_negative(v):
                 v = self.__toggle_sign(v)
             try:
-                self._canonical_variables.remove(v)
+                self.__canonical_variables.remove(v)
             except KeyError:
                 pass
 
@@ -129,9 +129,9 @@ class AliasRelation:
     def aliases(self, a):
         if self.__is_negative(a):
             a = self.__toggle_sign(a)
-            return OrderedSet([self.__toggle_sign(v) for v in self._aliases.get(a, OrderedSet([a]))])
+            return OrderedSet([self.__toggle_sign(v) for v in self.__aliases.get(a, OrderedSet([a]))])
         else:
-            return self._aliases.get(a, OrderedSet([a]))
+            return self.__aliases.get(a, OrderedSet([a]))
 
     def canonical_signed(self, a):
         if self.__is_negative(a):
@@ -146,10 +146,10 @@ class AliasRelation:
 
     @property
     def canonical_variables(self):
-        return self._canonical_variables
+        return self.__canonical_variables
 
     def __iter__(self):
-        return ((canonical_variable, self.aliases(canonical_variable)[1:]) for canonical_variable in self._canonical_variables)
+        return ((canonical_variable, self.aliases(canonical_variable)[1:]) for canonical_variable in self.__canonical_variables)
 
 
 class AliasDict:

@@ -335,4 +335,4 @@ class ModelicaMixin(OptimizationProblem):
         return alias_relation
 
     def variable_nominal(self, variable):
-        return self.__nominals.get(variable, 1)
+        return float(self.__nominals.get(variable, 1))

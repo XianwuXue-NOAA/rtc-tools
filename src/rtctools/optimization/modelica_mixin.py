@@ -318,11 +318,9 @@ class ModelicaMixin(OptimizationProblem):
 
         return alias_relation
 
-
     @property
     @cached
     def __nominals(self):
-
         # Make the dict
         nominal_dict = AliasDict(self.alias_relation)
 

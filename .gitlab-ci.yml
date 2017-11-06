@@ -33,8 +33,7 @@ test:
     - python3
 
 deploy:
-  stage:
-    - deploy
+  stage: deploy
   dependencies:
     - test
   script:

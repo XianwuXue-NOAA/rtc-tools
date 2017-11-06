@@ -32,18 +32,18 @@ test:
     - docker
     - python3
 
-deploy:
-  stage: deploy
-  dependencies:
-    - test
-  script:
-    - pip install twine
-    - twine upload --repository-url https://test.pypi.org/legacy/ -u %PYPI_USER% -p %PYPI_PASSWORD% dist/*
-  only:
-    - tags
-  except:
-    # Do not deploy tags that do not start with 2.2.
-    - /^(?!2\.2\.).*$
-  tags:
-    - docker
-    - python3
+# deploy:
+#   stage: deploy
+#   dependencies:
+#     - test
+#   script:
+#     - pip install twine
+#     - twine upload --repository-url https://test.pypi.org/legacy/ -u %PYPI_USER% -p %PYPI_PASSWORD% dist/*
+#   only:
+#     - tags
+#   except:
+#     # Do not deploy tags that do not start with 2.2.
+#     - /^(?!2\.2\.).*$
+#   tags:
+#     - docker
+#     - python3

@@ -730,7 +730,7 @@ class SimulationProblem:
         compiler_options['detect_aliases'] = True
 
         # Cache the model on disk
-        compiler_options['cache'] = False
+        compiler_options['cache'] = True
 
         # Done
         return compiler_options

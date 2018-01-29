@@ -146,6 +146,13 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
         collocation_times = self.times()
         n_collocation_times = len(collocation_times)
 
+        # Dynamic parameters
+        dynamic_parameters = self.dynamic_parameters()
+        dynamic_parameter_names = set()
+
+        # Parameter symbols
+        symbolic_parameters = ca.vertcat(*self.dae_variables['parameters'])
+
         # Create a store of all ensemble-member-specific data for all ensemble members
         # N.B. Don't use n * [{}], as it creates n refs to the same dict.
         ensemble_store = [{} for i in range(self.ensemble_size)]
@@ -162,6 +169,13 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                 except KeyError:
                     raise Exception(
                         "No value specified for parameter {}".format(variable))
+
+
+            # if len(dynamic_parameters) > 0:
+            #     jac = jacobian(vertcat(parameter_values), vertcat(dynamic_parameters))
+            #     for i, symbol in enumerate(self.dae_variables['parameters']):
+            #         if jac[i, :].nnz() > 0:
+            #             dynamic_parameter_names.add(symbol.getName())
 
             if np.any([isinstance(value, ca.MX) and not value.is_constant() for value in parameter_values]):
                 parameter_values = nullvertcat(*parameter_values)
@@ -300,9 +314,6 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
             self.__algebraic_and_control_derivatives.append(sym)
             collocated_derivatives.append(sym)
 
-        # Parameter symbols
-        symbolic_parameters = ca.vertcat(*self.dae_variables['parameters'])
-
         # Path objective
         path_objective = self.path_objective(0)
 
@@ -356,10 +367,28 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
             ensemble_data["initial_path_variables"] = nullvertcat(
                 *initial_path_variables)
 
+        # Replace parameters which are constant across the entire ensemble
+        constant_parameters = []
+        constant_parameter_values = []
+
+        ensemble_parameters = []
+        ensemble_parameter_values = [[] for i in range(self.ensemble_size)]
+
+        for i, parameter in enumerate(self.dae_variables['parameters']):
+            values = [ensemble_store[ensemble_member]["parameters"][i] for ensemble_member in range(self.ensemble_size)]
+            if (np.min(values) == np.max(values)) and (parameter.name() not in dynamic_parameter_names):
+                constant_parameters.append(parameter)
+                constant_parameter_values.append(values[0])
+            else:
+                ensemble_parameters.append(parameter)
+                for ensemble_member in range(self.ensemble_size):
+                    ensemble_parameter_values[ensemble_member].append(values[ensemble_member])
+
+        symbolic_parameters = ca.vertcat(*ensemble_parameters)
+
         # Aggregate ensemble data
         ensemble_aggregate = {}
-        ensemble_aggregate["parameters"] = ca.horzcat(
-            *[d["parameters"] for d in ensemble_store])
+        ensemble_aggregate["parameters"] = ca.horzcat(*ensemble_parameter_values)
         ensemble_aggregate["initial_constant_inputs"] = ca.horzcat(*[nullvertcat(*[float(d["constant_inputs"][variable.name()][0])
                                                                                    for variable in self.dae_variables['constant_inputs']]) for d in ensemble_store])
         ensemble_aggregate["initial_state"] = ca.horzcat(
@@ -398,6 +427,11 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
             if len(self.dae_variables['lookup_tables']) > 0 and self.ensemble_size > 1:
                 logger.warning(
                     "Using lookup tables of ensemble member #0 for all members.")
+
+            # Insert constant parameter values
+            [dae_residual, initial_residual, path_objective, path_constraint_expressions] = \
+                substitute_in_external([dae_residual, initial_residual, path_objective, path_constraint_expressions],
+                    constant_parameters, constant_parameter_values)
 
             # Split DAE into integrated and into a collocated part
             dae_residual_integrated = []
@@ -688,12 +722,15 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                     val /= self.variable_nominal(variable)
                     initial_state_constraint_values.append(val)
 
+            # What does this do exactly? Replace of some sort, or only evaluation. I guess its worse than ca.substitute on dae_resisdual and all the other stuff I copied.
             # Call the external metadata function in one go, rather than two
             if len(initial_state_constraint_states) > 0:
                 g.append(ca.vertcat(*initial_state_constraint_states))
                 initial_state_constraint_values = ca.vertcat(*initial_state_constraint_values)
-                [initial_state_constraint_values] = substitute_in_external(
-                    [initial_state_constraint_values], [symbolic_parameters], [parameters])
+                # Problematische call als geen symbolic parameters meer over
+                if np.prod(symbolic_parameters.shape) > 0:
+                    [initial_state_constraint_values] = substitute_in_external(
+                        [initial_state_constraint_values], [symbolic_parameters], [parameters])
                 lbg.append(initial_state_constraint_values)
                 ubg.append(initial_state_constraint_values)
 

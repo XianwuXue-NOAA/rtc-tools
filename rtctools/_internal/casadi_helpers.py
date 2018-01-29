@@ -42,8 +42,10 @@ def substitute_in_external(expr, symbols, values):
     if len(symbols) == 0:
         return expr
     else:
-        f = ca.Function('f', symbols, expr)
-        return f.call(values, True, False)
+        v = ca.substitute(expr, symbols, values)
+        return [x.to_DM() if x.is_constant() else x for x in v]
+    #     f = ca.Function('f', symbols, expr)
+    #     return f.call(values, True, False)
 
 
 def interpolate(ts, xs, t, equidistant, mode=0):

@@ -673,6 +673,10 @@ class OptimizationProblem(metaclass = ABCMeta):
         """
         pass
 
+
+    def dynamic_parameters(self):
+        return []
+
     @abstractmethod
     def extract_controls(self, ensemble_member: int=0) -> Dict[str, np.ndarray]:
         """

@@ -150,7 +150,7 @@ class ModelicaMixin(OptimizationProblem):
         compiler_options['detect_aliases'] = True
 
         # Cache the model on disk
-        compiler_options['cache'] = True
+        compiler_options['cache'] = False
 
         # Done
         return compiler_options

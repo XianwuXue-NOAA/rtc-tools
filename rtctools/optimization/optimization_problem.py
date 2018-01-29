@@ -3,7 +3,8 @@ from typing import Dict, Union, Tuple, List, Any, Iterator
 import casadi as ca
 import numpy as np
 import logging
-
+from casadi.tools import dotgraph
+import pprint
 from rtctools._internal.alias_tools import AliasDict, AliasRelation
 
 from .timeseries import Timeseries
@@ -64,6 +65,34 @@ class LookupTable:
             else:
                 return float(self.function(*args))
 
+op_dict = {getattr(ca, x): x for x in dir(ca) if x.startswith("OP_")}
+
+def parse_dep(x):
+    n_op_total = 0
+    if not hasattr(x, 'n_dep') or x.n_dep() == 0:
+        # if x.is_constant():
+        #     return 0, str(x.to_DM())
+        # elif isinstance(x, ca.MX):
+        return 0, "{} {}".format(str(x), x.shape)
+        # else:
+        #     raise Exception("Unknown type")
+    else:
+        op_name = op_dict.get(x.op(), str(x.op()))
+        if x.is_call():
+            myfun = x.which_function()
+            extra_stuff = []
+            for a in ["n_in", "n_out", "n_nodes", "n_instructions"]:
+                if hasattr(myfun, a) and myfun.is_a("MXFunction"):
+                    extra_stuff.append(getattr(myfun, a)())
+                else:
+                    extra_stuff.append(None)
+            op_name += " ({}: i{} -> o{}, nodes: {}, instr: {})".format(str(myfun), *extra_stuff)
+        ret = (op_name, [])
+        for i in range(x.n_dep()):
+            n_, d = parse_dep(x.dep(i))
+            n_op_total += n_
+            ret[1].append(d)
+        return n_op_total + 1, ret
 
 class OptimizationProblem(metaclass = ABCMeta):
     """
@@ -123,6 +152,19 @@ class OptimizationProblem(metaclass = ABCMeta):
             nlpsol_options['discrete'] = discrete
         if iteration_callback:
             nlpsol_options['iteration_callback'] = iteration_callback
+
+        # with open("g_deps.txt", 'w') as myfile:
+        #     myfile.write(pprint.pformat(parse_dep(nlp['g'])))
+        #
+        # exit()
+
+        # a = parse_dep(nlp['f'])
+        # b = 1
+
+        # graph = dotgraph(nlp['f'])
+        # with open('example_1_graph.dot', 'w') as myfile:
+        #     myfile.write(graph.to_string())
+        # graph.write_png('example1_graph.png')
 
         solver = ca.nlpsol('nlp', my_solver, nlp, nlpsol_options)
 

@@ -456,15 +456,19 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
 
                 dae_residual_function_integrated = ca.Function('dae_residual_function_integrated', [I, I0, symbolic_parameters, ca.vertcat(*[C0[i] for i in range(len(collocated_variables))] + [CI0[i] for i in range(len(
                     self.dae_variables['constant_inputs']))] + [dt_sym] + collocated_variables + collocated_derivatives + self.dae_variables['constant_inputs'] + self.dae_variables['time'])], [dae_residual_integrated], function_options)
+                dae_residual_function_integrated = dae_residual_function_integrated.expand()
 
                 options = self.integrator_options()
                 self.__integrator_step_function = ca.rootfinder(
                     'integrator_step_function', 'newton', dae_residual_function_integrated, options)
 
+
             # Initialize an Function for the DAE residual (collocated part)
             if len(collocated_variables) > 0:
                 self.__dae_residual_function_collocated = ca.Function('dae_residual_function_collocated', [symbolic_parameters, ca.vertcat(*
                                                                                                                                            integrated_variables + collocated_variables + integrated_derivatives + collocated_derivatives + self.dae_variables['constant_inputs'] + self.dae_variables['time'])], [dae_residual_collocated], function_options)
+                self.__dae_residual_function_collocated = self.__dae_residual_function_collocated.expand()
+
 
         if len(integrated_variables) > 0:
             integrator_step_function = self.__integrator_step_function

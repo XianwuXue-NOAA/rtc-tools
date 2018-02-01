@@ -3,7 +3,7 @@ from typing import Dict, Union, Tuple, List, Any, Iterator
 import casadi as ca
 import numpy as np
 import logging
-from casadi.tools import dotgraph
+#from casadi.tools import dotgraph
 import pprint
 from rtctools._internal.alias_tools import AliasDict, AliasRelation
 

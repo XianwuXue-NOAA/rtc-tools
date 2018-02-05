@@ -152,12 +152,16 @@ class OptimizationProblem(metaclass = ABCMeta):
 
             o.write("\n" + "*"*80 + "\n")
             o.write("#{}: {} - {} - {}\n".format(seq_number, nlp['x'].shape, t_f.nnz_out(), t_g.nnz_out()))
+            o.write("theta: {}\n".format(self.parameters(0)['theta']))
 
             o.write("\nf: {}\n".format(pprint.pformat(v_f)))
 
             o.write("\ng:\n{}\n".format("\n".join((str(x) for x in v_g))))
 
             o.write("\n" + "*"*80 + "\n")
+
+        if seq_number == 18:
+            exit()
 
         seq_number += 1
 

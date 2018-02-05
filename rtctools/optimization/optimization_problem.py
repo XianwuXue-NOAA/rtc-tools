@@ -5,12 +5,16 @@ import numpy as np
 import logging
 from casadi.tools import dotgraph
 import pprint
+import time
+
 from rtctools._internal.alias_tools import AliasDict, AliasRelation
 
 from .timeseries import Timeseries
 
 logger = logging.getLogger("rtctools")
 
+seq_number = 1
+my_fname = 'nlp_fgx_nosimplify_{}.txt'.format(time.time())
 
 class LookupTable:
     """
@@ -127,6 +131,35 @@ class OptimizationProblem(metaclass = ABCMeta):
 
         # Transcribe problem
         discrete, lbx, ubx, lbg, ubg, x0, nlp = self.transcribe()
+
+        global seq_number
+
+        if seq_number == 1:
+            acc_mode = 'w'
+        else:
+            acc_mode = 'a'
+
+        with open(my_fname, acc_mode) as o:
+            t_f = ca.Function("t_f", [nlp['x']], [nlp['f']])
+            t_g = ca.Function("t_g", [nlp['x']], [nlp['g']])
+
+            np.random.seed(42)
+            rand_x = np.random.random(nlp['x'].shape[0])
+
+
+            v_f = float(t_f.call([rand_x])[0])
+            v_g = list(np.array(t_g.call([rand_x])[0])[:, 0])
+
+            o.write("\n" + "*"*80 + "\n")
+            o.write("#{}: {} - {} - {}\n".format(seq_number, nlp['x'].shape, t_f.nnz_out(), t_g.nnz_out()))
+
+            o.write("\nf: {}\n".format(pprint.pformat(v_f)))
+
+            o.write("\ng:\n{}\n".format("\n".join((str(x) for x in v_g))))
+
+            o.write("\n" + "*"*80 + "\n")
+
+        seq_number += 1
 
         # Create an NLP solver
         logger.debug("Collecting solver options")

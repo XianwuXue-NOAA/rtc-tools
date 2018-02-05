@@ -170,12 +170,12 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                     raise Exception(
                         "No value specified for parameter {}".format(variable))
 
-
-            # if len(dynamic_parameters) > 0:
-            #     jac = jacobian(vertcat(parameter_values), vertcat(dynamic_parameters))
-            #     for i, symbol in enumerate(self.dae_variables['parameters']):
-            #         if jac[i, :].nnz() > 0:
-            #             dynamic_parameter_names.add(symbol.getName())
+            if len(dynamic_parameters) > 0:
+                jac_1 = ca.jacobian(symbolic_parameters, ca.vertcat(*dynamic_parameters))
+                jac_2 = ca.jacobian(ca.vertcat(*parameter_values), ca.vertcat(*dynamic_parameters))
+                for i, symbol in enumerate(self.dae_variables['parameters']):
+                    if jac_1[i, :].nnz() > 0 or jac_2[i, :].nnz() > 0:
+                        dynamic_parameter_names.add(symbol.name())
 
             if np.any([isinstance(value, ca.MX) and not value.is_constant() for value in parameter_values]):
                 parameter_values = nullvertcat(*parameter_values)
@@ -388,7 +388,7 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
 
         # Aggregate ensemble data
         ensemble_aggregate = {}
-        ensemble_aggregate["parameters"] = ca.horzcat(*ensemble_parameter_values)
+        ensemble_aggregate["parameters"] = ca.horzcat(*[nullvertcat(*l) for l in ensemble_parameter_values])
         ensemble_aggregate["initial_constant_inputs"] = ca.horzcat(*[nullvertcat(*[float(d["constant_inputs"][variable.name()][0])
                                                                                    for variable in self.dae_variables['constant_inputs']]) for d in ensemble_store])
         ensemble_aggregate["initial_state"] = ca.horzcat(

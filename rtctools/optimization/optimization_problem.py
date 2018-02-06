@@ -14,7 +14,7 @@ from .timeseries import Timeseries
 logger = logging.getLogger("rtctools")
 
 seq_number = 1
-my_fname = 'nlp_fgx_nosimplify_{}.txt'.format(time.time())
+my_fname = 'nlp_fgx_simplify_{}.txt'.format(time.time())
 
 class LookupTable:
     """

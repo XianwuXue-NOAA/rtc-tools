@@ -158,13 +158,6 @@ class OptimizationProblem(metaclass = ABCMeta):
 
             o.write("\ng:\n{}\n".format("\n".join((str(x) for x in v_g))))
 
-            o.write("\n" + "*"*80 + "\n")
-
-        if seq_number == 18:
-            exit()
-
-        seq_number += 1
-
         # Create an NLP solver
         logger.debug("Collecting solver options")
 
@@ -237,6 +230,20 @@ class OptimizationProblem(metaclass = ABCMeta):
                     self.__solver_stats['return_status']))
 
             success = False
+
+        with open(my_fname, 'a') as o:
+            o.write("\nRESULT SOLVER: {} - {}\n".format(str(success), self.__solver_stats['return_status']))
+            o.write("\nRES_f_: {}\n".format(pprint.pformat(self.__objective_value)))
+
+            o.write("\nRES_g_:\n{}\n".format("\n".join((str(x) for x in np.array(results['g'])[:, 0]))))
+            o.write("\nRES_x_:\n{}\n".format("\n".join((str(x) for x in self.__solver_output[:, 0]))))
+
+            o.write("\n" + "*" * 80 + "\n")
+
+        if seq_number == 17:
+            exit()
+
+        seq_number += 1
 
         # Do any postprocessing
         if postprocessing:

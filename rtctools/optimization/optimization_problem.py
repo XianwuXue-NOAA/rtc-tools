@@ -158,6 +158,8 @@ class OptimizationProblem(metaclass = ABCMeta):
 
             o.write("\ng:\n{}\n".format("\n".join((str(x) for x in v_g))))
 
+            o.write("\nx:\n{}\n".format("\n".join((str(x) for x in x0))))
+
         # Create an NLP solver
         logger.debug("Collecting solver options")
 

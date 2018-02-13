@@ -68,7 +68,7 @@ def run_optimization_problem(optimization_problem_class, base_folder='..', log_l
 
     # Log version info
     logger.info(
-        "Using RTC-Tools {}, released as open source software under the GNU General Public License.".format(__version__))
+        "Using RTC-Tools {}.".format(__version__))
 
     # Check for some common mistakes in inheritance order
     suggested_order = OrderedSet(['HomotopyMixin', 'GoalProgrammingMixin', 'PIMixin', 'CSVMixin', 'ModelicaMixin', 'CollocatedIntegratedOptimizationProblem', 'OptimizationProblem'])

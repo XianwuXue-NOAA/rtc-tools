@@ -147,7 +147,7 @@ class CSVLookupTableMixin(OptimizationProblem):
                 else:
                     logger.info(
                         'CSVLookupTableMixin: Recalculating tck values for {}'.format(output))
-            except OSError:
+            except:
                 valid_cache = False
                 logger.debug(
                     'CSVLookupTableMixin: Cached tck values for {} not found'.format(output))

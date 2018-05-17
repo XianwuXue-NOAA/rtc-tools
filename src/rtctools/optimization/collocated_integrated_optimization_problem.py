@@ -579,6 +579,18 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
             function_options)
         path_constraints_function = path_constraints_function.expand()
 
+        # Initialize a Function for the delayed feedback
+        delayed_feedback_function = ca.Function('delayed_feedback',
+            [symbolic_parameters,
+            ca.vertcat(
+                *integrated_variables, *collocated_variables, *integrated_derivatives,
+                *collocated_derivatives, *self.dae_variables['constant_inputs'],
+                *self.dae_variables['time'], *self.path_variables,
+                *self.__extra_constant_inputs)],
+            [t[1] if isinstance(t[1], ca.MX) else self.state(t[1]) for t in delayed_feedback],
+            function_options)
+        delayed_feedback_function = delayed_feedback_function.expand()
+
         # Set up accumulation over time (integration, and generation of
         # collocation constraints)
         if len(integrated_variables) > 0:
@@ -687,6 +699,17 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                                                           False, True))
 
         accumulated_Y.extend(path_constraints_function.call([symbolic_parameters,
+                                                             ca.vertcat(integrated_states_1,
+                                                                        collocated_states_1,
+                                                                        integrated_finite_differences,
+                                                                        collocated_finite_differences,
+                                                                        constant_inputs_1,
+                                                                        collocation_time_1 - t0,
+                                                                        path_variables_1,
+                                                                        extra_constant_inputs_1)],
+                                                            False, True))
+
+        accumulated_Y.extend(delayed_feedback_function.call([symbolic_parameters,
                                                              ca.vertcat(integrated_states_1,
                                                                         collocated_states_1,
                                                                         integrated_finite_differences,
@@ -880,11 +903,14 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                 discretized_path_objective = ca.vec(integrators_and_collocation_and_path_constraints[
                     dae_residual_collocated_size:dae_residual_collocated_size + path_objective.size1(), 0:n_collocation_times - 1])
                 discretized_path_constraints = ca.vec(integrators_and_collocation_and_path_constraints[
-                    dae_residual_collocated_size + path_objective.size1():, 0:n_collocation_times - 1])
+                    dae_residual_collocated_size + path_objective.size1():dae_residual_collocated_size + path_objective.size1() + len(path_constraints), 0:n_collocation_times - 1])
+                discretized_delayed_feedback = integrators_and_collocation_and_path_constraints[
+                    dae_residual_collocated_size + path_objective.size1() + len(path_constraints):, 0:n_collocation_times - 1]
             else:
                 collocation_constraints = ca.MX()
                 discretized_path_objective = ca.MX()
                 discretized_path_constraints = ca.MX()
+                discretized_delayed_feedback = ca.MX()
 
             logger.info("Composing NLP segment")
 
@@ -905,17 +931,20 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                 ubg.extend(zeros)
 
             # Delayed feedback
-            for (out_variable_name, in_variable_name, delay) in delayed_feedback:
-                # Resolve aliases
-                in_canonical, in_sign = self.alias_relation.canonical_signed(
-                    in_variable_name)
-                in_times = self.times(in_canonical)
-                in_nominal = self.variable_nominal(in_canonical)
-                in_values = in_nominal * \
-                    self.state_vector(
-                        in_canonical, ensemble_member=ensemble_member)
-                if in_sign < 0:
-                    in_values *= in_sign
+            [initial_delayed_feedback] = delayed_feedback_function.call(
+                [parameters, ca.vertcat(
+                    initial_state, initial_derivatives, initial_constant_inputs, 0.0,
+                    initial_path_variables, initial_extra_constant_inputs)
+                ], False, True)
+
+            [nominal_delayed_feedback] = delayed_feedback_function.call(
+                [parameters, ca.vertcat(
+                    [self.variable_nominal(var.name()) for var in integrated_variables + collocated_variables], np.zeros((initial_derivatives.size1(), 1)), initial_constant_inputs, 0.0,
+                    [self.variable_nominal(var.name()) for var in self.path_variables], initial_extra_constant_inputs)
+                ])
+
+            for i, (out_variable_name, in_variable_name, delay) in enumerate(delayed_feedback):
+                in_values = ca.veccat(initial_delayed_feedback[i], discretized_delayed_feedback[i, :])
 
                 out_canonical, out_sign = self.alias_relation.canonical_signed(
                     out_variable_name)
@@ -943,18 +972,12 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                     out_values *= out_sign
 
                 # Set up delay constraints
-                if len(collocation_times) != len(in_times):
-                    interpolation_method = self.interpolation_method(
-                        in_canonical)
-                    x_in = interpolate(in_times, in_values,
-                                       collocation_times, self.equidistant, interpolation_method)
-                else:
-                    x_in = in_values
+                x_in = in_values
                 interpolation_method = self.interpolation_method(out_canonical)
                 x_out_delayed = interpolate(
                     out_times, out_values, collocation_times - delay, self.equidistant, interpolation_method)
 
-                nominal = 0.5 * (in_nominal + out_nominal)
+                nominal = nominal_delayed_feedback[i]
 
                 g.append((x_in - x_out_delayed) / nominal)
                 zeros = np.zeros(n_collocation_times)

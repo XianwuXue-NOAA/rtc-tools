@@ -60,11 +60,8 @@ class ModelicaMixin(OptimizationProblem):
         self.__mx['lookup_tables'] = []
 
         # Merge with user-specified delayed feedback
-        delayed_feedback_variables = map(lambda delayed_feedback: delayed_feedback[
-                                         1], self.delayed_feedback())
-
         for v in self.__pymoca_model.inputs:
-            if v.symbol.name() in delayed_feedback_variables:
+            if v.symbol.name() in self.__pymoca_model.delay_states:
                 # Delayed feedback variables are local to each ensemble, and therefore belong to the collection of algebraic variables,
                 # rather than to the control inputs.
                 self.__mx['algebraics'].append(v.symbol)
@@ -82,7 +79,7 @@ class ModelicaMixin(OptimizationProblem):
         for v in itertools.chain(self.__pymoca_model.states, self.__pymoca_model.alg_states, self.__pymoca_model.inputs):
             self.__python_types[v.symbol.name()] = v.python_type
 
-        # Initialize dae and initial residuals
+        # Initialize dae, initial residuals, as well as delay arguments
         # These are not in @cached dictionary properties so that we need to create the list
         # of function arguments only once.
         variable_lists = ['states', 'der_states', 'alg_states', 'inputs', 'constants', 'parameters']
@@ -165,7 +162,49 @@ class ModelicaMixin(OptimizationProblem):
 
     def delayed_feedback(self):
         delayed_feedback = super().delayed_feedback()
-        delayed_feedback.extend([(dfb.origin, dfb.name, dfb.delay) for dfb in self.__pymoca_model.delayed_states])
+
+        # Parameter values
+        parameters = self.parameters(0)
+        parameter_values = [parameters.get(param.name(), param) for param in self.__mx['parameters']]
+
+        # Eval
+        variable_lists = ['states', 'der_states', 'alg_states', 'inputs', 'constants', 'parameters']
+        function_arguments = [self.__pymoca_model.time] + [ca.veccat(*[v.symbol for v in getattr(self.__pymoca_model, variable_list)]) for variable_list in variable_lists]
+        #function_arguments[-1] = ca.veccat(*parameter_values)
+
+        self.__delay_arguments = self.__pymoca_model.delay_arguments_function(*function_arguments)
+        if self.__delay_arguments is None:
+            self.__delay_arguments = ca.MX()
+
+        
+
+
+        print(self.__delay_arguments)
+        print(self.__delay_arguments.size())
+        # TODO must eval with real parameter values to get constant delay duration, and NaN for the rest: Hacky!
+        #   --> unpack into delay_arguments in pymoca
+        # TODO must eval expr in existing map() to get expressions, called in_expr,  set in_expr(t) = out_expr(t - const_delay),
+        #  if in_expr is string, call state() 
+        # TODO alias detection
+        for i, delay_state in enumerate(self.__pymoca_model.delay_states):
+            delay_argument = self.__delay_arguments[i, :]
+            print(delay_argument)
+            print(delay_argument.size())
+
+            expr, duration = ca.horzsplit(delay_argument)
+            #if not expr.is_symbolic():
+            #    print(expr)
+            #    raise NotImplementedError("Currently, delay() is only supported with a state as argument.")
+            #expr = expr.name()
+
+            print(expr)
+            print(duration)
+            #if not duration.is_constant():
+            #    raise NotImplementedError("Only constant duration arguments are support with delay() operator.")
+            duration = 3600. #float(duration)
+
+            t = (delay_state, expr, duration)
+            delayed_feedback.append(t)
         return delayed_feedback
 
     @property

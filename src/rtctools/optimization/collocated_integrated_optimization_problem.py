@@ -587,7 +587,7 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                 *collocated_derivatives, *self.dae_variables['constant_inputs'],
                 *self.dae_variables['time'], *self.path_variables,
                 *self.__extra_constant_inputs)],
-            [t[1] if isinstance(t[1], ca.MX) else self.state(t[1]) for t in delayed_feedback],
+            [t[0] if isinstance(t[0], ca.MX) else self.state(t[0]) for t in delayed_feedback],
             function_options)
         delayed_feedback_function = delayed_feedback_function.expand()
 
@@ -944,36 +944,44 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                 ])
 
             for i, (out_variable_name, in_variable_name, delay) in enumerate(delayed_feedback):
-                in_values = ca.veccat(initial_delayed_feedback[i], discretized_delayed_feedback[i, :])
+                # Resolve aliases
+                in_canonical, in_sign = self.alias_relation.canonical_signed(
+                    in_variable_name)
+                in_times = self.times(in_canonical)
+                in_nominal = self.variable_nominal(in_canonical)
+                in_values = in_nominal * \
+                    self.state_vector(
+                        in_canonical, ensemble_member=ensemble_member)
+                if in_sign < 0:
+                    in_values *= in_sign
 
-                out_canonical, out_sign = self.alias_relation.canonical_signed(
-                    out_variable_name)
-                out_times = self.times(out_canonical)
-                out_nominal = self.variable_nominal(out_canonical)
+                out_times = collocation_times
+                out_values = ca.veccat(initial_delayed_feedback[i], ca.transpose(discretized_delayed_feedback[i, :]))
+                # TODO compute history for out_variable and prepend.
+                """
                 try:
-                    out_values = constant_inputs[out_canonical]
+                    history_timeseries = history[out_canonical]
+                    if np.any(np.isnan(history_timeseries.values[:-1])):
+                        raise Exception(
+                            'History for delayed variable {} contains NaN.'.format(out_variable_name))
+                    out_times = np.concatenate(
+                        [history_timeseries.times[:-1], out_times])
+                    out_values = ca.vertcat(
+                        history_timeseries.values[:-1], out_values)
                 except KeyError:
-                    out_values = out_nominal * \
-                        self.state_vector(
-                            out_canonical, ensemble_member=ensemble_member)
-                    try:
-                        history_timeseries = history[out_canonical]
-                        if np.any(np.isnan(history_timeseries.values[:-1])):
-                            raise Exception(
-                                'History for delayed variable {} contains NaN.'.format(out_variable_name))
-                        out_times = np.concatenate(
-                            [history_timeseries.times[:-1], out_times])
-                        out_values = ca.vertcat(
-                            history_timeseries.values[:-1], out_values)
-                    except KeyError:
-                        logger.warning("No history available for delayed variable {}. Extrapolating t0 value backwards in time.".format(
-                            out_variable_name))
-                if out_sign < 0:
-                    out_values *= out_sign
+                    logger.warning("No history available for delayed variable {}. Extrapolating t0 value backwards in time.".format(
+                        out_variable_name))
+                """
 
                 # Set up delay constraints
-                x_in = in_values
-                interpolation_method = self.interpolation_method(out_canonical)
+                if len(collocation_times) != len(in_times):
+                    interpolation_method = self.interpolation_method(
+                        in_canonical)
+                    x_in = interpolate(in_times, in_values,
+                                       collocation_times, self.equidistant, interpolation_method)
+                else:
+                    x_in = in_values
+                interpolation_method = self.interpolation_method()
                 x_out_delayed = interpolate(
                     out_times, out_values, collocation_times - delay, self.equidistant, interpolation_method)
 

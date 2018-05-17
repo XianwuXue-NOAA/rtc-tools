@@ -167,43 +167,15 @@ class ModelicaMixin(OptimizationProblem):
         parameters = self.parameters(0)
         parameter_values = [parameters.get(param.name(), param) for param in self.__mx['parameters']]
 
-        # Eval
-        variable_lists = ['states', 'der_states', 'alg_states', 'inputs', 'constants', 'parameters']
-        function_arguments = [self.__pymoca_model.time] + [ca.veccat(*[v.symbol for v in getattr(self.__pymoca_model, variable_list)]) for variable_list in variable_lists]
-        #function_arguments[-1] = ca.veccat(*parameter_values)
-
-        self.__delay_arguments = self.__pymoca_model.delay_arguments_function(*function_arguments)
-        if self.__delay_arguments is None:
-            self.__delay_arguments = ca.MX()
-
-        
-
-
-        print(self.__delay_arguments)
-        print(self.__delay_arguments.size())
-        # TODO must eval with real parameter values to get constant delay duration, and NaN for the rest: Hacky!
-        #   --> unpack into delay_arguments in pymoca
-        # TODO must eval expr in existing map() to get expressions, called in_expr,  set in_expr(t) = out_expr(t - const_delay),
-        #  if in_expr is string, call state() 
-        # TODO alias detection
-        for i, delay_state in enumerate(self.__pymoca_model.delay_states):
-            delay_argument = self.__delay_arguments[i, :]
-            print(delay_argument)
-            print(delay_argument.size())
-
-            expr, duration = ca.horzsplit(delay_argument)
-            #if not expr.is_symbolic():
-            #    print(expr)
-            #    raise NotImplementedError("Currently, delay() is only supported with a state as argument.")
-            #expr = expr.name()
-
-            print(expr)
-            print(duration)
-            #if not duration.is_constant():
-            #    raise NotImplementedError("Only constant duration arguments are support with delay() operator.")
-            duration = 3600. #float(duration)
-
-            t = (delay_state, expr, duration)
+        # Create delayed feedback
+        for delay_state, delay_argument in zip(self.__pymoca_model.delay_states, self.__pymoca_model.delay_arguments):
+            expr, duration = delay_argument.expr, delay_argument.duration
+            if not duration.is_constant():
+                [duration] = substitute_in_external([duration], self.__mx['parameters'], parameter_values)
+            if not duration.is_constant():
+                raise NotImplementedError("Only constant duration arguments are support with delay() operator.")
+            duration = float(duration)
+            t = (expr, delay_state, duration)
             delayed_feedback.append(t)
         return delayed_feedback
 

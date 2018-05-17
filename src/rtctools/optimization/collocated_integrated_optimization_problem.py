@@ -931,6 +931,46 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                 ubg.extend(zeros)
 
             # Delayed feedback
+            history_times = np.array(sorted(list(set.union(*[set(history_series.times) for history_series in history.values()])))[:-1])
+
+            history_values = np.empty((history_times.shape[0], len(integrated_variables) + len(collocated_variables)))
+            if history_times.shape[0] > 0:
+                for j, var in enumerate(integrated_variables + collocated_variables):
+                    try:
+                        history_series = history[var.name()]
+                    except KeyError:
+                        history_values[:, j] = np.nan
+                    else:
+                        history_values[:, j] = self.interpolate(history_times, history_series.times, history_series.values, np.nan, np.nan)
+
+            history_derivatives = ca.repmat(np.nan, 1, history_values.shape[1])
+            if history_times.shape[0] > 1:
+                history_derivatives = ca.vertcat(history_derivatives,
+                    (history_values[1:, :] - history_values[:-1, :]) / (history_times[1:] - history_times[:-1]))
+
+            constant_input_values = np.empty((history_times.shape[0], len(self.dae_variables['constant_inputs'])))
+            if history_times.shape[0] > 0:
+                for j, var in enumerate(self.dae_variables['constant_inputs']):
+                    try:
+                        constant_input_series = constant_inputs[var.name()]
+                    except KeyError:
+                        constant_input_values[:, j] = np.nan
+                    else:
+                        constant_input_values[:, j] = self.interpolate(history_times, constant_input_series.times, constant_input_series.values, np.nan, np.nan)
+
+            delayed_feedback_history = np.zeros((history_times.shape[0], len(delayed_feedback)))
+            for i, time in enumerate(history_times):
+                [res] = delayed_feedback_function.call(
+                    [parameters, ca.veccat(
+                        ca.transpose(history_values[i, :]),
+                        ca.transpose(history_derivatives[i, :]),
+                        ca.transpose(constant_input_values[i, :]),
+                        0.0,
+                        ca.repmat(np.nan, len(self.path_variables)),
+                        ca.repmat(np.nan, len(self.__extra_constant_inputs)))
+                    ])
+                delayed_feedback_history[i, :] = res
+
             [initial_delayed_feedback] = delayed_feedback_function.call(
                 [parameters, ca.vertcat(
                     initial_state, initial_derivatives, initial_constant_inputs, 0.0,
@@ -955,23 +995,11 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                 if in_sign < 0:
                     in_values *= in_sign
 
-                out_times = collocation_times
-                out_values = ca.veccat(initial_delayed_feedback[i], ca.transpose(discretized_delayed_feedback[i, :]))
-                # TODO compute history for out_variable and prepend.
-                """
-                try:
-                    history_timeseries = history[out_canonical]
-                    if np.any(np.isnan(history_timeseries.values[:-1])):
-                        raise Exception(
-                            'History for delayed variable {} contains NaN.'.format(out_variable_name))
-                    out_times = np.concatenate(
-                        [history_timeseries.times[:-1], out_times])
-                    out_values = ca.vertcat(
-                        history_timeseries.values[:-1], out_values)
-                except KeyError:
+                out_times = np.concatenate([history_times, collocation_times])
+                out_values = ca.veccat(delayed_feedback_history[:, i], initial_delayed_feedback, ca.transpose(discretized_delayed_feedback[i, :]))
+                if len(history_times) == 1 or np.isnan(delayed_feedback_history[:, -1]):
                     logger.warning("No history available for delayed variable {}. Extrapolating t0 value backwards in time.".format(
                         out_variable_name))
-                """
 
                 # Set up delay constraints
                 if len(collocation_times) != len(in_times):

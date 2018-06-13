@@ -1144,11 +1144,22 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                     delayed_feedback_history[:, i],
                     initial_delayed_feedback[i],
                     ca.transpose(discretized_delayed_feedback[i, :]))
-                if len(history_times) == 1 or np.any(np.isnan(delayed_feedback_history[:, -1])):
+
+                # Check whether enough history has been specified, and that no
+                # needed history values are missing
+                hist_earliest = np.min(collocation_times - delay)
+                hist_start_ind = np.searchsorted(out_times, hist_earliest)
+                if out_times[hist_start_ind] != hist_earliest:
+                    # We need an earlier value to interpolate with
+                    hist_start_ind -= 1
+
+                if np.any(np.isnan(delayed_feedback_history[hist_start_ind:, i])):
                     logger.warning(
-                        'No history available for delayed expression {}. '
+                        'Incomplete history for delayed expression {}. '
                         'Extrapolating t0 value backwards in time.'.format(
                             expression))
+                    out_times = out_times[len(history_times):]
+                    out_values = out_values[len(history_times):]
 
                 # Set up delay constraints
                 if len(collocation_times) != len(in_times):

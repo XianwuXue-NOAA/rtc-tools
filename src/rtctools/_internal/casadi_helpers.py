@@ -44,7 +44,7 @@ def reduce_matvec(e, v):
 
 
 def substitute_in_external(expr, symbols, values):
-    if len(symbols) == 0:
+    if len(symbols) == 0 or all(isinstance(x, ca.DM) for x in expr):
         return expr
     else:
         f = ca.Function('f', symbols, expr)

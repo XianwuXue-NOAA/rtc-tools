@@ -46,7 +46,6 @@ py35:linux:
     TOXENV: py35
   tags:
     - docker
-    - linux
 
 py36:linux:
   <<: *unittests
@@ -55,7 +54,6 @@ py36:linux:
     TOXENV: py36
   tags:
     - docker
-    - linux
 
 # coverage
 coverage:

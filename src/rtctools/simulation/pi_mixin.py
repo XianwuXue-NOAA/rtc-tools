@@ -135,16 +135,6 @@ class PIMixin(SimulationProblem):
         # Set up experiment
         self.setup_experiment(0, self.__timeseries_import_times[-1], self.__dt)
 
-        # Load parameters from parameter config
-        self.__parameter_variables = set(self.get_parameter_variables())
-
-        logger.debug("Model parameters are {}".format(self.__parameter_variables))
-
-        for parameter, value in self.__parameters.items():
-            if parameter in self.__parameter_variables:
-                logger.debug("PIMixin: Setting parameter {} = {}".format(parameter, value))
-                self.set_var(parameter, value)
-
         # Load input variable names
         self.__input_variables = set(self.get_input_variables().keys())
 
@@ -263,8 +253,8 @@ class PIMixin(SimulationProblem):
         parameters.update(self.__parameters)
 
         if logger.getEffectiveLevel() == logging.DEBUG:
-            for parameter in self.__parameters:
-                logger.debug("CSVMixin: Read parameter {} ".format(parameter))
+            for parameter, value in self.__parameters.items():
+                logger.debug("PIMixin: Setting parameter {} = {}".format(parameter, value))
 
         return parameters
 

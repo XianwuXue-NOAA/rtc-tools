@@ -202,27 +202,16 @@ class SimulationProblem:
             raise NotImplementedError
 
         # Set values of parameters defined in the model into the state vector
+        parameters = self.parameters()
         for var in self.__pymoca_model.parameters:
-            # First check to see if parameter is already set (this allows child classes to override model defaults)
-            if np.isfinite(self.get_var(var.symbol.name())):
-                continue
-
-            # Also test to see if the value is constant
-            if isinstance(var.value, ca.MX) and not var.value.is_constant():
-                continue
-
-            # Try to extract the value
-            try:
-                # Extract the value as a python type
-                val = var.python_type(var.value)
-            except ValueError:
-                # var.value is a float NaN being cast to non-float
-                continue
+            name = var.symbol.name()
+            value = parameters.get(name, None)
+            if value is None:
+                # Check to make sure parameter already has a value, and if not, raise Exception
+                if not np.isfinite(self.get_var(name)):
+                    raise Exception('Parameter {} does not have any value specified.'.format(name))
             else:
-                # If val is finite, we set it
-                if np.isfinite(val):
-                    logger.debug('SimulationProblem: Setting parameter {} = {}'.format(var.symbol.name(), val))
-                    self.set_var(var.symbol.name(), val)
+                self.set_var(name, value)
 
         # Assemble initial residuals and set values from start attributes into the state vector
         constrained_residuals = []
@@ -706,9 +695,23 @@ class SimulationProblem:
         # Create AliasDict
         parameters = AliasDict(self.alias_relation)
 
-        # Update with model parameters
-        parameters.update({p.symbol.name(): p.value for p in self.__pymoca_model.parameters})
-
+        # Set values of parameters defined in the model into the parameters alias dict
+        for var in self.__pymoca_model.parameters:
+            # Test to see if the value is constant
+            if isinstance(var.value, ca.MX) and not var.value.is_constant():
+                continue
+            # Try to extract the value
+            try:
+                # Extract the value as a python type
+                val = var.python_type(var.value)
+            except ValueError:
+                # var.value is a float NaN being cast to non-float
+                continue
+            else:
+                # If val is finite, we set it
+                if np.isfinite(val):
+                    logger.debug('SimulationProblem: Setting parameter {} = {}'.format(var.symbol.name(), val))
+                    parameters[var.symbol.name()] = val
         return parameters
 
     @property

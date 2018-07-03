@@ -71,6 +71,16 @@ class OptimizationProblem(metaclass=ABCMeta):
             nlp['g'] = g_sx
             nlp['x'] = X_sx
 
+        import pickle
+        # pickle.dump((lbx, ubx), open('ref_data_all', "wb"))
+
+        ref_lbx, ref_ubx = pickle.load(open("ref_data_all", "rb"))
+
+        assert np.all(lbx == ref_lbx)
+        assert np.all(ubx == ref_ubx)
+
+        exit()
+
         # Solver option
         my_solver = options['solver']
         del options['solver']
@@ -104,7 +114,10 @@ class OptimizationProblem(metaclass=ABCMeta):
         # Solve NLP
         logger.info("Calling solver")
 
-        results = solver(x0=x0, lbx=lbx, ubx=ubx, lbg=ca.veccat(*lbg), ubg=ca.veccat(*ubg))
+        lbg = ca.veccat(*lbg)
+        ubg = ca.veccat(*ubg)
+
+        results = solver(x0=x0, lbx=lbx, ubx=ubx, lbg=lbg, ubg=ubg)
 
         # Extract relevant stats
         self.__objective_value = float(results['f'])
@@ -112,6 +125,8 @@ class OptimizationProblem(metaclass=ABCMeta):
         self.__solver_stats = solver.stats()
 
         success, log_level = self.solver_success(self.__solver_stats, log_solver_failure_as_error)
+
+        # success, log_level = True, logging.INFO
 
         if success:
             logger.log(log_level, "Solver succeeded with status {}".format(
@@ -611,9 +626,12 @@ class OptimizationProblem(metaclass=ABCMeta):
         :returns: The interpolated value.
         """
         if hasattr(t, '__iter__'):
-            f = np.vectorize(lambda t_: self.__interpolate(
-                t_, ts, fs, f_left, f_right))
-            return f(t)
+            if fs.ndim > 1:
+                return np.vstack(tuple(self.interpolate(t, ts, fs_i, f_left, f_right) for fs_i in fs))
+            else:
+                f = np.vectorize(lambda t_: self.__interpolate(
+                    t_, ts, fs, f_left, f_right))
+                return f(t)
         else:
             return self.__interpolate(t, ts, fs, f_left, f_right, mode)
 

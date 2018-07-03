@@ -1338,10 +1338,16 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                 assert obj == ref_obj
 
                 constrs_set = set(constrs)
-                assert len(constrs) == len(ref_constrs)
+                # assert len(constrs) == len(ref_constrs)
 
                 for c in ref_constrs:
                     assert c in constrs_set
+
+                ref_constrs_set = set(ref_constrs)
+                for c in constrs:
+                    if c not in ref_constrs_set:
+                        print("{} not in ref constrs".format(c))
+                    # assert c in ref_constrs_set
 
                 lbg.extend(lbg_path_constraints.transpose().ravel())
                 ubg.extend(ubg_path_constraints.transpose().ravel())
@@ -1783,7 +1789,7 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                     if np.any(np.isnan(ubx[offset:offset + n_times])):
                         logger.error('Upper bound on variable {} contains NaN'.format(variable))
 
-                    offset += n_times
+                    offset += n_times * variable_size
 
             for k in range(len(self.extra_variables)):
                 try:

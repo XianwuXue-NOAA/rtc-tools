@@ -415,7 +415,7 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
             acc_objective = ca.sum1(ca.vertcat(*[o(self, ensemble_member) for o in self.__subproblem_objectives]))
 
             if self.goal_programming_options()['scale_by_problem_size']:
-                acc_objective = acc_objective / len(self.__subproblem_objectives)
+                acc_objective = acc_objective / acc_objective.size1()
 
             return acc_objective
         else:
@@ -426,7 +426,7 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
             acc_objective = ca.sum1(ca.vertcat(*[o(self, ensemble_member) for o in self.__subproblem_path_objectives]))
 
             if self.goal_programming_options()['scale_by_problem_size']:
-                acc_objective = acc_objective / len(self.__subproblem_path_objectives) / len(self.times())
+                acc_objective = acc_objective / acc_objective.size1() / len(self.times())
 
             return acc_objective
         else:
@@ -692,28 +692,40 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
                 # We use a violation variable formulation, with the violation
                 # variables epsilon bounded between 0 and 1.
                 if goal.has_target_min:
+                    tmin = goal.target_min
+                    if isinstance(tmin, Timeseries):
+                        inds = np.where(~np.all(np.isnan(tmin.values), axis=tmin.values.ndim-1))[0]
+                    else:
+                        inds = np.where(~np.isnan(goal.target_min))[0]
+
                     constraint = self.__GoalConstraint(
                         goal,
-                        lambda problem, ensemble_member=ensemble_member, goal=goal, epsilon=epsilon: ca.if_else(
+                        lambda problem, ensemble_member=ensemble_member, goal=goal, epsilon=epsilon, inds=inds: ca.if_else(
                             problem.variable(min_series) > -sys.float_info.max,
                             (goal.function(problem, ensemble_member) -
                              problem.variable(epsilon.name()) * (
                                 goal.function_range[0] - problem.variable(min_series)) -
                              problem.variable(min_series)) / goal.function_nominal,
-                            0.0),
-                        np.zeros(goal.size), np.full(goal.size, np.inf), False)
+                            0.0)[inds],
+                        np.zeros(len(inds)), np.full(len(inds), np.inf), False)
                     constraints.append(constraint)
                 if goal.has_target_max:
+                    tmax = goal.target_max
+                    if isinstance(tmax, Timeseries):
+                        inds = np.where(~np.all(np.isnan(tmax.values), axis=tmax.values.ndim-1))[0]
+                    else:
+                        inds = np.where(~np.isnan(goal.target_max))[0]
+
                     constraint = self.__GoalConstraint(
                         goal,
-                        lambda problem, ensemble_member=ensemble_member, goal=goal, epsilon=epsilon: ca.if_else(
+                        lambda problem, ensemble_member=ensemble_member, goal=goal, epsilon=epsilon, inds=inds: ca.if_else(
                             problem.variable(max_series) < sys.float_info.max,
                             (goal.function(problem, ensemble_member) -
                              problem.variable(epsilon.name()) * (
                                 goal.function_range[1] - problem.variable(max_series)) -
                              problem.variable(max_series)) / goal.function_nominal,
-                            0.0),
-                        np.full(goal.size, -np.inf), np.zeros(goal.size), False)
+                            0.0)[inds],
+                        np.full(len(inds), -np.inf), np.zeros(len(inds)), False)
                     constraints.append(constraint)
 
             # TODO forgetting max like this.
@@ -1049,7 +1061,7 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
                     if goal.has_target_bounds:
                         self.__subproblem_objectives.append(
                             lambda problem, ensemble_member, goal=goal, epsilon=epsilon: (
-                                goal.weight / goal.size * ca.sum1(ca.constpow(
+                                goal.weight * ca.sum1(ca.constpow(
                                     problem.state_vector(epsilon.name(), ensemble_member=ensemble_member),
                                     goal.order))))
                     else:

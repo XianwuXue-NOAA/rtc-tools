@@ -71,15 +71,17 @@ class OptimizationProblem(metaclass=ABCMeta):
             nlp['g'] = g_sx
             nlp['x'] = X_sx
 
-        import pickle
-        # pickle.dump((lbx, ubx), open('ref_data_all', "wb"))
+        # import pickle
 
-        ref_lbx, ref_ubx = pickle.load(open("ref_data_all", "rb"))
+        # pickle_name = 'ref_data_all_{}.pickle'.format(self._my_priority)
+        # # pickle.dump((lbx, ubx), open(pickle_name, "wb"))
 
-        assert np.all(lbx == ref_lbx)
-        assert np.all(ubx == ref_ubx)
+        # ref_lbx, ref_ubx = pickle.load(open(pickle_name, "rb"))
 
-        exit()
+        # assert np.all(lbx == ref_lbx)
+        # assert np.all(ubx == ref_ubx)
+
+        # exit()
 
         # Solver option
         my_solver = options['solver']
@@ -108,6 +110,8 @@ class OptimizationProblem(metaclass=ABCMeta):
             nlpsol_options.pop('ipopt', None)
         if my_solver != 'bonmin':
             nlpsol_options.pop('bonmin', None)
+
+        exit()
 
         solver = casadi_solver('nlp', my_solver, nlp, nlpsol_options)
 

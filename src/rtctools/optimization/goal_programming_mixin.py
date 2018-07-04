@@ -401,6 +401,7 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
             else:
                 seed[epsilon.name()] = 1.0
 
+
         times = self.times()
         for epsilon in self.__subproblem_path_epsilons:
             if epsilon.size1() > 1:
@@ -431,6 +432,20 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
             return acc_objective
         else:
             return ca.MX(0)
+
+    # def objective(self, ensemble_member):
+    #     if len(self.__subproblem_objectives) > 0:
+    #         acc_objective = ca.sum1(ca.vertcat(*[o(self, ensemble_member) for o in self.__subproblem_objectives]))
+    #         return acc_objective / len(self.__subproblem_objectives)
+    #     else:
+    #         return ca.MX(0)
+
+    # def path_objective(self, ensemble_member):
+    #     if len(self.__subproblem_path_objectives) > 0:
+    #         acc_objective = ca.sum1(ca.vertcat(*[o(self, ensemble_member) for o in self.__subproblem_path_objectives]))
+    #         return acc_objective / len(self.__subproblem_path_objectives)
+    #     else:
+    #         return ca.MX(0)
 
     def constraints(self, ensemble_member):
         constraints = super().constraints(ensemble_member)
@@ -1061,9 +1076,9 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
                     if goal.has_target_bounds:
                         self.__subproblem_objectives.append(
                             lambda problem, ensemble_member, goal=goal, epsilon=epsilon: (
-                                goal.weight * ca.sum1(ca.constpow(
+                                goal.weight * ca.constpow(
                                     problem.state_vector(epsilon.name(), ensemble_member=ensemble_member),
-                                    goal.order))))
+                                    goal.order)))
                     else:
                         self.__subproblem_path_objectives.append(
                             lambda problem, ensemble_member, goal=goal: (
@@ -1076,6 +1091,8 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
                         self.__add_path_goal_constraint(
                             goal, epsilon, ensemble_member, options, min_series, max_series)
 
+            self._my_priority = priority
+
             # Solve subproblem
             success = super().optimize(
                 preprocessing=False, postprocessing=False, log_solver_failure_as_error=log_solver_failure_as_error)
@@ -1083,6 +1100,9 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
                 break
 
             self.__first_run = False
+
+            if priority >= 2:
+                exit()
 
             # Store results.  Do this here, to make sure we have results even
             # if a subsequent priority fails.

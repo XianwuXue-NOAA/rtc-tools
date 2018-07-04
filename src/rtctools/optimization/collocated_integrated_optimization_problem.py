@@ -1308,46 +1308,48 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
 
                     j += s
 
-                lbg_flat = lbg_path_constraints.transpose().ravel()
-                ubg_flat = ubg_path_constraints.transpose().ravel()
+                # lbg_flat = lbg_path_constraints.transpose().ravel()
+                # ubg_flat = ubg_path_constraints.transpose().ravel()
 
-                path_g = ca.vertcat(g[3], g[4])
+                # path_g = ca.vertcat(g[3], g[4])
 
-                constr_jac = ca.DM(ca.Function('tmp', [X], [ca.jacobian(path_g, X)]).expand()(ca.SX())).tocsc()
-                constr_const = np.array(ca.DM(ca.Function('tmp', [X], [path_g]).expand()(ca.SX.zeros(*X.shape))))[:, 0]
+                # constr_jac = ca.DM(ca.Function('tmp', [X], [ca.jacobian(path_g, X)]).expand()(ca.SX())).tocsc()
+                # constr_const = np.array(ca.DM(ca.Function('tmp', [X], [path_g]).expand()(ca.SX.zeros(*X.shape))))[:, 0]
 
-                constrs = []
-                obj = str(ca.Function('tmp', [X], [ca.jacobian(ca.sum1(ca.vertcat(*f)), X)]).expand()(ca.DM()).tocsc())
+                # constrs = []
+                # obj = str(ca.Function('tmp', [X], [ca.jacobian(ca.sum1(ca.vertcat(*f)), X)]).expand()(ca.DM()).tocsc())
 
-                for i in range(lbg_flat.shape[0]):
-                    b = constr_jac[i, :].tocoo()
-                    coeffs = tuple(sorted(zip(b.col, b.data)))
-                    const = constr_const[i]
-                    l, u = lbg_flat[i], ubg_flat[i]
-                    constrs.append((coeffs, const, l, u))
+                # for i in range(lbg_flat.shape[0]):
+                #     b = constr_jac[i, :].tocoo()
+                #     coeffs = tuple(sorted(zip(b.col, b.data)))
+                #     const = constr_const[i]
+                #     l, u = lbg_flat[i], ubg_flat[i]
+                #     constrs.append((coeffs, const, l, u))
 
-                import pickle
-                # pickle.dump((constrs, obj), open('ref_data', "wb"))
+                # import pickle
+                # pickle_name = 'ref_data_{}.pickle'.format(self._my_priority)
 
-                ref_constrs, ref_obj = pickle.load(open("ref_data", "rb"))
+                # # pickle.dump((constrs, obj), open(pickle_name, "wb"))
 
-                # print(obj)
-                # print("REFERENCE")
-                # print(ref_obj)
+                # ref_constrs, ref_obj = pickle.load(open(pickle_name, "rb"))
 
-                assert obj == ref_obj
+                # # print(obj)
+                # # print("REFERENCE")
+                # # print(ref_obj)
 
-                constrs_set = set(constrs)
+                # assert obj == ref_obj
+
+                # constrs_set = set(constrs)
                 # assert len(constrs) == len(ref_constrs)
 
-                for c in ref_constrs:
-                    assert c in constrs_set
+                # for c in ref_constrs:
+                #     assert c in constrs_set
 
-                ref_constrs_set = set(ref_constrs)
-                for c in constrs:
-                    if c not in ref_constrs_set:
-                        print("{} not in ref constrs".format(c))
-                    # assert c in ref_constrs_set
+                # ref_constrs_set = set(ref_constrs)
+                # for c in constrs:
+                #     if c not in ref_constrs_set:
+                #         print("{} not in ref constrs".format(c))
+                #     # assert c in ref_constrs_set
 
                 lbg.extend(lbg_path_constraints.transpose().ravel())
                 ubg.extend(ubg_path_constraints.transpose().ravel())

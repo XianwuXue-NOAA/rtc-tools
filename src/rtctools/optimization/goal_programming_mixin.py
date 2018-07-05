@@ -759,7 +759,7 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
 
                 # We want to handle everything uniformly as 2D arrays, so we upcast variables that could still be 1D
                 epsilon = epsilon.reshape(m.shape)
-                function_range = np.array(goal.function_range).reshape((goal.size, 2))
+                function_range = np.array(goal.function_range).transpose().reshape((goal.size, 2))
                 function_nominal = np.array(goal.function_nominal).reshape((goal.size, ))
 
                 # Compute each min, max value separately for every time step

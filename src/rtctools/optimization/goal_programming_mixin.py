@@ -501,16 +501,17 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
                 # This variable has already been fixed.  Don't add new
                 # constraints for it.
                 return
-            elif constraint.goal.has_target_min:
-                if goal.target_min < constraint.goal.target_min:
-                    raise Exception(
-                        'Target minimum of goal {} must be greater or equal than '
-                        'target minimum of goal {}.'.format(goal, constraint.goal))
-            elif constraint.goal.has_target_max:
-                if goal.target_max > constraint.goal.target_max:
-                    raise Exception(
-                        'Target maximum of goal {} must be less or equal than '
-                        'target maximum of goal {}'.format(goal, constraint.goal))
+            elif options['check_monotonicity']:
+                if constraint.goal.has_target_min:
+                    if goal.target_min < constraint.goal.target_min:
+                        raise Exception(
+                            'Target minimum of goal {} must be greater or equal than '
+                            'target minimum of goal {}.'.format(goal, constraint.goal))
+                if constraint.goal.has_target_max:
+                    if goal.target_max > constraint.goal.target_max:
+                        raise Exception(
+                            'Target maximum of goal {} must be less or equal than '
+                            'target maximum of goal {}'.format(goal, constraint.goal))
 
         # Check goal consistency
         if goal.has_target_min and goal.has_target_max:
@@ -519,13 +520,13 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
 
         # Check consistency between target and function range
         if goal.has_target_min:
-            if goal.has_target_min < goal.function_range[0]:
+            if goal.target_min < goal.function_range[0]:
                 raise Exception(
                     'Target minimum is smaller than the lower bound of the function range for goal {}'.format(goal))
-        elif goal.has_target_max:
-            if goal.has_target_max > goal.function_range[1]:
+        if goal.has_target_max:
+            if goal.target_max > goal.function_range[1]:
                 raise Exception(
-                    'Target maximum is greater than the upper bound of the functoin range for goal {}'.format(goal))
+                    'Target maximum is greater than the upper bound of the function range for goal {}'.format(goal))
 
         if isinstance(epsilon, ca.MX):
             if goal.has_target_bounds:
@@ -650,7 +651,7 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
                         raise Exception(
                             'Minimum value of goal {} less than minimum of higher '
                             'priority goal {}'.format(goal, constraint.goal))
-                elif constraint.goal.has_target_max:
+                if constraint.goal.has_target_max:
                     indices = np.where(np.logical_not(np.logical_or(
                         np.isnan(goal_M), np.isnan(constraint_M))))
                     if np.any(goal_M[indices] > constraint_M[indices]):

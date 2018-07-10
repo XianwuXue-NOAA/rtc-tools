@@ -605,6 +605,11 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
                         constraint.min = max(constraint.min, existing_constraint.min)
                         constraint.max = min(constraint.max, existing_constraint.max)
 
+                        # Ensure new constraint does not loosen or shift
+                        # previous hard constraints due to numerical errors.
+                        constraint.min = min(constraint.min, existing_constraint.max)
+                        constraint.max = max(constraint.max, existing_constraint.min)
+
             # Ensure consistency of bounds.  Bounds may become inconsistent due to
             # small numerical computation errors.
             constraint.min = min(constraint.min, constraint.max)
@@ -762,6 +767,13 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
                             times, np.maximum(constraint.min.values, existing_constraint.min.values))
                         constraint.max = Timeseries(
                             times, np.minimum(constraint.max.values, existing_constraint.max.values))
+
+                        # Ensure new constraint does not loosen or shift
+                        # previous hard constraints due to numerical errors.
+                        constraint.min = Timeseries(
+                            times, np.minimum(constraint.min.values, existing_constraint.max.values))
+                        constraint.max = Timeseries(
+                            times, np.maximum(constraint.max.values, existing_constraint.min.values))
 
             # Ensure consistency of bounds.  Bounds may become inconsistent due to
             # small numerical computation errors.

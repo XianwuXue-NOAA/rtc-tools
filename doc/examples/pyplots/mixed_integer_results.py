@@ -41,5 +41,7 @@ for i in range(len(axarr)):
     axarr[i].set_position([box.x0, box.y0, box.width * 0.8, box.height])
     axarr[i].legend(loc='center left', bbox_to_anchor=(1, 0.5), frameon=False)
 
+plt.autoscale(enable=True, axis='x', tight=True)
+
 # Output Plot
 plt.show()

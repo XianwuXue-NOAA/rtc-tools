@@ -101,7 +101,7 @@ Once installed, you can start OMEdit by clicking::
    Start -> All Programs -> OpenModelica -> OpenModelica Connection Editor
 
 With OMEdit installed, you can start using it by following along with the basic
-example, :doc:`examples/basic`.
+example, :doc:`examples/optimization/basic`.
 
 
 .. _running-rtc-tools:

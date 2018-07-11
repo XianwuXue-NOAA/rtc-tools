@@ -91,7 +91,7 @@ Declaring Goals
 '''''''''''''''
 
 Goals are defined as classes that inherit the ``Goal`` parent class. The
-components of goals can be found in :doc:`../optimization/multi_objective`. In
+components of goals can be found in :doc:`../../optimization/multi_objective`. In
 this example, we demonstrate three ways to define a goal in RTC-Tools.
 
 First, we have a high priority goal to keep the water level within a minimum and

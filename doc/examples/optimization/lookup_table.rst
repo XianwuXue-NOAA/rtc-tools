@@ -65,7 +65,7 @@ Declaring Goals
 '''''''''''''''
 
 Goals are defined as classes that inherit the ``Goal`` parent class. The
-components of goals can be found in :doc:`../optimization/multi_objective`. In
+components of goals can be found in :doc:`../../optimization/multi_objective`. In
 this example, we use the helper goal class, ``StateGoal``.
 
 First, we have a high priority goal to keep the water volume within a minimum
@@ -126,7 +126,7 @@ Notice that H_max was not defined in pre(). This is because it was defined as a
 timeseries import. We access timeseries using get_timeseries() and store them
 using set_timeseries(). Once a timeseries is set, we can access it later. In
 addition, all timeseries that are set are automatically included in the output
-file. You can find more information on timeseries here :doc:`../optimization/basics`.
+file. You can find more information on timeseries here :doc:`../../optimization/basics`.
 
 Now we pass in the goals. We want to apply our goals to every timestep, so we
 use the ``path_goals()`` method. This is a method that returns a list of the

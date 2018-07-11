@@ -14,7 +14,7 @@ def get_results(forecast_name):
     ncols = len(np.genfromtxt(data_path, max_rows=1, delimiter=delimiter))
     datefunc = lambda x: datetime.strptime(x, '%Y-%m-%d %H:%M:%S')
     return np.genfromtxt(data_path, converters={0: datefunc}, delimiter=delimiter,
-                            dtype='object' + ',float' * (ncols - 1), names=True)
+                            dtype='object' + ',float' * (ncols - 1), names=True, encoding=None)
 
 # Generate Plot
 n_subplots = 2

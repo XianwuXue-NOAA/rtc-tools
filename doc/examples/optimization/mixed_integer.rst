@@ -198,5 +198,6 @@ Observations
 Note that in the results plotted above, the pump runs with a constantly varying
 throughput. To smooth out the flow through the pump, consider using goal
 programming to apply a path goal minimizing the derivative of the pump at each
-timestep. For an example, see the third goal in
-:ref:`goal-programming-declaring-goals`.
+timestep. For an example, see the third goal in :ref:`Goal Programming
+<goal-programming-declaring-goals>` or the use of the ``SmoothDynamicsMixin`` in
+:ref:`Cascading Channels <cascading-channels-optimization-problem>`.

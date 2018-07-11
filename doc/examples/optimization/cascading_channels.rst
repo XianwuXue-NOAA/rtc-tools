@@ -79,11 +79,18 @@ has a separate min and max that define an acceptable range of values.
 You can read more about the components of goals in the documentation:
 :doc:`../../optimization/multi_objective`.
 
+.. _cascading-channels-optimization-problem:
+
 Optimization Problem
 ''''''''''''''''''''
 
 We construct the class by declaring it and inheriting the desired parent
-classes.
+classes. An interesting feature of this model is that we use the
+``SmoothDynamicsMixin``. This mixin takes advantage of any remaining flexibility
+in the model and minimizes the derivatives of the control variables. As a
+result, the flow through the control structures is as smooth as possible. To see
+how you might do this with a normal goal, see the ``MinimizeChangeInQpumpGoal``
+in :ref:`goal-programming-declaring-goals`.
 
 .. literalinclude:: ../../../examples/cascading_channels/src/example.py
   :language: python

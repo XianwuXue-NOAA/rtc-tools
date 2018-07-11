@@ -114,10 +114,10 @@ of the variable over all the timesteps. This goal does not use a helper class:
   :pyobject: MinimizeQpumpGoal
   :lineno-match:
 
-We add a third goal minimizing the changes in``Q_pump``, and give it the
-least priority. This goal smooths out the operation of the pump so that it
-changes state as few times as possible. To get an idea of what the pump would
-have done without this goal, see Mixed Integer: :ref:`mixed-integer-results`.
+We add a third goal minimizing the changes in``Q_pump``, and give it the least
+priority. This goal smooths out the operation of the pump so that it changes
+state as few times as possible. To get an idea of what the pump would have done
+without this goal, see :ref:`Mixed Integer: Results <mixed-integer-results>`.
 The order of this goal must be 2, so that it penalizes both positive and
 negative derivatives. Order of 2 is the default, but we include it here
 explicitly for the sake of clarity.
@@ -126,6 +126,11 @@ explicitly for the sake of clarity.
   :language: python
   :pyobject: MinimizeChangeInQpumpGoal
   :lineno-match:
+
+Note that in this case we define the goal ourselves to demonstrate how to
+implement this kind of goal, but we could also use the built-in
+``SmoothDynamicsMixin`` to achieve a similar outcome (as demonstrated in the
+:ref:`Cascading Channels <cascading-channels-optimization-problem>` example).
 
 Optimization Problem
 ''''''''''''''''''''

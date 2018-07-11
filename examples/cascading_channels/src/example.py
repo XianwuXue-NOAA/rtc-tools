@@ -7,6 +7,7 @@ from rtctools.optimization.csv_mixin import CSVMixin
 from rtctools.optimization.goal_programming_mixin import GoalProgrammingMixin, StateGoal
 from rtctools.optimization.homotopy_mixin import HomotopyMixin
 from rtctools.optimization.modelica_mixin import ModelicaMixin
+from rtctools.optimization.smooth_dynamics_mixin import SmoothDynamicsMixin
 from rtctools.util import run_optimization_problem
 
 
@@ -33,6 +34,7 @@ class TargetGoal(StateGoal):
 
 
 class Example(
+    SmoothDynamicsMixin,
     HomotopyMixin,
     GoalProgrammingMixin,
     CSVMixin,
@@ -41,6 +43,7 @@ class Example(
 ):
     channels = "LowerChannel", "MiddleChannel", "UpperChannel"
     channel_n_level_nodes = 2
+    smooth_dynamics_multiplier = 0.1
 
     def pre(self):
         super().pre()

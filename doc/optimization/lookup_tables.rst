@@ -6,5 +6,5 @@ Lookup tables
     :show-inheritance:
 
 .. autoclass:: rtctools.optimization.csv_lookup_table_mixin.CSVLookupTableMixin
-    :members: -
+    :members: lookup_tables
     :show-inheritance:

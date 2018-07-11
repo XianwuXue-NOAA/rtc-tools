@@ -11,6 +11,7 @@ Contents:
    optimization/modelica_models
    optimization/csv_io
    optimization/fews_io
+   optimization/linearization
    optimization/lookup_tables
    optimization/homotopy
    optimization/initial_state_estimation

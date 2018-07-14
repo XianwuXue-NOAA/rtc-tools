@@ -693,6 +693,21 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
 
         return m, M
 
+    # Hard path constraint store has a list of (per ensemble member!)
+    # - All the goal functions of previous goals
+    # - The indices of this goal function that should be used
+    # - The min and max timeseries (not for the entire gaol function vector, but only for the indices that are used). Maybe just a 2d array; that's a lot easier.
+
+    path_constraint_store = []
+
+    # Soft constraint store is similar, but then with epsilon ones. This one gets reset after every priority.
+
+
+    # Map
+    # - List of dicts (each list for certain ensemble member)
+    # - The dict maps a certain function key to an offset in the hard constraint store (not the goal function, but the index of the min/max timeseries)
+
+
     def __add_path_goal_constraint(self, goal, epsilon, ensemble_member, options, min_series=None, max_series=None):
         # Generate list of min and max values
         times = self.times()
@@ -707,11 +722,7 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
                 # We use a violation variable formulation, with the violation
                 # variables epsilon bounded between 0 and 1.
                 if goal.has_target_min:
-                    tmin = goal.target_min
-                    if isinstance(tmin, Timeseries):
-                        inds = np.where(~np.all(np.isnan(tmin.values), axis=tmin.values.ndim-1))[0]
-                    else:
-                        inds = np.where(~np.isnan(goal.target_min))[0]
+                    inds = np.where(~np.all(np.isnan(goal_m), axis=goal_m.ndim-1))[0]
 
                     constraint = self.__GoalConstraint(
                         goal,

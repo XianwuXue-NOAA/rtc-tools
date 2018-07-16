@@ -9,7 +9,7 @@ Using an Ensemble Forecast
     :doc:`basic`.
 
 Then biggest change to RTC-Tools when using an ensemble is the structure of the
-directory. The folder ``RTCTools2\examples\ensemble``
+directory. The folder ``<examples directory>\ensemble``
 contains a complete RTC-Tools ensemble optimization problem. An RTC-Tools
 ensemble directory has the following structure:
 

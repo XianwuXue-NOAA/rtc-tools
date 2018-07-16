@@ -12,7 +12,7 @@
 RTC-Tools documentation
 =======================
 
-This is the documentation for RTC-Tools 2.0, the `Deltares
+This is the documentation for RTC-Tools, the `Deltares
 <https://www.deltares.nl/>`_ toolbox for control and optimization of
 environmental systems.
 

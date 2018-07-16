@@ -23,7 +23,7 @@ change the discrete flow rate every 12 hours. They have chosen to use the RTC-
 Tools simulator to see if a simple proportional controller will be able to
 keep the system close enough to the target water volume.
 
-The folder ``<installation directory>\RTCTools2\examples\simulation``
+The folder ``<examples directory>\simulation``
 contains a complete RTC-Tools simulation problem. An RTC-Tools
 directory has the following structure:
 
@@ -48,12 +48,12 @@ Make sure to load the Deltares library before loading the example:
 #. Load the Deltares library into OMEdit
 
    * Using the menu bar: *File -> Open Model/Library File(s)*
-   * Select ``<installation directory>\RTCTools2\mo\Deltares\package.mo``
+   * Select ``<library directory>\Deltares\package.mo``
 
 #. Load the example model into OMEdit
 
    * Using the menu bar: *File -> Open Model/Library File(s)*
-   * Select ``<installation directory>\RTCTools2\examples\simulation\model\Example.mo``
+   * Select ``<examples directory\simulation\model\Example.mo``
 
 Once loaded, we have an OpenModelica Connection Editor window that looks like
 this:

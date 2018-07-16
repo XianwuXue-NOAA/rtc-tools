@@ -20,9 +20,14 @@ does not want to end up with too much water at the end of the six days. They
 have chosen to use RTC-Tools to calculate how much water to release and when
 to release it.
 
-The folder ``<installation directory>\RTCTools2\examples\basic``
-contains a complete RTC-Tools optimization problem. An RTC-Tools
-directory has the following structure:
+If you installed using source, the library and examples directory are
+available in the git repositories. If you installed using pip directly, you
+first need to download/copy the examples and libraries to a convenient
+location. See :ref:`getting-started-download-examples` and
+:ref:`getting-started-copy-libraries` for detailed instructions.
+
+The folder ``<examples directory>\basic`` contains a complete RTC-Tools
+optimization problem. An RTC-Tools directory has the following structure:
 
 * ``input``: This folder contains the model input data. These are several files
   in comma separated value format, ``csv``.
@@ -40,17 +45,15 @@ The first step is to develop a physical model of the system. The model can be
 viewed and edited using the OpenModelica Connection Editor (OMEdit) program.
 For how to download and start up OMEdit, see :ref:`getting-started-omedit`.
 
-Make sure to load the Deltares library before loading the example:
-
 #. Load the Deltares library into OMEdit
 
    * Using the menu bar: *File -> Open Model/Library File(s)*
-   * Select ``<installation directory>\RTCTools2\mo\Deltares\package.mo``
+   * Select ``<library directory>\Deltares\package.mo``
 
 #. Load the example model into OMEdit
 
    * Using the menu bar: *File -> Open Model/Library File(s)*
-   * Select ``<installation directory>\RTCTools2\examples\basic\model\Example.mo``
+   * Select ``<examples directory>\basic\model\Example.mo``
 
 Once loaded, we have an OpenModelica Connection Editor window that looks like
 this:

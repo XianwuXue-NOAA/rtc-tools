@@ -9,37 +9,20 @@ For most users, the easiest way to install RTC-Tools using the `pip <https://pip
 Using the Pip Package Manager
 -----------------------------
 
+Although not required, it is recommended to install RTC-Tools in a virtual
+environment. See the `official Python tutorial
+<https://docs.python.org/3/tutorial/venv.html>`_ for more information on how
+to set up and activate a virtual environment.
+
 RTC-Tools, including its dependencies, can be installed using the `pip <https://pip.pypa.io/>`_ package manager::
 
-    # Install RTC-Tools using pip package manager
-    python3 -m pip install rtctools
+    # Install RTC-Tools and Channel Flow using pip package manager
+    pip install rtc-tools rtc-tools-channel-flow
 
 From Source
 -----------
 
-Although not required, it is recommended to build and install RTC-Tools in a `virtual environment
-<https://virtualenv.pypa.io/en/stable/>`_.
-
-Dependencies
-~~~~~~~~~~~~
-
-RTC-Tools 2 requires `Python <https://www.python.org>`_ >= 3.6 (*not Python 2*) with the following packages:
-
-  - `numpy <https://www.numpy.org/>`_ >= 1.11.10
-
-  - `pymoca <https://github.com/pymoca/pymoca/>`_
-
-  - `CasADi <https://github.com/casadi/casadi/>`_ >= 3.2.0
-
-The dependencies can be installed using the `pip <https://pip.pypa.io/>`_ package manager::
-
-    # Install dependencies using pip
-    python3 -m pip install numpy pymoca casadi
-
-Acquiring the source
-~~~~~~~~~~~~~~~~~~~~
-
-The latest RTC-Tools source can be downloaded using git::
+The latest RTC-Tools and Channel Flow source can be downloaded using git::
 
     # Get RTC-Tools source
     git clone https://gitlab.com/deltares/rtc-tools.git
@@ -47,42 +30,65 @@ The latest RTC-Tools source can be downloaded using git::
     # Get RTC-Tools's Modelica library
     git clone https://gitlab.com/deltares/rtc-tools-channel-flow.git
 
-Linux/MacOS-X
-~~~~~~~~~~~~~
+Then you can install this latest version as follows::
 
-To actually build and install RTC-Tools, run::
+    pip install ./rtc-tools
+    pip install ./rtc-tools-channel-flow
 
-    # Build and install RTC-Tools
-    python setup.py install
+Or if you would like to have an editable installation (e.g. as developer)::
 
-To check whether the installation was succesful, the basic example can be
-used.  Only the environment variable pointing to the
-Deltares Modelica library remains for the user to set::
+    pip install -e ./rtc-tools
+    pip install -e ./rtc-tools-channel-flow
 
-    export DELTARES_LIBRARY_PATH=\`readlink -f ../rtc-tools-channel-flow\`
 
-    cd examples/basic/src
+.. _getting-started-download-examples:
 
-    # Set the correct environment variables, and run the example
-    python3 example.py
-
-Windows
-~~~~~~~
+Downloading and running examples
+================================
 
 To check whether the installation was succesful, the basic example can be
-used. Only the environment variable pointing to the
-Deltares Modelica library remains for the user to set::
+used. If RTC-Tools was not installed from source, the examples need to be
+downloaded first::
 
-    set DELTARES_LIBRARY_PATH=C:\path\to\rtc-tools-channel-flow
+    # Download the examples to the current folder (.)
+    rtc-tools-download-examples .
 
-    cd /D C:\path\to\rtc-tools\basic\src
+    # Navigate to the basic example
+    cd rtc-tools-examples/basic/src
 
-    # Set the correct environment variables, and run the example
-    python3 example.py
+    # Run the example
+    python example.py
 
 If the installation was succesful, you should see that the solver succeeds:
 
 .. image:: images/basic_example_console.png
+
+Elsewhere in this documentation we refer to the folder containing the examples
+as ``<examples directory>``. Depending on the method of installation this can
+then either be:
+
+    * ``\path\to\rtc-tools-examples``, when having downloaded the examples
+    * ``\path\to\source\of\rtc-tools\examples``, when having installed RTC-Tools from source
+
+.. _getting-started-copy-libraries:
+
+Copying Modelica libraries
+==========================
+
+Because the Modelica libraries are distributed as pip packages, their location
+inside Python's site-packages can be somewhat inconvient. To copy the Modelica
+libraries to a more convenient location, you can use the ``rtc-tools-copy-libraries``
+command::
+
+    # Copy all Modelica libraries of RTC-Tools to the current folder (.)
+    rtc-tools-copy-libraries .
+
+You should now have a folder ``Deltares``, containing amongst others a
+``package.mo`` file, a ``ChannelFlow`` folder and folders of any other RTC-
+Tools extensions you installed.
+
+Elsewhere in this documentation we refer to the library folder containing the
+``Deltares`` folder as ``<library directory>``.
 
 
 .. _getting-started-omedit:
@@ -109,17 +115,15 @@ example, :doc:`examples/optimization/basic`.
 Running RTC-Tools
 =================
 
+RTC-Tools is run from a command line shell. On Windows, both ``PowerShell``
+and ``cmd`` can be used. On Linux/MacOS you could use the terminal application
+with a shell of your liking.
 
-RTC-Tools is run from a command line shell. If you installed using the Windows
-executable, the RTC-Tools Shell can be started by clicking::
+Once you have started the shell and loaded the correct virtual environment (if
+applicable), navigate to the ``src`` directory of the case you wish to
+optimize, e.g.::
 
-    Start -> All Programs -> RTC-Tools -> Shell
-
-
-Once you have started the shell, navigate to the ``src`` directory of the case
-you wish to optimize, e.g.::
-
-    cd \path\to\RTCTools2\examples\basic\src
+    cd \path\to\rtc-tools-examples\basic\src
 
 Then, to run the case with RTC-Tools, run the ``src`` python script, e.g.::
 

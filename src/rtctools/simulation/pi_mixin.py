@@ -29,7 +29,7 @@ class PIMixin(SimulationProblem):
     :cvar pi_binary_timeseries: Whether to use PI binary timeseries format.  Default is ``False``.
     :cvar pi_parameter_config_basenames:
         List of parameter config file basenames to read. Default is [``rtcParameterConfig``].
-    :cvar pi_check_for_duplicate_parameters: Check if duplicate parameters are read. Default is ``False``.
+    :cvar pi_check_for_duplicate_parameters: Check if duplicate parameters are read. Default is ``True``.
     :cvar pi_validate_timeseries: Check consistency of timeseries.  Default is ``True``.
     """
 

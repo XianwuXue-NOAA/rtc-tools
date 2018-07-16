@@ -36,7 +36,7 @@ class PIMixin(OptimizationProblem):
     :cvar pi_parameter_config_numerical_basename:
         Numerical config file basename to read. Default is ``rtcParameterConfig_Numerical``.
     :cvar pi_check_for_duplicate_parameters:
-        Check if duplicate parameters are read. Default is ``False``.
+        Check if duplicate parameters are read. Default is ``True``.
     :cvar pi_validate_timeseries:
         Check consistency of timeseries. Default is ``True``.
     """

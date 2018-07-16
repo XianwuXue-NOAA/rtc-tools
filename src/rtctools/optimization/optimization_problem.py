@@ -192,6 +192,7 @@ class OptimizationProblem(metaclass=ABCMeta):
             Should be logged as an error or info message.
 
         ``solver_stats`` typically consist of three fields:
+
         * return_status: ``str``
         * secondary_return_status: ``str``
         * success: ``bool``
@@ -200,9 +201,9 @@ class OptimizationProblem(metaclass=ABCMeta):
         (and secondary status) to the success variable, with an exception for
         IPOPT (see below).
 
-        The logging level is typically logging.INFO for success, and
-        logging.ERROR for failure. Only for IPOPT an exception is made for
-        Not_Enough_Degrees_Of_Freedom, which return logging.WARNING instead.
+        The logging level is typically ``logging.INFO`` for success, and
+        ``logging.ERROR`` for failure. Only for IPOPT an exception is made for
+        `Not_Enough_Degrees_Of_Freedom`, which returns ``logging.WARNING`` instead.
         For example, this can happen when too many goals are specified, and
         lower priority goals cannot improve further on the current result.
 

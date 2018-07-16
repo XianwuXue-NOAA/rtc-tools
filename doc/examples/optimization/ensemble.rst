@@ -4,8 +4,8 @@ Using an Ensemble Forecast
 .. note::
 
     This example is an extension of :doc:`lookup_table`. It
-    assumes prior knowledge of goal programming and the lookuptables components
-    of  RTC-Tools. If you are a first-time user of RTC-Tools, see
+    assumes prior knowledge of goal programming and the lookup tables components
+    of RTC-Tools. If you are a first-time user of RTC-Tools, see
     :doc:`basic`.
 
 Then biggest change to RTC-Tools when using an ensemble is the structure of the
@@ -23,12 +23,12 @@ ensemble directory has the following structure:
   * ``ensemble.csv``: a file where the names and probabilities of the ensemble
     members are defined
 
-  * ``forcast1``
+  * ``forecast1``
 
     * the file ``timeseries_import.csv``
     * the file ``initial_state.csv``
 
-  * ``forcast2``
+  * ``forecast2``
 
     * ``timeseries_import.csv``
     * ``initial_state.csv``
@@ -37,11 +37,11 @@ ensemble directory has the following structure:
 
 * ``output``: The folder where the output is saved:
 
-  * ``forcast1``
+  * ``forecast1``
 
     * ``timeseries_export.csv``
 
-  * ``forcast2``
+  * ``forecast2``
 
     * ``timeseries_export.csv``
 
@@ -246,8 +246,8 @@ now the output for each ensemble is printed.
 Extracting Results
 ------------------
 
-The results from the run are found in ``output/forcast1/timeseries_export.csv``
-and ``output/forcast2/timeseries_export.csv``. Any CSV-reading software can
+The results from the run are found in ``output/forecast1/timeseries_export.csv``
+and ``output/forecast2/timeseries_export.csv``. Any CSV-reading software can
 import it, but this is how results can be plotted using the python library
 matplotlib:
 

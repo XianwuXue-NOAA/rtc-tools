@@ -84,7 +84,7 @@ class LookupTable:
         Evaluate the lookup table.
 
         :param args: Input values.
-        :type args: Float, iterable of floats, or :class:`Timeseries`
+        :type args: Float, iterable of floats, or :class:`.Timeseries`
         :returns: Lookup table evaluated at input values.
 
         Example use::

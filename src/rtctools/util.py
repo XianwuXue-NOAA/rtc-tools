@@ -21,16 +21,16 @@ def run_optimization_problem(optimization_problem_class, base_folder='..', log_l
 
     1. That the ``base_folder`` contains subfolders ``input``, ``output``, and ``model``,
        containing input data, output data, and the model, respectively.
-    2. When using :class:`CSVLookupTableMixin`, that the base folder contains a subfolder ``lookup_tables``.
-    3. When using :class:`ModelicaMixin`, that the base folder contains a subfolder ``model``.
-    4. When using :class:`ModelicaMixin`, that the toplevel Modelica model name equals the class name.
+    2. When using :class:`.CSVLookupTableMixin`, that the base folder contains a subfolder ``lookup_tables``.
+    3. When using :class:`.ModelicaMixin`, that the base folder contains a subfolder ``model``.
+    4. When using :class:`.ModelicaMixin`, that the toplevel Modelica model name equals the class name.
 
     :param optimization_problem_class: Optimization problem class to solve.
     :param base_folder:                Base folder.
     :param log_level:                  The log level to use.
     :param profile:                    Whether or not to enable profiling.
 
-    :returns: :class:`OptimizationProblem` instance.
+    :returns: :class:`.OptimizationProblem` instance.
     """
 
     if not os.path.isabs(base_folder):

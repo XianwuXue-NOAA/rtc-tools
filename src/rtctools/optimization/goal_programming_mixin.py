@@ -128,11 +128,11 @@ class Goal(metaclass=ABCMeta):
     priority = 1
 
     #: Goals with the same priority are weighted off against each other in a
-    # single objective function.
+    #: single objective function.
     weight = 1.0
 
     #: The goal violation value is taken to the order'th power in the objective
-    # function.
+    #: function.
     order = 2
 
     #: Critical goals must always be fully satisfied.

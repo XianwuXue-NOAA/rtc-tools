@@ -378,7 +378,7 @@ class OptimizationProblem(metaclass=ABCMeta):
         A bound may be a constant, or a time series.
 
         :returns: A dictionary of variable names and ``(upper, lower)`` bound pairs.
-                  The bounds may be numbers or :class:`Timeseries` objects.
+                  The bounds may be numbers or :class:`.Timeseries` objects.
 
         Example::
 
@@ -556,7 +556,7 @@ class OptimizationProblem(metaclass=ABCMeta):
 
         :returns: A list of triples ``(f, m, M)``, with an :class:`MX` object representing
                   the path constraint function ``f``, lower bound ``m``, and upper bound ``M``.
-                  The bounds may be numbers or :class:`Timeseries` objects.
+                  The bounds may be numbers or :class:`.Timeseries` objects.
 
         Example::
 
@@ -945,7 +945,7 @@ class OptimizationProblem(metaclass=ABCMeta):
         :param ensemble_member: The ensemble member index.
 
         :returns: The requested time series.
-        :rtype: :class:`Timeseries`
+        :rtype: :class:`.Timeseries`
 
         :raises: KeyError
         """
@@ -963,7 +963,7 @@ class OptimizationProblem(metaclass=ABCMeta):
 
         :param variable:          Variable name.
         :param timeseries:        Time series data.
-        :type timeseries:         iterable of floats, or :class:`Timeseries`
+        :type timeseries:         iterable of floats, or :class:`.Timeseries`
         :param ensemble_member:   The ensemble member index.
         :param output:            Whether to include this time series in output data files.
         :param check_consistency: Whether to check consistency between the time stamps on

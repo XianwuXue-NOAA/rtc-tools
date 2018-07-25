@@ -77,7 +77,7 @@ class Example(GoalProgrammingMixin, CSVMixin, ModelicaMixin,
 
         # Make sure is_downhill is true only when the sea is lower than the
         # water level in the storage.
-        M = 1e10  # M is a handy big number
+        M = 2  # The so-called "big-M"
         constraints.append((self.state('H_sea') - self.state('storage.HQ.H') -
                            (1 - self.state('is_downhill')) * M, -np.inf, 0.0))
         constraints.append((self.state('H_sea') - self.state('storage.HQ.H') +

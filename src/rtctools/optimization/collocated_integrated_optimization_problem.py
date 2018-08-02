@@ -363,7 +363,14 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
             *[f_constraint for (f_constraint, lb, ub) in path_constraints])
 
         # Delayed feedback
+        delayed_feedback_expressions, delayed_feedback_states, delayed_feedback_durations = [], [], []
         delayed_feedback = self.delayed_feedback()
+        if delayed_feedback:
+            delayed_feedback_expressions, delayed_feedback_states, delayed_feedback_durations = \
+                zip(*delayed_feedback)
+        # Make sure the original data cannot be used anymore, because it will
+        # become incorrect/stale with the inlining of constant parameters.
+        del delayed_feedback
 
         # Initial time
         t0 = self.initial_time
@@ -425,6 +432,18 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                     ensemble_parameter_values[ensemble_member].append(values[ensemble_member])
 
         symbolic_parameters = ca.vertcat(*ensemble_parameters)
+
+        # Inline constant parameter values
+        if constant_parameters:
+            delayed_feedback_expressions = ca.substitute(
+                delayed_feedback_expressions,
+                constant_parameters,
+                constant_parameter_values)
+
+            delayed_feedback_durations = ca.substitute(
+                delayed_feedback_durations,
+                constant_parameters,
+                constant_parameter_values)
 
         # Aggregate ensemble data
         ensemble_aggregate = {}
@@ -656,7 +675,7 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                 *collocated_derivatives, *self.dae_variables['constant_inputs'],
                 *self.dae_variables['time'], *self.path_variables,
                 *self.__extra_constant_inputs)],
-            [t[0] if isinstance(t[0], ca.MX) else self.state(t[0]) for t in delayed_feedback],
+            delayed_feedback_expressions,
             function_options)
         delayed_feedback_function = delayed_feedback_function.expand()
 
@@ -1074,8 +1093,8 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                         constant_input_values[:, j] = self.interpolate(
                             history_times, constant_input_series.times, constant_input_series.values, np.nan, np.nan)
 
-            if len(delayed_feedback) > 0:
-                delayed_feedback_history = np.zeros((history_times.shape[0], len(delayed_feedback)))
+            if len(delayed_feedback_expressions) > 0:
+                delayed_feedback_history = np.zeros((history_times.shape[0], len(delayed_feedback_expressions)))
                 for i, time in enumerate(history_times):
                     history_delayed_feedback_res = delayed_feedback_function.call(
                         [parameters, ca.veccat(
@@ -1102,7 +1121,11 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                         [self.variable_nominal(var.name()) for var in self.path_variables],
                         initial_extra_constant_inputs)])
 
-            for i, (expression, in_variable_name, delay) in enumerate(delayed_feedback):
+            for i in range(len(delayed_feedback_expressions)):
+                expression = delayed_feedback_expressions[i]
+                in_variable_name = delayed_feedback_states[i]
+                delay = delayed_feedback_durations[i]
+
                 # Resolve aliases
                 in_canonical, in_sign = self.alias_relation.canonical_signed(
                     in_variable_name)
@@ -1118,8 +1141,8 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                 # First, substitute parameters for values
                 [delay] = ca.substitute(
                     [ca.MX(delay)],
-                    [ca.vertcat(symbolic_parameters, *constant_parameters)],
-                    [ca.vertcat(parameters, *constant_parameter_values)])
+                    [ca.vertcat(symbolic_parameters)],
+                    [ca.vertcat(parameters)])
 
                 # Use mapped function to evaluate delay in terms of constant inputs
                 mapped_delay_function = ca.Function(

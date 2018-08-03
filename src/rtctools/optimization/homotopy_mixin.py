@@ -40,7 +40,14 @@ class HomotopyMixin(OptimizationProblem):
         parameters = super().parameters(ensemble_member)
 
         options = self.homotopy_options()
-        parameters[options['homotopy_parameter']] = self.__theta
+        try:
+            # Only set the theta if we are in the optimization loop. We want
+            # to avoid accidental usage of the parameter value in e.g. pre().
+            # Note that we use a try-except here instead of hasattr, to avoid
+            # explicit name mangling.
+            parameters[options['homotopy_parameter']] = self.__theta
+        except AttributeError:
+            pass
 
         return parameters
 

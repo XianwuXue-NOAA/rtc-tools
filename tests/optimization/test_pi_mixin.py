@@ -27,10 +27,6 @@ class TestProblem(PIMixin, ModelicaMixin, CollocatedIntegratedOptimizationProble
             model_folder=data_path(),
         )
 
-    def delayed_feedback(self):
-        # Delayed feedback
-        return [("x", "x_delayed", 0.1)]
-
     def objective(self, ensemble_member):
         # Quadratic penalty on state 'x' at final time
         xf = self.state_at("x", self.times("x")[-1], ensemble_member=ensemble_member)

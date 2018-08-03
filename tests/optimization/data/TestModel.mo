@@ -28,6 +28,8 @@ equation
 
 	z = alias^2 + sin(time);
 
+	x_delayed = delay(x, 0.1);
+
 	if x > 0.5 then
 		switched = 1.0;
 	else

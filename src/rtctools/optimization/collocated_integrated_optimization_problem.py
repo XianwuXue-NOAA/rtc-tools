@@ -445,6 +445,12 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                 constant_parameters,
                 constant_parameter_values)
 
+            path_objective, path_constraint_expressions = \
+                ca.substitute(
+                    [path_objective, path_constraint_expressions],
+                    constant_parameters,
+                    constant_parameter_values)
+
         # Aggregate ensemble data
         ensemble_aggregate = {}
         ensemble_aggregate["parameters"] = ca.horzcat(*[nullvertcat(*l) for l in ensemble_parameter_values])
@@ -496,9 +502,9 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                     "Using lookup tables of ensemble member #0 for all members.")
 
             # Insert constant parameter values
-            dae_residual, initial_residual, path_objective, path_constraint_expressions = \
+            dae_residual, initial_residual = \
                 ca.substitute(
-                    [dae_residual, initial_residual, path_objective, path_constraint_expressions],
+                    [dae_residual, initial_residual],
                     constant_parameters,
                     constant_parameter_values)
 

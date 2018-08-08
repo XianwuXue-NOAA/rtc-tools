@@ -31,8 +31,8 @@ class MinimizeQreleaseGoal(StateGoal):
     order = 1
 
 
-class Example(GoalProgrammingMixin, ControlTreeMixin, CSVLookupTableMixin,
-              CSVMixin, ModelicaMixin, CollocatedIntegratedOptimizationProblem):
+class Example(GoalProgrammingMixin, CSVMixin, CSVLookupTableMixin, ModelicaMixin,
+              ControlTreeMixin, CollocatedIntegratedOptimizationProblem):
     """
     An extention of the goal programming and lookuptable examples that
     demonstrates how to work with ensembles.

@@ -418,7 +418,13 @@ class SimulationProblem:
 
         # make sure that the step converged sufficiently
         largest_res = ca.norm_inf(self.__res_vals(next_state, ca.vertcat(self.__dt, *self.__state_vector)))
-        tol = self.solver_options().get('ipopt.tol', 1.0e-8)
+
+        # Check both ways in which IPOPT's tolerance can be specified
+        try:
+            tol = self.solver_options()['ipopt.tol']
+        except KeyError:
+            tol = self.solver_options().get('ipopt', {}).get('tol', 1.0e-8)
+
         if largest_res > tol:
             logger.warning(
                 'Simulation may have failed to converge at time {}. Residual value {} is greater than {}'.format(

@@ -529,9 +529,9 @@ class TestGoalProgrammingSmoothing(TestCase):
 
     def test_x(self):
         value_tol = 1e-3
-        for x in self.problem.extract_results()["x"]:
-            self.assertAlmostGreaterThan(x, 0.0, value_tol)
-            self.assertAlmostLessThan(x, 1.1, value_tol)
+        x = self.problem.extract_results()["x"]
+        self.assertAlmostGreaterThan(sum(x) / len(x), 0.0, value_tol)
+        self.assertAlmostLessThan(sum(x) / len(x), 1.1, value_tol)
 
 
 class StateGoal1(StateGoal):

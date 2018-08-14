@@ -13,8 +13,8 @@ model TestModel
 
 	output Real z;
 
-	//TODO: Implement delayed variables and tests for them
-	//input Real x_delayed;
+	//TODO: Implement properly delayed variables and tests for them
+	output Real x_delayed;
 
 	output Real switched;
 
@@ -41,4 +41,5 @@ equation
 
 	u_out = u + 1;
 
+	x_delayed = delay(3 * x, 0) + 1;
 end TestModel;

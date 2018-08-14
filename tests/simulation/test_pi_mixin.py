@@ -7,7 +7,8 @@ from .data_path import data_path
 
 
 class SimulationTestProblem(PIMixin, SimulationProblem):
-    # pi_validate_timeseries = False
+    _force_zero_delay = True
+
     def __init__(self):
         super().__init__(
             input_folder=data_path(),

@@ -11,6 +11,7 @@ from .data_path import data_path
 
 
 class SimulationTestProblem(SimulationProblem):
+    _force_zero_delay = True
 
     def __init__(self):
         super().__init__(
@@ -54,6 +55,8 @@ class TestSimulation(TestCase):
                 "x_start",
                 "y",
                 "z",
+                "_pymoca_delay_0[1,1]",
+                "x_delayed"
             },
         )
         self.assertEqual(set(self.problem.get_parameter_variables()), {"x_start", "k"})
@@ -62,7 +65,7 @@ class TestSimulation(TestCase):
         )
         self.assertEqual(
             set(self.problem.get_output_variables()),
-            {"constant_output", "switched", "u_out", "y", "z"},
+            {"constant_output", "switched", "u_out", "y", "z", "x_delayed"},
         )
 
     def test_get_set_var(self):
@@ -121,6 +124,9 @@ class TestSimulation(TestCase):
             self.problem.update(dt)
             val = self.problem.get_var("switched")
             self.assertEqual(val, expected_values[i])
+
+            # Test zero-delayed expression
+            self.assertAlmostEqual(self.problem.get_var('x_delayed'), self.problem.get_var('x') * 3 + 1, 1e-6)
             i += 1
 
     def test_set_input2(self):
@@ -142,3 +148,26 @@ class TestSimulation(TestCase):
             val = self.problem.get_var("switched")
             self.assertEqual(val, expected_values[i])
             i += 1
+
+
+class FailingSimulationTestProblem(SimulationProblem):
+
+    def __init__(self):
+        super().__init__(
+            input_folder=data_path(),
+            output_folder=data_path(),
+            model_name="TestModel",
+            model_folder=data_path(),
+        )
+
+    def compiler_options(self):
+        compiler_options = super().compiler_options()
+        compiler_options["cache"] = False
+        return compiler_options
+
+
+class TestFailingSimulation(TestCase):
+
+    def test_delay_exception(self):
+        with self.assertRaisesRegex(NotImplementedError, 'Delayed states are not supported'):
+            self.problem = FailingSimulationTestProblem()

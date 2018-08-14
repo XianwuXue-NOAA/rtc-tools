@@ -32,6 +32,10 @@ class SimulationProblem:
     # Folders in which the referenced Modelica libraries are found
     modelica_library_folders = []
 
+    # Force workaround for delay support by assuming zero delay. This flag
+    # will be removed when proper delay support is added.
+    _force_zero_delay = False
+
     def __init__(self, **kwargs):
         # Check arguments
         assert('model_folder' in kwargs)
@@ -62,11 +66,8 @@ class SimulationProblem:
         self.__mx['constant_inputs'] = []
         self.__mx['lookup_tables'] = []
 
-        # TODO: implement delayed feedback
-        delayed_feedback_variables = []
-
         for v in self.__pymoca_model.inputs:
-            if v.symbol.name() in delayed_feedback_variables:
+            if v.symbol.name() in self.__pymoca_model.delay_states:
                 # Delayed feedback variables are local to each ensemble, and
                 # therefore belong to the collection of algebraic variables,
                 # rather than to the control inputs.
@@ -147,8 +148,19 @@ class SimulationProblem:
         for index, derivative_state in enumerate(self.__mx['derivatives']):
             derivative_approximation_residuals.append(derivative_state - (X[index] - X_prev[index]) / dt)
 
+        if self.__pymoca_model.delay_states and not self._force_zero_delay:
+            raise NotImplementedError("Delayed states are not supported")
+
+        # Delayed feedback (assuming zero delay)
+        # TODO: implement delayed feedback support for delay != 0
+        delayed_feedback_equations = []
+        for delay_state, delay_argument in zip(self.__pymoca_model.delay_states,
+                                               self.__pymoca_model.delay_arguments):
+            logger.warning("Assuming zero delay for delay state '{}'".format(delay_state))
+            delayed_feedback_equations.append(delay_argument.expr - self.__sym_dict[delay_state])
+
         # Append residuals for derivative approximations
-        dae_residual = ca.vertcat(self.__dae_residual, *derivative_approximation_residuals)
+        dae_residual = ca.vertcat(self.__dae_residual, *derivative_approximation_residuals, *delayed_feedback_equations)
 
         # TODO: implement lookup_tables
 
@@ -327,6 +339,14 @@ class SimulationProblem:
             [evaluated_bounds] = bound_evaluator.call(self.__state_vector[-n_parameters:])
         else:
             [evaluated_bounds] = bound_evaluator.call([])
+
+        # Update with the bounds of delayed states
+        n_delay = len(self.__pymoca_model.delay_states)
+        delay_bounds = np.array([-np.inf, np.inf] * n_delay).reshape((n_delay, 2))
+        offset = len(self.__pymoca_model.states) + len(self.__pymoca_model.alg_states)
+        evaluated_bounds = np.vstack((evaluated_bounds[:offset, :],
+                                      delay_bounds,
+                                      evaluated_bounds[offset:, :]))
 
         # Construct arrays of state bounds (used in the initialize() nlp, but not in __do_step rootfinder)
         self.__lbx = evaluated_bounds[:, 0]

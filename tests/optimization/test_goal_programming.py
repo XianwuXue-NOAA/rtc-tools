@@ -125,7 +125,6 @@ class TestGoalNoMinMax(Goal):
     def function(self, optimization_problem, ensemble_member):
         return optimization_problem.integral("x", ensemble_member=ensemble_member)
 
-    function_range = (-1e1, 1e1)
     function_nominal = 2e1
     priority = 1
     order = 1
@@ -179,7 +178,6 @@ class TestGoalMinimizeU(Goal):
     def function(self, optimization_problem, ensemble_member):
         return optimization_problem.state_at("u", 0.5, ensemble_member=ensemble_member)
 
-    function_range = (-1e2, 1e2)
     priority = 1
     order = 1
 
@@ -250,7 +248,6 @@ class PathGoal3(Goal):
     def function(self, optimization_problem, ensemble_member):
         return optimization_problem.state("u")
 
-    function_range = (-1e1, 1e1)
     priority = 3
 
 
@@ -259,7 +256,6 @@ class PathGoal4(Goal):
     def function(self, optimization_problem, ensemble_member):
         return optimization_problem.state("constant_input")
 
-    function_range = (-1e1, 1e1)
     priority = 4
 
 
@@ -268,7 +264,6 @@ class PathGoal5(Goal):
     def function(self, optimization_problem, ensemble_member):
         return optimization_problem.state("k")
 
-    function_range = (-1e1, 1e1)
     priority = 5
 
 
@@ -368,7 +363,6 @@ class TestGoalMinU(Goal):
     def function(self, optimization_problem, ensemble_member):
         return optimization_problem.integral("u", ensemble_member=ensemble_member)
 
-    function_range = (-1e1, 1e1)
     priority = 3
 
 
@@ -386,7 +380,6 @@ class PathGoal1Critical(Goal):
     def function(self, optimization_problem, ensemble_member):
         return optimization_problem.state("x")
 
-    function_range = (-1e1, 1e1)
     priority = 1
     target_min = 0.0
     critical = True
@@ -397,7 +390,6 @@ class TestGoalLowerUCritical(Goal):
     def function(self, optimization_problem, ensemble_member):
         return optimization_problem.integral("u", ensemble_member=ensemble_member)
 
-    function_range = (-1e1, 1e1)
     priority = 3
     target_min = 1e-6
     critical = True
@@ -473,7 +465,6 @@ class PathGoalSmoothing(Goal):
     def function(self, optimization_problem, ensemble_member):
         return optimization_problem.der("u")
 
-    function_range = (-1e1, 1e1)
     priority = 3
 
 

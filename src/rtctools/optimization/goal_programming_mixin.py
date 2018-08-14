@@ -250,15 +250,16 @@ class StateGoal(Goal, metaclass=ABCMeta):
             raise Exception('Please specify a state.')
 
         # Extract state range from model
-        try:
-            self.function_range = optimization_problem.bounds()[self.state]
-        except KeyError:
-            raise Exception('State {} has no bounds or does not exist in the model.'.format(self.state))
+        if self.has_target_bounds:
+            try:
+                self.function_range = optimization_problem.bounds()[self.state]
+            except KeyError:
+                raise Exception('State {} has no bounds or does not exist in the model.'.format(self.state))
 
-        if self.function_range[0] is None:
-            raise Exception('Please provide a lower bound for state {}.'.format(self.state))
-        if self.function_range[1] is None:
-            raise Exception('Please provide an upper bound for state {}.'.format(self.state))
+            if self.function_range[0] is None:
+                raise Exception('Please provide a lower bound for state {}.'.format(self.state))
+            if self.function_range[1] is None:
+                raise Exception('Please provide an upper bound for state {}.'.format(self.state))
 
         # Extract state nominal from model
         self.function_nominal = optimization_problem.variable_nominal(self.state)
@@ -812,14 +813,18 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
         for goal in itertools.chain(goals, path_goals):
             m, M = ca.MX(goal.function_range[0]), ca.MX(goal.function_range[1])
 
-            if not m.is_regular() or not M.is_regular():
-                raise Exception("No function range specified for goal {}".format(goal))
-
-            if m >= M:
-                raise Exception("Invalid function range for goal {}.".format(goal))
-
             if goal.function_nominal <= 0:
                 raise Exception("Nonpositive nominal value specified for goal {}".format(goal))
+
+            if goal.has_target_bounds:
+                if not m.is_regular() or not M.is_regular():
+                    raise Exception("No function range specified for goal {}".format(goal))
+
+                if m >= M:
+                    raise Exception("Invalid function range for goal {}.".format(goal))
+            else:
+                if goal.function_range != (np.nan, np.nan):
+                    raise Exception("Specifying function range not allowed for goal {}".format(goal))
         try:
             priorities = {int(goal.priority) for goal in itertools.chain(goals, path_goals) if not goal.is_empty}
         except ValueError:

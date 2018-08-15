@@ -415,7 +415,10 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
                 for iter_ens_memb in range(1, self.ensemble_size):
                     expr += self.ensemble_member_probability(iter_ens_memb) * \
                             ca.sum1(ca.vertcat(*[o(self, iter_ens_memb) for o in old_obj])) / len(old_obj)
-                constraints.append((expr - val, -np.inf, 0.0))
+                if expr.is_constant():
+                    pass
+                else:
+                    constraints.append((expr - val, -np.inf, 0.0))
         # Pareto optimality constraint for path goals at previous priorities
         if ensemble_member == 0:
             for old_obj, val in self.__old_subproblem_path_objectives:
@@ -424,7 +427,10 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
                 for iter_ens_memb in range(1, self.ensemble_size):
                     expr += self.ensemble_member_probability(iter_ens_memb) * \
                             ca.sum1(self.map_path_expression(old_obj, ensemble_member))
-                constraints.append((expr - val, -np.inf, 0.0))
+                if expr.is_constant():
+                    pass
+                else:
+                    constraints.append((expr - val, -np.inf, 0.0))
         if self.goal_programming_options()['linear_obj_eps']:
             # Epsilon alias constraints
             for constraint_eps in self.__problem_constraint_epsilons_alias[ensemble_member]:

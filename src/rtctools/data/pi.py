@@ -642,10 +642,13 @@ class Timeseries:
             raise Exception('Unsupported unit type: ' + el.get('unit'))
 
     def __floor_date_time(self, dt, tdel):
-        # Floor a PI date time based on a PI time step
+        """
+        Floor a PI date time to an integer number of PI time steps from the
+        start date time.
+        """
         roundTo = tdel.total_seconds()
 
-        seconds = (dt - dt.min).seconds
+        seconds = (dt - self.__start_datetime).seconds
         # // is a floor division:
         rounding = (seconds + roundTo / 2) // roundTo * roundTo
         return dt + datetime.timedelta(0, rounding - seconds, -dt.microsecond)

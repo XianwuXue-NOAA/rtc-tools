@@ -368,9 +368,9 @@ class CSVMixin(OptimizationProblem):
                 data[output_variable] = values
             
             if _log_non_existing_outvar:
-                logger.error("Output requested for non-existent variable {}".format
-                (_log_non_existing_outvar))
-            
+                logger.error("Output requested for non-existent variable {}".
+                  format(_log_non_existing_outvar))
+
 
             fname = os.path.join(folder, 'timeseries_export.csv')
             csv.save(fname, data, delimiter=self.csv_delimiter, with_time=True)

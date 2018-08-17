@@ -160,6 +160,7 @@ class CSVMixin(OptimizationProblem):
                     raise Exception(
                         'CSVMixin: Time stamps must be strictly increasing.')
 
+        _log_csv_eqd = []
         if self.csv_equidistant:
             # Check if the timeseries are truly equidistant
             if self.csv_validate_timeseries:
@@ -167,10 +168,13 @@ class CSVMixin(OptimizationProblem):
                     1] - self.__timeseries_times_sec[0]
                 for i in range(len(self.__timeseries_times_sec) - 1):
                     if self.__timeseries_times_sec[i + 1] - self.__timeseries_times_sec[i] != dt:
-                        raise Exception(
+                        _log_csv_eqd.append(self.__timeseries_times[i + 1])
+
+        if _log_csv_eqd:
+            raise Exception(
                             'CSVMixin: Expecting equidistant timeseries, the time step towards '
                             '{} is not the same as the time step(s) before. Set equidistant=False '
-                            'if this is intended.'.format(self.__timeseries_times[i + 1]))
+                            'if this is intended.'.format(_log_csv_eqd))
 
     def times(self, variable=None):
         return self.__timeseries_times_sec
@@ -198,6 +202,7 @@ class CSVMixin(OptimizationProblem):
         parameters = super().parameters(ensemble_member)
 
         # Load parameters from parameter config
+        log_read_par = []
         for parameter in self.dae_variables['parameters']:
             parameter = parameter.name()
             try:
@@ -205,8 +210,10 @@ class CSVMixin(OptimizationProblem):
             except KeyError:
                 pass
             else:
-                if logger.getEffectiveLevel() == logging.DEBUG:
-                    logger.debug("CSVMixin: Read parameter {} ".format(parameter))
+                log_read_par.append(parrameter)
+        if logger.getEffectiveLevel() == logging.DEBUG and _log_read_par:
+            logger.debug("CSVMixin: Read parameter {} ".format(_log_read_par))
+
         return parameters
 
     @cached
@@ -214,18 +221,19 @@ class CSVMixin(OptimizationProblem):
         # Call parent class first for default values.
         constant_inputs = super(
             CSVMixin, self).constant_inputs(ensemble_member)
-
+        
         # Load bounds from timeseries
+        _log_read_var = []
         for variable in self.dae_variables['constant_inputs']:
             variable = variable.name()
             try:
                 constant_inputs[variable] = Timeseries(
                     self.__timeseries_times_sec, self.__timeseries[ensemble_member][variable])
+                _log_read_var.append(variable)
             except (KeyError, ValueError):
                 pass
-            else:
-                if logger.getEffectiveLevel() == logging.DEBUG:
-                    logger.debug("CSVMixin: Read constant input {}".format(variable))
+        if logger.getEffectiveLevel() == logging.DEBUG and _log_read_var:
+                    logger.debug("CSVMixin: Read constant input for {}".format(_log_read_var))
 
         return constant_inputs
 
@@ -235,6 +243,9 @@ class CSVMixin(OptimizationProblem):
         bounds = super().bounds()
 
         # Load bounds from timeseries
+        _log_read_lb = []
+        _log_read_ub = []
+        
         for variable in self.dae_variables['free_variables']:
             variable = variable.name()
 
@@ -243,20 +254,16 @@ class CSVMixin(OptimizationProblem):
             timeseries_id = self.min_timeseries_id(variable)
             try:
                 m = self.__timeseries[0][timeseries_id]
+                _log_read_lb.append(variable)
             except (KeyError, ValueError):
                 pass
-            else:
-                if logger.getEffectiveLevel() == logging.DEBUG:
-                    logger.debug("CSVMixin: Read lower bound for variable {}".format(variable))
 
             timeseries_id = self.max_timeseries_id(variable)
             try:
                 M = self.__timeseries[0][timeseries_id]
+                _log_read_ub.append(variable)
             except (KeyError, ValueError):
                 pass
-            else:
-                if logger.getEffectiveLevel() == logging.DEBUG:
-                    logger.debug("CSVMixin: Read upper bound for variable {}".format(variable))
 
             # Replace NaN with +/- inf, and create Timeseries objects
             if m is not None:
@@ -269,6 +276,11 @@ class CSVMixin(OptimizationProblem):
             # Store
             if m is not None or M is not None:
                 bounds[variable] = (m, M)
+
+        if logger.getEffectiveLevel() == logging.DEBUG:
+            logger.debug("CSVMixin: Read lower bound for variable {}".format(_log_read_lb))
+            logger.debug("CSVMixin: Read upper bound for variable {}".format(_log_read_ub))
+
         return bounds
 
     @property
@@ -281,15 +293,18 @@ class CSVMixin(OptimizationProblem):
         initial_state = super().initial_state(ensemble_member)
 
         # Load parameters from parameter config
+        _log_read_init = []
         for variable in self.dae_variables['free_variables']:
             variable = variable.name()
             try:
                 initial_state[variable] = self.__initial_state[ensemble_member][variable]
+                _log_read_init.append(variable)
             except (KeyError, ValueError):
                 pass
-            else:
-                if logger.getEffectiveLevel() == logging.DEBUG:
-                    logger.debug("CSVMixin: Read initial state {}".format(variable))
+        
+        if logger.getEffectiveLevel() == logging.DEBUG:
+           logger.debug("CSVMixin: Read initial state {}".format(_log_read_init))
+        
         return initial_state
 
     @cached
@@ -298,18 +313,22 @@ class CSVMixin(OptimizationProblem):
         seed = super().seed(ensemble_member)
 
         # Load seed values from CSV
+        _log_seed = []
         for variable in self.dae_variables['free_variables']:
             variable = variable.name()
             try:
                 s = Timeseries(self.__timeseries_times_sec, self.__timeseries[ensemble_member][variable])
+                _log_seed.append(variable)
             except (KeyError, ValueError):
                 pass
             else:
-                if logger.getEffectiveLevel() == logging.DEBUG:
-                    logger.debug("CSVMixin: Seeded free variable {}".format(variable))
                 # A seeding of NaN means no seeding
                 s.values[np.isnan(s.values)] = 0.0
                 seed[variable] = s
+
+        if logger.getEffectiveLevel() == logging.DEBUG:
+                    logger.debug("CSVMixin: Seeded free variable {}".format(_log_seed))
+
         return seed
 
     def post(self):
@@ -326,6 +345,7 @@ class CSVMixin(OptimizationProblem):
             dtype = {'names': names, 'formats': formats}
             data = np.zeros(len(self.__timeseries_times), dtype=dtype)
             data['time'] = self.__timeseries_times
+            _log_non_existing_outvar = []
             for output_variable in self.output_variables:
                 output_variable = output_variable.name()
                 try:
@@ -343,10 +363,14 @@ class CSVMixin(OptimizationProblem):
                         else:
                             values = ts.values
                     except KeyError:
-                        logger.error(
-                            "Output requested for non-existent variable {}".format(output_variable))
+                        _log_non_existing_outvar.append(output_variable)
                         continue
                 data[output_variable] = values
+            
+            if _log_non_existing_outvar:
+                logger.error("Output requested for non-existent variable {}".format
+                (_log_non_existing_outvar))
+            
 
             fname = os.path.join(folder, 'timeseries_export.csv')
             csv.save(fname, data, delimiter=self.csv_delimiter, with_time=True)

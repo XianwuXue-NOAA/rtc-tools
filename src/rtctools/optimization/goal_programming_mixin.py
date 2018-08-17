@@ -197,8 +197,9 @@ class Goal(metaclass=ABCMeta):
         return self.function_key
 
     def __repr__(self) -> str:
-        return '{}(priority={}, target_min={}, target_max={}, function_range={})'.format(
-            self.__class__, self.priority, self.target_min, self.target_max, self.function_range)
+        return '{}(priority={}, target_min={}, target_max={}, function_range={}, function_nominal=
+            {})'.format(self.__class__, self.priority, self.target_min, self.target_max, 
+            self.function_range, self.function_nominal)
 
 
 class StateGoal(Goal, metaclass=ABCMeta):
@@ -271,9 +272,9 @@ class StateGoal(Goal, metaclass=ABCMeta):
         return optimization_problem.state(self.state)
 
     def __repr__(self):
-        return '{}(priority={}, state={}, target_min={}, target_max={})'.format(
-            self.__class__, self.priority, self.state, self.target_min, self.target_max)
-
+        return '{}(priority={}, state={}, target_min={}, target_max={}, function_range={}, function_nominal=
+            {})'.format(self.__class__, self.priority, self.state, self.target_min, self.target_max, 
+            self.function_range, self.function_nominal)
 
 class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
     """
@@ -764,16 +765,48 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
 
             if goal.function_nominal <= 0:
                 raise Exception("Nonpositive nominal value specified for goal {}".format(goal))
-        try:
-            priorities = {int(goal.priority) for goal in itertools.chain(goals, path_goals) if not goal.is_empty}
-        except ValueError:
-            raise Exception("GoalProgrammingMixin: All goal priorities must be of type int or castable to int")
 
-        for priority in sorted(priorities):
-            subproblems.append((
-                priority,
-                [goal for goal in goals if int(goal.priority) == priority and not goal.is_empty],
-                [goal for goal in path_goals if int(goal.priority) == priority and not goal.is_empty]))
+        # logger.info("Append sub-problems by priority")
+        _priorities = set()
+        _goals_by_prio = {}
+        _path_goals_by_prio = {}
+        _log_int_cast_error = []
+
+        # catch all errors in one go before raising exception
+        for goal in goals:
+            try:
+                if not goal.is_empty:
+                    _goals_by_prio.setdefault(int(goal.priority), []).append(goal)
+                    _priorities.add(int(goal.priority))
+            except ValueError:
+                _log_int_cast_error.append(goal)
+
+        if _log_int_cast_error:
+            raise Exception(
+                "GoalProgrammingMixin: All goal priorities must be of type int or castable to int 
+                for goal {}".format(_log_int_cast_error))
+
+        _log_int_cast_error.clear()
+        for goal in path_goals:
+            try:
+                if not goal.is_empty:
+                    _path_goals_by_prio.setdefault(int(goal.priority), []).append(goal)
+                    _priorities.add(int(goal.priority))
+            except ValueError:
+                _log_int_cast_error.append(goal)
+
+        if _log_int_cast_error:
+            raise Exception(
+                "GoalProgrammingMixin: All path goal priorities must be of type int or castable to int 
+                for goal {}".format(_log_int_cast_error))
+
+        for priority in sorted(_priorities):
+            if not _goals_by_prio or _goals_by_prio[priority].is_empty:
+                subproblems.append((priority, [], _path_goals_by_prio[priority]))
+            elif not _path_goals_by_prio or _path_goals_by_prio[priority].is_empty:
+                subproblems.append((priority, _goals_by_prio[priority], []))
+            else:
+                subproblems.append((priority, _goals_by_prio[priority], _path_goals_by_prio[priority]))
 
         options = self.goal_programming_options()
 
@@ -796,20 +829,20 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
 
                         if prev is not None:
                             goal_m, goal_M = self.__min_max_arrays(goal)
-                            other_m, other_M = self.__min_max_arrays(prev)
+                            prev_m, prev_M = self.__min_max_arrays(prev)
 
                             indices = np.where(np.logical_not(np.logical_or(
-                                np.isnan(goal_m), np.isnan(other_m))))
+                                np.isnan(goal_m), np.isnan(prev_m))))
                             if goal.has_target_min:
-                                if np.any(goal_m[indices] < other_m[indices]):
+                                if np.any(goal_m[indices] < prev_m[indices]):
                                     raise Exception(
                                         'Target minimum of goal {} must be greater or equal than '
                                         'target minimum of goal {}.'.format(goal, prev))
 
                             indices = np.where(np.logical_not(np.logical_or(
-                                np.isnan(goal_M), np.isnan(other_M))))
+                                np.isnan(goal_M), np.isnan(prev_M))))
                             if goal.has_target_max:
-                                if np.any(goal_M[indices] > other_M[indices]):
+                                if np.any(goal_M[indices] > prev_M[indices]):
                                     raise Exception(
                                         'Target maximum of goal {} must be less or equal than '
                                         'target maximum of goal {}'.format(goal, prev))

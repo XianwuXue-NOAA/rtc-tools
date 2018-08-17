@@ -197,9 +197,9 @@ class Goal(metaclass=ABCMeta):
         return self.function_key
 
     def __repr__(self) -> str:
-        return '{}(priority={}, target_min={}, target_max={}, function_range={}, function_nominal=
-            {})'.format(self.__class__, self.priority, self.target_min, self.target_max, 
-            self.function_range, self.function_nominal)
+        return '{}(priority={}, target_min={}, target_max={}, function_range={}, \
+            function_nominal={})'.format(self.__class__, self.priority, self.target_min,  
+            self.target_max,self.function_range, self.function_nominal)
 
 
 class StateGoal(Goal, metaclass=ABCMeta):
@@ -272,9 +272,9 @@ class StateGoal(Goal, metaclass=ABCMeta):
         return optimization_problem.state(self.state)
 
     def __repr__(self):
-        return '{}(priority={}, state={}, target_min={}, target_max={}, function_range={}, function_nominal=
-            {})'.format(self.__class__, self.priority, self.state, self.target_min, self.target_max, 
-            self.function_range, self.function_nominal)
+        return '{}(priority={}, state={}, target_min={}, target_max={}, function_range={}, \
+            function_nominal={})'.format(self.__class__, self.priority, self.state, self.target_min, 
+             self.target_max,self.function_range, self.function_nominal)
 
 class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
     """
@@ -783,7 +783,7 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
 
         if _log_int_cast_error:
             raise Exception(
-                "GoalProgrammingMixin: All goal priorities must be of type int or castable to int 
+                "GoalProgrammingMixin: All goal priorities must be of type int or castable to int \
                 for goal {}".format(_log_int_cast_error))
 
         _log_int_cast_error.clear()
@@ -797,7 +797,7 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
 
         if _log_int_cast_error:
             raise Exception(
-                "GoalProgrammingMixin: All path goal priorities must be of type int or castable to int 
+                "GoalProgrammingMixin: All path goal priorities must be of type int or castable to int \
                 for goal {}".format(_log_int_cast_error))
 
         for priority in sorted(_priorities):

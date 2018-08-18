@@ -607,3 +607,49 @@ class TestGoalProgrammingStateGoals(TestCase):
         for x in self.problem.extract_results()["x"]:
             self.assertAlmostGreaterThan(x, 0.0, value_tol)
             self.assertAlmostLessThan(x, 1.1, value_tol)
+
+
+class TestProblemInvalidGoals(TestProblem):
+    _goals = []
+
+    def goals(self):
+        return self._goals
+
+
+class InvalidGoal(Goal):
+
+    def __init__(self, function_range, target_min=np.nan, target_max=np.nan):
+        self.function_range = function_range
+        self.target_min = target_min
+        self.target_max = target_max
+
+    def function(self, optimization_problem, ensemble_member):
+        return optimization_problem.state_at("x", 0.5, ensemble_member=ensemble_member)
+
+    priority = 1
+
+
+class TestGoalProgrammingInvalidGoals(TestCase):
+
+    def setUp(self):
+        self.problem = TestProblemInvalidGoals()
+
+    def test_target_min_lt_function_range_lb(self):
+        self.problem._goals = [InvalidGoal((-2.0, 2.0), target_min=-3.0)]
+        with self.assertRaisesRegexp(Exception, "minimum should be greater than the lower"):
+            self.problem.optimize()
+
+    def test_target_min_eq_function_range_lb(self):
+        self.problem._goals = [InvalidGoal((-2.0, 2.0), target_min=-2.0)]
+        with self.assertRaisesRegexp(Exception, "minimum should be greater than the lower"):
+            self.problem.optimize()
+
+    def test_target_max_gt_function_range_ub(self):
+        self.problem._goals = [InvalidGoal((-2.0, 2.0), target_max=3.0)]
+        with self.assertRaisesRegexp(Exception, "maximum should be smaller than the upper"):
+            self.problem.optimize()
+
+    def test_target_max_eq_function_range_ub(self):
+        self.problem._goals = [InvalidGoal((-2.0, 2.0), target_max=2.0)]
+        with self.assertRaisesRegexp(Exception, "maximum should be smaller than the upper"):
+            self.problem.optimize()

@@ -537,13 +537,15 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
 
         # Check consistency between target and function range
         if goal.has_target_min:
-            if goal.target_min < goal.function_range[0]:
+            if goal.target_min <= goal.function_range[0]:
                 raise Exception(
-                    'Target minimum is smaller than the lower bound of the function range for goal {}'.format(goal))
+                    'Target minimum should be greater than the lower bound of the function range for goal {}'.format(
+                        goal))
         if goal.has_target_max:
-            if goal.target_max > goal.function_range[1]:
+            if goal.target_max >= goal.function_range[1]:
                 raise Exception(
-                    'Target maximum is greater than the upper bound of the function range for goal {}'.format(goal))
+                    'Target maximum should be smaller than the upper bound of the function range for goal {}'.format(
+                        goal))
 
         if isinstance(epsilon, ca.MX):
             if goal.has_target_bounds:

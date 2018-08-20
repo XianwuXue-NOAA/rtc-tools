@@ -202,7 +202,7 @@ class CSVMixin(OptimizationProblem):
         parameters = super().parameters(ensemble_member)
 
         # Load parameters from parameter config
-        log_read_par = []
+        _log_read_par = []
         for parameter in self.dae_variables['parameters']:
             parameter = parameter.name()
             try:
@@ -210,7 +210,7 @@ class CSVMixin(OptimizationProblem):
             except KeyError:
                 pass
             else:
-                log_read_par.append(parrameter)
+                _log_read_par.append(parrameter)
         if logger.getEffectiveLevel() == logging.DEBUG and _log_read_par:
             logger.debug("CSVMixin: Read parameter {} ".format(_log_read_par))
 

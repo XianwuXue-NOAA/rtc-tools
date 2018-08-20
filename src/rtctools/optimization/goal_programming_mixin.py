@@ -198,8 +198,8 @@ class Goal(metaclass=ABCMeta):
 
     def __repr__(self) -> str:
         return '{}(priority={}, target_min={}, target_max={}, function_range={}, \
-            function_nominal={})'.format(self.__class__, self.priority, self.target_min,  
-            self.target_max,self.function_range, self.function_nominal)
+            function_nominal={})'.format(self.__class__, self.priority, self.target_min,
+                self.target_max, self.function_range, self.function_nominal)
 
 
 class StateGoal(Goal, metaclass=ABCMeta):
@@ -273,8 +273,9 @@ class StateGoal(Goal, metaclass=ABCMeta):
 
     def __repr__(self):
         return '{}(priority={}, state={}, target_min={}, target_max={}, function_range={}, \
-            function_nominal={})'.format(self.__class__, self.priority, self.state, self.target_min, 
-             self.target_max,self.function_range, self.function_nominal)
+            function_nominal={})'.format(self.__class__, self.priority, self.state, self.target_min,
+                self.target_max, self.function_range, self.function_nominal)
+
 
 class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
     """

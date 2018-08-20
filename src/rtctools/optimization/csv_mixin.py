@@ -221,7 +221,7 @@ class CSVMixin(OptimizationProblem):
         # Call parent class first for default values.
         constant_inputs = super(
             CSVMixin, self).constant_inputs(ensemble_member)
-        
+
         # Load bounds from timeseries
         _log_read_var = []
         for variable in self.dae_variables['constant_inputs']:
@@ -245,7 +245,7 @@ class CSVMixin(OptimizationProblem):
         # Load bounds from timeseries
         _log_read_lb = []
         _log_read_ub = []
-        
+
         for variable in self.dae_variables['free_variables']:
             variable = variable.name()
 
@@ -301,10 +301,10 @@ class CSVMixin(OptimizationProblem):
                 _log_read_init.append(variable)
             except (KeyError, ValueError):
                 pass
-        
+
         if logger.getEffectiveLevel() == logging.DEBUG:
-           logger.debug("CSVMixin: Read initial state {}".format(_log_read_init))
-        
+            logger.debug("CSVMixin: Read initial state {}".format(_log_read_init))
+
         return initial_state
 
     @cached
@@ -366,11 +366,10 @@ class CSVMixin(OptimizationProblem):
                         _log_non_existing_outvar.append(output_variable)
                         continue
                 data[output_variable] = values
-            
+
             if _log_non_existing_outvar:
                 logger.error("Output requested for non-existent variable {}".
-                  format(_log_non_existing_outvar))
-
+                    format(_log_non_existing_outvar))
 
             fname = os.path.join(folder, 'timeseries_export.csv')
             csv.save(fname, data, delimiter=self.csv_delimiter, with_time=True)

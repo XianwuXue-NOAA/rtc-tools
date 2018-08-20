@@ -171,6 +171,9 @@ class PIMixin(OptimizationProblem):
         # Call parent class first for default values.
         parameters = super().parameters(ensemble_member)
 
+        # Make a new dictionary for the new parameters
+        new_parameters = AliasDict(self.alias_relation)
+
         # Load parameters from parameter config
         for parameter_config in self.__parameter_config:
             for location_id, model_id, parameter_id, value in parameter_config:
@@ -180,13 +183,16 @@ class PIMixin(OptimizationProblem):
                     parameter = parameter_id
 
                 if self.pi_check_for_duplicate_parameters:
-                    if parameter in parameters.keys():
+                    if parameter in new_parameters.keys():
                         logger.warning(
                             'PIMixin: parameter {} defined in file {} was already '
-                            'present. Using value {}.'.format(
+                            'present in another or this parameterConfig file. Using value {}.'.format(
                                 parameter, parameter_config.path, value))
 
-                parameters[parameter] = value
+                new_parameters[parameter] = value
+
+        # Update parameters
+        parameters.update(new_parameters)
 
         # Done
         return parameters

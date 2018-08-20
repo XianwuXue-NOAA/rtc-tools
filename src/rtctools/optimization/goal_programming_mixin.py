@@ -802,9 +802,9 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
                 for goal {}".format(_log_int_cast_error))
 
         for priority in sorted(_priorities):
-            if not _goals_by_prio or _goals_by_prio[priority].is_empty:
+            if not _goals_by_prio or not prioritypriority in _goals_by_prio:
                 subproblems.append((priority, [], _path_goals_by_prio[priority]))
-            elif not _path_goals_by_prio or _path_goals_by_prio[priority].is_empty:
+            elif not _path_goals_by_prio or not priority in _path_goals_by_prio:
                 subproblems.append((priority, _goals_by_prio[priority], []))
             else:
                 subproblems.append((priority, _goals_by_prio[priority], _path_goals_by_prio[priority]))

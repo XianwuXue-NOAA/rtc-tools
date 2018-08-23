@@ -45,6 +45,10 @@ class PIMixin(SimulationProblem):
     #: Check for duplicate parameters
     pi_check_for_duplicate_parameters = True
 
+    #: Do not include initial state in results. Especially useful when running
+    #: in closed loop.
+    pi_skip_initial_state_in_export = False
+
     # Default names for timeseries I/O
     timeseries_import_basename = 'timeseries_import'
     timeseries_export_basename = 'timeseries_export'
@@ -231,6 +235,12 @@ class PIMixin(SimulationProblem):
 
             # Add series to output file
             self.__timeseries_export.set(variable, values, unit=self.__timeseries_import.get_unit(variable))
+
+        if self.pi_skip_initial_state_in_export:
+            # Cut-off the initial state from the results
+            self.__timeseries_export.times = self.__timeseries_export.times[1:]
+            for k, v in self.__timeseries_export.items():
+                self.__timeseries_export.set(k, v[1:])
 
         # Write output file to disk
         self.__timeseries_export.write()

@@ -21,10 +21,9 @@ class Goal(metaclass=ABCMeta):
     """
     Base class for lexicographic goal programming goals.
 
-    A goal is defined by overriding the :func:`function` method, and setting at least the
-    ``function_range`` class variable.
+    A goal is defined by overriding the :func:`function` method.
 
-    :cvar function_range:   Range of goal function.  *Required*.
+    :cvar function_range:   Range of goal function.  *Required if a target is set*.
     :cvar function_nominal: Nominal value of function. Used for scaling.  Default is ``1``.
     :cvar target_min:       Desired lower bound for goal function.  Default is ``numpy.nan``.
     :cvar target_max:       Desired upper bound for goal function.  Default is ``numpy.nan``.
@@ -65,10 +64,21 @@ class Goal(metaclass=ABCMeta):
 
     Lower priority goals take precedence over higher priority goals.
 
-    Goals with the same priority are weighted off against each other in a
-    single objective function.
+    Goals with the same priority are weighted off against each other in a single objective function.
 
-    In the minimization goals, the function nominal is used to scale the function value in the objective function.
+    In goals where a target is set:
+        * The function range interval must be provided as this is used to introduce hard constrains on the value that
+          the function can take. If one is unsure about which value the function can take, it is recommended to
+          overestimate this interval. However, an overestimated interval will negatively influence how accurately the
+          target bounds are met.
+        * The target provided must be contained in the function range.
+        * The function nominal is used to scale the constraints.
+        * If both a target_min and a target_max are set, the target maximum must be at least equal to minimum one.
+
+    In minimization goals:
+        * The function range is not used and therefore cannot be set.
+        * The function nominal is used to scale the function value in the objective function. To ensure that all goals
+          are given a similar importance, it is crucial to provide an accurate estimate of this parameter.
 
     The goal violation value is taken to the order'th power in the objective function of the final
     optimization problem.

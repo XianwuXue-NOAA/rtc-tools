@@ -34,10 +34,8 @@ class MinimizeQpumpGoal(Goal):
     def function(self, optimization_problem, ensemble_member):
         return optimization_problem.integral('Q_pump')
 
-    # Every goal needs a rough (over)estimate (enclosure) of the range of the
-    # function defined above. The nominal is used to scale the value returned by
+    # The nominal is used to scale the value returned by
     # the function method so that the value is on the order of 1.
-    function_range = (0, 540000.0)
     function_nominal = 100.0
     # The lower the number returned by this function, the higher the priority.
     priority = 2
@@ -52,7 +50,6 @@ class MinimizeChangeInQpumpGoal(Goal):
     # step.
     def function(self, optimization_problem, ensemble_member):
         return optimization_problem.der('Q_pump')
-    function_range = (-10.0, 10.0)
     function_nominal = 5.0
     priority = 3
     # Default order is 2, but we want to be explicit

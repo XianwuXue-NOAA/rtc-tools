@@ -318,26 +318,45 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
 
         # Initialize empty lists, so that the overridden methods may be called outside of the goal programming loop,
         # for example in pre().
-        self.__subproblem_epsilons = []
-        self.__subproblem_path_epsilons = []
-        self.__subproblem_path_timeseries = []
         self.__subproblem_objectives = []
         self.__subproblem_constraints = []
         self.__subproblem_path_constraints = []
-
         self.__original_constant_input_keys = {}
+
+        # List useful with the 'keep_eps_variable' True option
+        self.__problem_path_timeseries = []
+        self.__problem_epsilons = []
+        self.__problem_path_epsilons = []
+        self.__list_subproblem_epsilons = []
+        self.__list_subproblem_path_epsilons = []
+        self.__old_subproblem_objectives = []
+        self.__old_subproblem_path_objectives = []
+        # List useful with the 'keep_eps_variable' False option
+        self.__subproblem_path_timeseries = []
+        self.__subproblem_epsilons = []
+        self.__subproblem_path_epsilons = []
+        # List useful with the 'linear_obj_eps' True option
+        self.__problem_epsilons_alias = []
+        self.__problem_path_epsilons_alias = []
+        self.__list_subproblem_epsilons_alias = []
+        self.__list_subproblem_path_epsilons_alias = []
+        self.__problem_constraint_epsilons_alias = []
+        self.__problem_path_constraint_epsilons_alias = []
 
     @property
     def extra_variables(self):
-        return self.__subproblem_epsilons
+        return self.__subproblem_epsilons + self.__problem_epsilons + self.__problem_epsilons_alias
 
     @property
     def path_variables(self):
-        return self.__subproblem_path_epsilons.copy()
+        return (self.__subproblem_path_epsilons.copy() + self.__problem_path_epsilons.copy()
+                + self.__problem_path_epsilons_alias.copy())
 
     def bounds(self):
         bounds = super().bounds()
-        for epsilon in self.__subproblem_epsilons + self.__subproblem_path_epsilons:
+        for epsilon in (self.__subproblem_epsilons + self.__subproblem_path_epsilons
+                        + self.__problem_epsilons + self.__problem_path_epsilons
+                        + self.__problem_epsilons_alias + self.__problem_path_epsilons_alias):
             bounds[epsilon.name()] = (0.0, 1.0)
         return bounds
 
@@ -354,10 +373,16 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
 
         # Append min/max timeseries to the constant inputs. Note that min/max
         # timeseries are shared between all ensemble members.
-        for (variable, value) in self.__subproblem_path_timeseries:
-            if not isinstance(value, Timeseries):
-                value = Timeseries(self.times(), np.full_like(self.times(), value))
-            constant_inputs[variable] = value
+        if self.goal_programming_options()['keep_eps_variable']:
+            for (variable, value) in self.__problem_path_timeseries:
+                if not isinstance(value, Timeseries):
+                    value = Timeseries(self.times(), np.full_like(self.times(), value))
+                constant_inputs[variable] = value
+        else:
+            for (variable, value) in self.__subproblem_path_timeseries:
+                if not isinstance(value, Timeseries):
+                    value = Timeseries(self.times(), np.full_like(self.times(), value))
+                constant_inputs[variable] = value
         return constant_inputs
 
     def seed(self, ensemble_member):
@@ -373,12 +398,14 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
                     # with the specified time stamps.
                     seed[key] = Timeseries(times, result)
 
-        # Seed epsilons
-        for epsilon in self.__subproblem_epsilons:
+        # Seed the current epsilon
+        for epsilon in (self.__subproblem_epsilons + self.__list_subproblem_epsilons
+                        + self.__list_subproblem_epsilons_alias):
             seed[epsilon.name()] = 1.0
 
         times = self.times()
-        for epsilon in self.__subproblem_path_epsilons:
+        for epsilon in (self.__subproblem_path_epsilons + self.__list_subproblem_path_epsilons
+                        + self.__list_subproblem_path_epsilons_alias):
             seed[epsilon.name()] = Timeseries(times, np.ones(len(times)))
 
         return seed
@@ -395,7 +422,7 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
         else:
             return ca.MX(0)
 
-    def path_objective(self, ensemble_member):
+    def __path_objective(self, ensemble_member):
         if len(self.__subproblem_path_objectives) > 0:
             acc_objective = ca.sum1(ca.vertcat(*[o(self, ensemble_member) for o in self.__subproblem_path_objectives]))
 
@@ -407,16 +434,62 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
         else:
             return ca.MX(0)
 
+    def path_objective(self, ensemble_member):
+        return self.__path_objective(ensemble_member)
+
     def constraints(self, ensemble_member):
         constraints = super().constraints(ensemble_member)
         for l in self.__subproblem_constraints[ensemble_member].values():
             constraints.extend(((constraint.function(self), constraint.min, constraint.max) for constraint in l))
+        if self.goal_programming_options()['keep_eps_variable']:
+            # Pareto optimality constraint for goals at previous priorities
+            if ensemble_member == 0:
+                for old_obj, val in self.__old_subproblem_objectives:
+                    expr = self.ensemble_member_probability(ensemble_member) * \
+                           ca.sum1(ca.vertcat(*[o(self, ensemble_member) for o in old_obj]))
+                    if self.goal_programming_options()['scale_by_problem_size'] and len(old_obj) > 0:
+                        expr /= len(old_obj)
+                    for iter_ens_memb in range(1, self.ensemble_size):
+                        expr_tmp = self.ensemble_member_probability(iter_ens_memb) * \
+                                    ca.sum1(ca.vertcat(*[o(self, iter_ens_memb) for o in old_obj]))
+                        if self.goal_programming_options()['scale_by_problem_size'] and len(old_obj) > 0:
+                            expr_tmp /= len(old_obj)
+                        expr += expr_tmp
+                    if expr.is_constant():
+                        pass
+                    else:
+                        constraints.append((expr - val, -np.inf, 0.0))
+            # Pareto optimality constraint for path goals at previous priorities
+            if ensemble_member == 0:
+                for old_obj, val in self.__old_subproblem_path_objectives:
+                    expr = self.ensemble_member_probability(ensemble_member) * \
+                           ca.sum1(self.map_path_expression(old_obj, ensemble_member))
+                    if self.goal_programming_options()['scale_by_problem_size']:
+                        expr /= len(old_obj) / len(self.times())
+                    for iter_ens_memb in range(1, self.ensemble_size):
+                        expr_tmp = self.ensemble_member_probability(iter_ens_memb) * \
+                                ca.sum1(self.map_path_expression(old_obj, ensemble_member))
+                        if self.goal_programming_options()['scale_by_problem_size']:
+                            expr_tmp /= len(old_obj) / len(self.times())
+                        expr += expr_tmp
+                    if expr.is_constant():
+                        pass
+                    else:
+                        constraints.append((expr - val, -np.inf, 0.0))
+            if self.goal_programming_options()['linear_obj_eps']:
+                # Epsilon alias constraints
+                for constraint_eps in self.__problem_constraint_epsilons_alias[ensemble_member]:
+                    constraints.append(constraint_eps(self, ensemble_member), -np.inf, 0.0)
         return constraints
 
     def path_constraints(self, ensemble_member):
         path_constraints = super().path_constraints(ensemble_member)
         for l in self.__subproblem_path_constraints[ensemble_member].values():
             path_constraints.extend(((constraint.function(self), constraint.min, constraint.max) for constraint in l))
+        if self.goal_programming_options()['linear_obj_eps']:
+            # Epsilon alias path constraints
+            for constraint_eps in self.__problem_path_constraint_epsilons_alias[ensemble_member]:
+                path_constraints.append((constraint_eps(self, ensemble_member), -np.inf, 0.0))
         return path_constraints
 
     def solver_options(self):
@@ -469,6 +542,10 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
         +---------------------------+-----------+---------------+
         | ``scale_by_problem_size`` | ``bool``  | ``False``     |
         +---------------------------+-----------+---------------+
+        | ``keep_eps_variable``     | ``bool``  | ``False``     |
+        +---------------------------+-----------+---------------+
+        | ``linear_obj_eps``        | ``bool``  | ``False``     |
+        +---------------------------+-----------+---------------+
 
         Constraints generated by the goal programming algorithm are relaxed by applying the
         specified relaxation. Use of this option is normally not required.
@@ -505,6 +582,27 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
         of path goals and the number of time steps. This will make sure the objectives are always in
         the range [0, 1], at the cost of solving each goal/time step less accurately.
 
+        The option ``keep_eps_variable`` controls how the epsilon variables introduced in the target
+        goals are dealt with in subsequent priorities.
+        If ``keep_eps_variable`` is set to False, each epsilon is replaced by its computed value and
+        those are used to derive a new set of constraints.
+        If ``keep_eps_variable`` is set to True, the epsilon are kept as variables and the constraints
+        are not modified. To ensure the goal programming philosophy, i.e., Pareto optimality, a single
+        constraint is added to enforce that the objective function must always be at most the objective
+        value. This method allows for a larger solution space, at the cost of having a (possibly) more complex
+        optimization problem. Indeed, more variables are kept around throughout the optimization and any
+        objective function is turned into a constraint for the subsequent priorities (while in the False
+        option this was the case only for the function of minimization goals).
+
+        Option ``linear_obj_eps``can be set to True only if ``keep_eps_variable`` is set to True
+        and all the minimization goals have order one.
+        If ``linear_obj_eps`` is set to True, the objective function constructed by the target goals
+        with order larger than one will be linearized by introducing alias epsilon variables.
+        For example, if the objective function is equal to eps_1^2 + eps_2^2, then it will become
+        eps*_1 + eps*_2 with the additional constraints eps_1^2 <= eps*_1 and eps_2^2 <= eps*_2.
+        This option should be used, e.g., in the case a solver can handle quadratically constrainted
+        problems but not quadratic objective function and quadratic constrainted problems.
+
         :returns: A dictionary of goal programming options.
         """
 
@@ -518,6 +616,8 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
         options['equality_threshold'] = 1e-8
         options['interior_distance'] = 1e-6
         options['scale_by_problem_size'] = False
+        options['keep_eps_variable'] = False
+        options['linear_obj_eps'] = False
 
         # Define temporary variable to avoid infinite loop between
         # solver_options and goal_programming_options.
@@ -818,6 +918,12 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
             except ValueError:
                 raise Exception("Priority of not int or castable to int for goal {}".format(goal))
 
+        options = self.goal_programming_options()
+        if not options['keep_eps_variable']:
+            if options['linear_obj_eps']:
+                raise Exception("The 'linear_obj_eps' option can be set to True only if "
+                                "the 'keep_eps_variable' option is also set to True")
+
         # Check consistency and monotonicity of goals. Scalar target min/max
         # of normal goals are also converted to arrays to unify checks with
         # path goals.
@@ -914,20 +1020,43 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
         self.__first_run = True
         self.__results_are_current = False
         self.__original_constant_input_keys = {}
+
+        if options['keep_eps_variable']:
+            # Expanding list of variables / objective functions
+            self.__problem_path_timeseries = []
+            self.__problem_epsilons = []
+            self.__problem_path_epsilons = []
+            self.__old_subproblem_objectives = []
+            self.__old_subproblem_path_objectives = []
+        if options['linear_obj_eps']:
+            # Expanding list of epsilon alias variables
+            self.__problem_constraint_epsilons_alias = [[] for ensemble_member in range(self.ensemble_size)]
+            self.__problem_path_constraint_epsilons_alias = [[] for ensemble_member in range(self.ensemble_size)]
+
         for i, (priority, goals, path_goals) in enumerate(subproblems):
             logger.info("Solving goals at priority {}".format(priority))
 
             # Call the pre priority hook
             self.priority_started(priority)
 
-            # Reset epsilons
-            self.__subproblem_epsilons = []
-            self.__subproblem_path_epsilons = []
-            self.__subproblem_path_timeseries = []
-
             # Reset objective function
             self.__subproblem_objectives = []
             self.__subproblem_path_objectives = []
+
+            if options['keep_eps_variable']:
+                # Reset list of epsilon variables of the current priority. Used to provide the correct seed
+                self.__list_subproblem_epsilons = []
+                self.__list_subproblem_path_epsilons = []
+            else:
+                # Reset list of epsilons and path_timeseries
+                self.__subproblem_epsilons = []
+                self.__subproblem_path_epsilons = []
+                self.__subproblem_path_timeseries = []
+
+            if options['linear_obj_eps']:
+                # Reset epsilon alias
+                self.__list_subproblem_epsilons_alias = []
+                self.__list_subproblem_path_epsilons_alias = []
 
             for j, goal in enumerate(goals):
                 if goal.critical:
@@ -935,26 +1064,53 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
                 else:
                     if goal.has_target_bounds:
                         epsilon = ca.MX.sym('eps_{}_{}'.format(i, j))
-                        self.__subproblem_epsilons.append(epsilon)
+                        if options['keep_eps_variable']:
+                            self.__problem_epsilons.append(epsilon)
+                            self.__list_subproblem_epsilons.append(epsilon)
+                            if options['linear_obj_eps'] and goal.order != 1:
+                                epsilon_alias = ca.MX.sym('eps_alias_{}_{}'.format(i, j))
+                                self.__problem_epsilons_alias.append(epsilon_alias)
+                                self.__list_subproblem_epsilons_alias.append(epsilon_alias)
+                        else:
+                            self.__subproblem_epsilons.append(epsilon)
 
                 if not goal.critical:
                     if goal.has_target_bounds:
-                        self.__subproblem_objectives.append(
-                            lambda problem, ensemble_member, goal=goal, epsilon=epsilon: (
-                                goal.weight * ca.constpow(
-                                    problem.extra_variable(epsilon.name(), ensemble_member=ensemble_member),
-                                    goal.order)))
+                        if options['linear_obj_eps'] and goal.order != 1:
+                            # If options['linear_obj_eps'] is set to True and the order is not one,
+                            # than the objective function is the linear sum of the epsilon alias variables
+                            self.__subproblem_objectives.append(
+                                lambda problem, ensemble_member, goal=goal, epsilon_alias=epsilon_alias: (
+                                        goal.weight * problem.extra_variable(epsilon_alias.name(),
+                                                                             ensemble_member=ensemble_member)))
+                        else:
+                            self.__subproblem_objectives.append(
+                                lambda problem, ensemble_member, goal=goal, epsilon=epsilon:
+                                (goal.weight * ca.constpow(problem.extra_variable(epsilon.name(),
+                                                                                  ensemble_member=ensemble_member),
+                                                           goal.order)))
                     else:
-                        self.__subproblem_objectives.append(
-                            lambda problem, ensemble_member, goal=goal: (
-                                goal.weight * ca.constpow(
-                                    goal.function(problem, ensemble_member) / goal.function_nominal,
-                                    goal.order)))
+                        if options['linear_obj_eps'] and goal.order != 1:
+                            raise Exception("If 'linear_obj_eps' is set to True than "
+                                            "all the minimization goals must have order one")
+                        else:
+                            self.__subproblem_objectives.append(lambda problem, ensemble_member, goal=goal: (
+                                    goal.weight * ca.constpow(goal.function(problem, ensemble_member)
+                                                              / goal.function_nominal, goal.order)))
 
                 if goal.has_target_bounds:
                     for ensemble_member in range(self.ensemble_size):
                         self.__add_goal_constraint(
                             goal, epsilon, ensemble_member, options)
+                        if options['linear_obj_eps'] and not goal.critical and goal.order != 1:
+                            # If 'linear_obj_eps' is set to True, the order is not one and the goal is not critical,
+                            # for each epsilon we add the constraint epsilon^order <= epsilon_alias
+                            self.__problem_constraint_epsilons_alias[ensemble_member].append(
+                                lambda problem, ensemble_member, goal=goal,
+                                epsilon=epsilon, epsilon_alias=epsilon_alias: (ca.constpow(
+                                    problem.extra_variable(epsilon.name(), ensemble_member=ensemble_member),
+                                    goal.order) - problem.extra_variable(epsilon_alias.name(),
+                                                                         ensemble_member=ensemble_member)))
 
             for j, goal in enumerate(path_goals):
                 if goal.critical:
@@ -962,7 +1118,15 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
                 else:
                     if goal.has_target_bounds:
                         epsilon = ca.MX.sym('path_eps_{}_{}'.format(i, j))
-                        self.__subproblem_path_epsilons.append(epsilon)
+                        if options['keep_eps_variable']:
+                            self.__problem_path_epsilons.append(epsilon)
+                            self.__list_subproblem_path_epsilons.append(epsilon)
+                            if options['linear_obj_eps'] and goal.order != 1:
+                                epsilon_alias = ca.MX.sym('path_eps_alias_{}_{}'.format(i, j))
+                                self.__problem_path_epsilons_alias.append(epsilon_alias)
+                                self.__list_subproblem_path_epsilons_alias.append(epsilon_alias)
+                        else:
+                            self.__subproblem_path_epsilons.append(epsilon)
 
                 if goal.has_target_min:
                     min_series = 'path_min_{}_{}'.format(i, j)
@@ -977,8 +1141,10 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
                     else:
                         target_min = goal.target_min
 
-                    self.__subproblem_path_timeseries.append(
-                        (min_series, target_min))
+                    if options['keep_eps_variable']:
+                        self.__problem_path_timeseries.append((min_series, target_min))
+                    else:
+                        self.__subproblem_path_timeseries.append((min_series, target_min))
                 else:
                     min_series = None
                 if goal.has_target_max:
@@ -994,30 +1160,55 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
                     else:
                         target_max = goal.target_max
 
-                    self.__subproblem_path_timeseries.append(
-                        (max_series, target_max))
+                    if options['keep_eps_variable']:
+                        self.__problem_path_timeseries.append((max_series, target_max))
+                    else:
+                        self.__subproblem_path_timeseries.append((max_series, target_max))
+
                 else:
                     max_series = None
 
                 if not goal.critical:
                     if goal.has_target_bounds:
-                        scale_fac = 1.0 / len(self.times()) if options['scale_by_problem_size'] else 1.0
-                        self.__subproblem_objectives.append(
-                            lambda problem, ensemble_member, goal=goal, epsilon=epsilon, scale_fac=scale_fac: (
-                                goal.weight * scale_fac * ca.sum1(ca.constpow(
+                        if options['linear_obj_eps'] and goal.order != 1:
+                            # If 'linear_obj_eps' is set to True and the order is not one, than the objective
+                            # function is the linear sum of the epsilon alias variables
+                            self.__subproblem_objectives.append(
+                                lambda problem, ensemble_member, goal=goal, epsilon_alias=epsilon_alias: (
+                                        goal.weight * ca.sum1(problem.state_vector(epsilon_alias.name(),
+                                                                                   ensemble_member=ensemble_member))))
+                        else:
+                            self.__subproblem_objectives.append(
+                                lambda problem, ensemble_member, goal=goal, epsilon=epsilon:
+                                (goal.weight * ca.sum1(ca.constpow(
                                     problem.state_vector(epsilon.name(), ensemble_member=ensemble_member),
                                     goal.order))))
                     else:
-                        self.__subproblem_path_objectives.append(
-                            lambda problem, ensemble_member, goal=goal: (
-                                goal.weight * ca.constpow(
-                                    goal.function(problem, ensemble_member) / goal.function_nominal,
-                                    goal.order)))
+                        if options['linear_obj_eps'] and goal.order != 1:
+                            raise Exception("If 'linear_obj_eps' is set to True than "
+                                            "all the minimization goals must have order one")
+                        else:
+                            self.__subproblem_path_objectives.append(
+                                lambda problem, ensemble_member, goal=goal: (goal.weight * ca.constpow(
+                                    goal.function(problem, ensemble_member) / goal.function_nominal, goal.order)))
 
                 if goal.has_target_bounds:
                     for ensemble_member in range(self.ensemble_size):
                         self.__add_path_goal_constraint(
                             goal, epsilon, ensemble_member, options, min_series, max_series)
+                        if options['linear_obj_eps'] and not goal.critical and goal.order != 1:
+                            # If 'linear_obj_eps' is set to True, the order is not one and the goal is not critical,
+                            # for each epsilon we add the constraint epsilon^order <= epsilon_alias
+                            self.__problem_path_constraint_epsilons_alias[ensemble_member].append(
+                                lambda problem, ensemble_member, goal=goal,
+                                epsilon=epsilon, epsilon_alias=epsilon_alias:
+                                (ca.constpow(problem.variable(epsilon.name()), goal.order) -
+                                 problem.variable(epsilon_alias.name())))
+
+            # Check no intersection between 'keep_eps_variable' option True vs False
+            assert not (len(self.__problem_path_timeseries) != 0 and len(self.__subproblem_path_timeseries) != 0)
+            assert not (len(self.__problem_epsilons) != 0 and len(self.__subproblem_epsilons) != 0)
+            assert not (len(self.__problem_path_epsilons) != 0 and len(self.__subproblem_path_epsilons) != 0)
 
             # Solve subproblem
             success = super().optimize(
@@ -1038,123 +1229,169 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
             # logged/inspected.
             self.priority_completed(priority)
 
-            # Re-add constraints, this time with epsilon values fixed
-            for ensemble_member in range(self.ensemble_size):
-                for j, goal in enumerate(goals):
-                    if goal.critical:
-                        continue
+            if options['keep_eps_variable']:
+                # Extract information about the objective value, this is used for the Pareto optimality constraint.
+                # We only retain information about the objective functions defined through the goal framework as user
+                # define objective functions may relay on local variables.
+                if len(self.__subproblem_objectives) > 0:
+                    for ensemble_member in range(self.ensemble_size):
+                        if ensemble_member == 0:
+                            expr = self.ensemble_member_probability(ensemble_member) * \
+                                   ca.sum1(ca.vertcat(*[o(self, ensemble_member)
+                                                        for o in self.__subproblem_objectives]))
+                            if options['scale_by_problem_size']:
+                                expr /= len(self.__subproblem_objectives)
+                        else:
+                            expr_tmp = self.ensemble_member_probability(ensemble_member) * \
+                                    ca.sum1(ca.vertcat(*[o(self, ensemble_member)
+                                                         for o in self.__subproblem_objectives]))
+                            if options['scale_by_problem_size']:
+                                expr_tmp /= len(self.__subproblem_objectives)
+                            expr += expr_tmp
+                    f = ca.Function('tmp', [self.solver_input], [expr])
+                    val = float(f(self.solver_output))
+                    # Add a relaxation to avoid infeasibility issues arising from tolerance settings
+                    val += self.goal_programming_options()['constraint_relaxation']
+                    self.__old_subproblem_objectives.append((self.__subproblem_objectives.copy(), val))
 
-                    if (
-                            not goal.has_target_bounds or
-                            goal.violation_timeseries_id is not None or
-                            goal.function_value_timeseries_id is not None
-                            ):
-                        f = ca.Function('f', [self.solver_input], [goal.function(self, ensemble_member)])
-                        function_value = float(f(self.solver_output))
+                # Extract information about the objective value, this is used for the Pareto optimality constraint.
+                if len(self.__subproblem_path_objectives) > 0:
+                    for ensemble_member in range(self.ensemble_size):
+                        if ensemble_member == 0:
+                            expr = self.ensemble_member_probability(ensemble_member) * ca.sum1(self.map_path_expression(
+                                self.__path_objective(ensemble_member), ensemble_member))
+                            if options['scale_by_problem_size']:
+                                expr /= len(self.__subproblem_path_objectives) / len(self.times())
+                        else:
+                            expr_tmp = self.ensemble_member_probability(ensemble_member)\
+                                       * ca.sum1(self.map_path_expression(self.__path_objective(ensemble_member),
+                                                                          ensemble_member))
+                            if options['scale_by_problem_size']:
+                                expr_tmp /= len(self.__subproblem_path_objectives) / len(self.times())
+                            expr += expr_tmp
+                    f = ca.Function('tmp', [self.solver_input], [expr])
+                    val = float(f(self.solver_output))
+                    # Add a relaxation to avoid infeasibility issues arising from tolerance settings
+                    val += self.goal_programming_options()['constraint_relaxation']
+                    self.__old_subproblem_path_objectives.append((self.__path_objective(ensemble_member), val))
+            else:
+                # Re-add constraints, this time with epsilon values fixed
+                for ensemble_member in range(self.ensemble_size):
+                    for j, goal in enumerate(goals):
+                        if goal.critical:
+                            continue
 
-                        # Store results
-                        if goal.function_value_timeseries_id is not None:
-                            self.set_timeseries(
-                                goal.function_value_timeseries_id,
-                                np.full_like(times, function_value), ensemble_member)
+                        if (
+                                not goal.has_target_bounds or
+                                goal.violation_timeseries_id is not None or
+                                goal.function_value_timeseries_id is not None
+                                ):
+                            f = ca.Function('f', [self.solver_input], [goal.function(self, ensemble_member)])
+                            function_value = float(f(self.solver_output))
 
-                    if goal.has_target_bounds:
-                        epsilon = self.__results[ensemble_member][
-                            'eps_{}_{}'.format(i, j)]
+                            # Store results
+                            if goal.function_value_timeseries_id is not None:
+                                self.set_timeseries(
+                                    goal.function_value_timeseries_id,
+                                    np.full_like(times, function_value), ensemble_member)
 
-                        # Store results
-                        # TODO tolerance
-                        if goal.violation_timeseries_id is not None:
-                            epsilon_active = epsilon
-                            w = True
-                            w &= (not goal.has_target_min or
-                                  function_value / goal.function_nominal >
-                                  goal.target_min / goal.function_nominal + options['interior_distance'])
-                            w &= (not goal.has_target_max or
-                                  function_value / goal.function_nominal <
-                                  goal.target_max / goal.function_nominal - options['interior_distance'])
-                            if w:
-                                epsilon_active = np.nan
-                            self.set_timeseries(
-                                goal.violation_timeseries_id,
-                                np.full_like(times, epsilon_active), ensemble_member)
+                        if goal.has_target_bounds:
+                            epsilon = self.__results[ensemble_member][
+                                'eps_{}_{}'.format(i, j)]
 
-                        # Add a relaxation to appease the barrier method.
-                        epsilon += options['constraint_relaxation']
-                    else:
-                        epsilon = function_value
+                            # Store results
+                            # TODO tolerance
+                            if goal.violation_timeseries_id is not None:
+                                epsilon_active = epsilon
+                                w = True
+                                w &= (not goal.has_target_min or
+                                      function_value / goal.function_nominal >
+                                      goal.target_min / goal.function_nominal + options['interior_distance'])
+                                w &= (not goal.has_target_max or
+                                      function_value / goal.function_nominal <
+                                      goal.target_max / goal.function_nominal - options['interior_distance'])
+                                if w:
+                                    epsilon_active = np.nan
+                                self.set_timeseries(
+                                    goal.violation_timeseries_id,
+                                    np.full_like(times, epsilon_active), ensemble_member)
 
-                    # Add inequality constraint
-                    self.__add_goal_constraint(
-                        goal, epsilon, ensemble_member, options)
+                            # Add a relaxation to appease the barrier method.
+                            epsilon += options['constraint_relaxation']
+                        else:
+                            epsilon = function_value
 
-                # Handle path goal function evaluation in a grouped manner to
-                # save time with the call map_path_expression(). Repeated
-                # calls will make repeated CasADi Function objects, which can
-                # be slow.
-                goal_path_functions = OrderedDict()
-                for j, goal in enumerate(path_goals):
-                    if (
-                            not goal.has_target_bounds or
-                            goal.violation_timeseries_id is not None or
-                            goal.function_value_timeseries_id is not None
-                            ):
-                        goal_path_functions[j] = goal.function(self, ensemble_member)
+                        # Add inequality constraint
+                        self.__add_goal_constraint(
+                            goal, epsilon, ensemble_member, options)
 
-                expr = self.map_path_expression(ca.vertcat(*goal_path_functions.values()), ensemble_member)
-                f = ca.Function('f', [self.solver_input], [expr])
-                raw_function_values = np.array(f(self.solver_output))
-                goal_function_values = {k: raw_function_values[:, i].ravel()
-                                        for i, k in enumerate(goal_path_functions.keys())}
+                    # Handle path goal function evaluation in a grouped manner to
+                    # save time with the call map_path_expression(). Repeated
+                    # calls will make repeated CasADi Function objects, which can
+                    # be slow.
+                    goal_path_functions = OrderedDict()
+                    for j, goal in enumerate(path_goals):
+                        if (
+                                not goal.has_target_bounds or
+                                goal.violation_timeseries_id is not None or
+                                goal.function_value_timeseries_id is not None
+                                ):
+                            goal_path_functions[j] = goal.function(self, ensemble_member)
 
-                for j, goal in enumerate(path_goals):
-                    if goal.critical:
-                        continue
+                    expr = self.map_path_expression(ca.vertcat(*goal_path_functions.values()), ensemble_member)
+                    f = ca.Function('f', [self.solver_input], [expr])
+                    raw_function_values = np.array(f(self.solver_output))
+                    goal_function_values = {k: raw_function_values[:, i].ravel()
+                                            for i, k in enumerate(goal_path_functions.keys())}
 
-                    if j in goal_function_values:
-                        function_value = goal_function_values[j]
+                    for j, goal in enumerate(path_goals):
+                        if goal.critical:
+                            continue
 
-                        # Store results
-                        if goal.function_value_timeseries_id is not None:
-                            self.set_timeseries(goal.function_value_timeseries_id, function_value, ensemble_member)
+                        if j in goal_function_values:
+                            function_value = goal_function_values[j]
 
-                    if goal.has_target_bounds:
-                        epsilon = self.__results[ensemble_member][
-                            'path_eps_{}_{}'.format(i, j)]
+                            # Store results
+                            if goal.function_value_timeseries_id is not None:
+                                self.set_timeseries(goal.function_value_timeseries_id, function_value, ensemble_member)
 
-                        # Store results
-                        if goal.violation_timeseries_id is not None:
-                            epsilon_active = np.copy(epsilon)
-                            m = goal.target_min
-                            if isinstance(m, Timeseries):
-                                m = self.interpolate(times, goal.target_min.times, goal.target_min.values)
-                            M = goal.target_max
-                            if isinstance(M, Timeseries):
-                                M = self.interpolate(times, goal.target_max.times, goal.target_max.values)
-                            w = np.ones_like(times)
-                            if goal.has_target_min:
-                                w = np.logical_and(
-                                    w, np.logical_or(
-                                        np.logical_not(np.isfinite(m)),
-                                        function_value / goal.function_nominal >
-                                        m / goal.function_nominal + options['interior_distance']))
-                            if goal.has_target_max:
-                                w = np.logical_and(
-                                    w, np.logical_or(
-                                        np.logical_not(np.isfinite(M)),
-                                        function_value / goal.function_nominal <
-                                        M / goal.function_nominal - options['interior_distance']))
-                            epsilon_active[w] = np.nan
-                            self.set_timeseries(goal.violation_timeseries_id, epsilon_active, ensemble_member)
+                        if goal.has_target_bounds:
+                            epsilon = self.__results[ensemble_member][
+                                'path_eps_{}_{}'.format(i, j)]
 
-                        # Add a relaxation to appease the barrier method.
-                        epsilon += options['constraint_relaxation']
-                    else:
-                        epsilon = function_value
+                            # Store results
+                            if goal.violation_timeseries_id is not None:
+                                epsilon_active = np.copy(epsilon)
+                                m = goal.target_min
+                                if isinstance(m, Timeseries):
+                                    m = self.interpolate(times, goal.target_min.times, goal.target_min.values)
+                                M = goal.target_max
+                                if isinstance(M, Timeseries):
+                                    M = self.interpolate(times, goal.target_max.times, goal.target_max.values)
+                                w = np.ones_like(times)
+                                if goal.has_target_min:
+                                    w = np.logical_and(
+                                        w, np.logical_or(
+                                            np.logical_not(np.isfinite(m)),
+                                            function_value / goal.function_nominal >
+                                            m / goal.function_nominal + options['interior_distance']))
+                                if goal.has_target_max:
+                                    w = np.logical_and(
+                                        w, np.logical_or(
+                                            np.logical_not(np.isfinite(M)),
+                                            function_value / goal.function_nominal <
+                                            M / goal.function_nominal - options['interior_distance']))
+                                epsilon_active[w] = np.nan
+                                self.set_timeseries(goal.violation_timeseries_id, epsilon_active, ensemble_member)
 
-                    # Add inequality constraint
-                    self.__add_path_goal_constraint(
-                        goal, epsilon, ensemble_member, options)
+                            # Add a relaxation to appease the barrier method.
+                            epsilon += options['constraint_relaxation']
+                        else:
+                            epsilon = function_value
+
+                        # Add inequality constraint
+                        self.__add_path_goal_constraint(
+                            goal, epsilon, ensemble_member, options)
 
         logger.info("Done goal programming")
 

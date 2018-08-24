@@ -461,7 +461,7 @@ class OptimizationProblem(metaclass=ABCMeta):
 
         :returns: An :class:`MX` object representing F in the initial equation F = 0.
         """
-        return ca.MX()
+        return ca.MX(0)
 
     def seed(self, ensemble_member: int) -> AliasDict:
         """
@@ -491,7 +491,7 @@ class OptimizationProblem(metaclass=ABCMeta):
                 return self.state_at('x', times[-1], ensemble_member)
 
         """
-        return ca.MX()
+        return ca.MX(0)
 
     def path_objective(self, ensemble_member: int) -> ca.MX:
         """
@@ -513,7 +513,7 @@ class OptimizationProblem(metaclass=ABCMeta):
                 return self.state('x')
 
         """
-        return ca.MX()
+        return ca.MX(0)
 
     def constraints(self, ensemble_member: int) -> List[
             Tuple[ca.MX, Union[float, np.ndarray], Union[float, np.ndarray]]]:

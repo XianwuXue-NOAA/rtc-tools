@@ -393,7 +393,7 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
             acc_objective = ca.sum1(ca.vertcat(*[o(self, ensemble_member) for o in self.__subproblem_path_objectives]))
 
             if self.goal_programming_options()['scale_by_problem_size']:
-                acc_objective = acc_objective / len(self.__subproblem_objectives) / len(self.times())
+                acc_objective = acc_objective / len(self.__subproblem_path_objectives) / len(self.times())
 
             return acc_objective
         else:

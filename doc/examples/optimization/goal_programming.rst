@@ -105,9 +105,8 @@ this goal, called a ``StateGoal``:
   :lineno-match:
 
 We also want to save energy, so we define a goal to minimize the integral of
-``Q_pump``. This goal has a lower priority than the water level range goal. With
-non-path goals, the function range must be large enough to enclose the integral
-of the variable over all the timesteps. This goal does not use a helper class:
+``Q_pump``. This goal has a lower priority than the water level range goal.
+This goal does not use a helper class:
 
 .. literalinclude:: ../../../examples/goal_programming/src/example.py
   :language: python

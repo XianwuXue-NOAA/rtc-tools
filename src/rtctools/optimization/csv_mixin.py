@@ -169,7 +169,7 @@ class CSVMixin(OptimizationProblem):
                     if self.__timeseries_times_sec[i + 1] - self.__timeseries_times_sec[i] != dt:
                         raise Exception(
                             'CSVMixin: Expecting equidistant timeseries, the time step towards '
-                            '{} is not the same as the time step(s) before. Set equidistant=False '
+                            '{} is not the same as the time step(s) before. Set csv_equidistant = False '
                             'if this is intended.'.format(self.__timeseries_times[i + 1]))
 
     def times(self, variable=None):

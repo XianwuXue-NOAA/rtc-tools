@@ -291,8 +291,8 @@ class StateGoal(Goal, metaclass=ABCMeta):
         return optimization_problem.state(self.state)
 
     def __repr__(self):
-        return '{}(priority={}, state={}, target_min={}, target_max={})'.format(
-            self.__class__, self.priority, self.state, self.target_min, self.target_max)
+        return '{}(priority={}, state={}, target_min={}, target_max={}, function_range={})'.format(
+            self.__class__, self.priority, self.state, self.target_min, self.target_max, self.function_range)
 
 
 class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):

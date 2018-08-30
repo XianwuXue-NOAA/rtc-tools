@@ -318,20 +318,7 @@ class ModelicaMixin(OptimizationProblem):
     @property
     @cached
     def alias_relation(self):
-        # Initialize aliases
-        alias_relation = AliasRelation()
-        for v in itertools.chain(
-                self.__pymoca_model.states,
-                self.__pymoca_model.der_states,
-                self.__pymoca_model.alg_states,
-                self.__pymoca_model.inputs):
-            for alias in v.aliases:
-                alias_relation.add(v.symbol.name(), alias)
-                if logger.getEffectiveLevel() == logging.DEBUG:
-                    logger.debug("ModelicaMixin: Aliased {} to {}".format(
-                        v.symbol.name(), alias))
-
-        return alias_relation
+        return self.__pymoca_model.alias_relation
 
     @property
     @cached

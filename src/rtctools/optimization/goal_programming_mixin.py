@@ -452,9 +452,12 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
                     expr += ca.sum1(self.map_path_expression(self.__path_objective(old_path_objs, ensemble_member),
                                                              ensemble_member))
                     tot_expr += self.ensemble_member_probability(ensemble_member) * expr
-                # Add a relaxation to the value
-                val += self.goal_programming_options()['constraint_relaxation']
-                constraints.append((tot_expr, -np.inf, val))
+                if self.goal_programming_options()['fix_minimized_values']:
+                    constraints.append((tot_expr, val, val))
+                else:
+                    # Add a relaxation to the value
+                    val += self.goal_programming_options()['constraint_relaxation']
+                    constraints.append((tot_expr, -np.inf, val))
             if self.goal_programming_options()['linear_obj_eps']:
                 # Epsilon alias constraints
                 for constraint_eps in self.__problem_constraint_epsilons_alias[ensemble_member]:

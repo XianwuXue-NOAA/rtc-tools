@@ -324,13 +324,12 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
         self.__original_constant_input_keys = {}
 
         # List useful with the 'keep_eps_variable' True option
+        self.__old_objective_functions = []
         self.__problem_path_timeseries = []
         self.__problem_epsilons = []
         self.__problem_path_epsilons = []
         self.__list_subproblem_epsilons = []
         self.__list_subproblem_path_epsilons = []
-        self.__old_subproblem_objectives = []
-        self.__old_subproblem_path_objectives = []
         # List useful with the 'keep_eps_variable' False option
         self.__subproblem_path_timeseries = []
         self.__subproblem_epsilons = []
@@ -410,9 +409,9 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
 
         return seed
 
-    def objective(self, ensemble_member):
-        if len(self.__subproblem_objectives) > 0:
-            acc_objective = ca.sum1(ca.vertcat(*[o(self, ensemble_member) for o in self.__subproblem_objectives]))
+    def __objective(self, subproblem_objectives, ensemble_member):
+        if len(subproblem_objectives) > 0:
+            acc_objective = ca.sum1(ca.vertcat(*[o(self, ensemble_member) for o in subproblem_objectives]))
 
             if self.goal_programming_options()['scale_by_problem_size']:
                 n_objectives = len(self.__subproblem_objectives) + len(self.__subproblem_path_objectives)
@@ -422,9 +421,12 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
         else:
             return ca.MX(0)
 
-    def __path_objective(self, ensemble_member):
-        if len(self.__subproblem_path_objectives) > 0:
-            acc_objective = ca.sum1(ca.vertcat(*[o(self, ensemble_member) for o in self.__subproblem_path_objectives]))
+    def objective(self, ensemble_member):
+        return self.__objective(self.__subproblem_objectives, ensemble_member)
+
+    def __path_objective(self, subproblem_path_objectives, ensemble_member):
+        if len(subproblem_path_objectives) > 0:
+            acc_objective = ca.sum1(ca.vertcat(*[o(self, ensemble_member) for o in subproblem_path_objectives]))
 
             if self.goal_programming_options()['scale_by_problem_size']:
                 n_objectives = len(self.__subproblem_objectives) + len(self.__subproblem_path_objectives)
@@ -435,47 +437,24 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
             return ca.MX(0)
 
     def path_objective(self, ensemble_member):
-        return self.__path_objective(ensemble_member)
+        return self.__path_objective(self.__subproblem_path_objectives, ensemble_member)
 
     def constraints(self, ensemble_member):
         constraints = super().constraints(ensemble_member)
         for l in self.__subproblem_constraints[ensemble_member].values():
             constraints.extend(((constraint.function(self), constraint.min, constraint.max) for constraint in l))
         if self.goal_programming_options()['keep_eps_variable']:
-            # Pareto optimality constraint for goals at previous priorities
-            if ensemble_member == 0:
-                for old_obj, val in self.__old_subproblem_objectives:
-                    expr = self.ensemble_member_probability(ensemble_member) * \
-                           ca.sum1(ca.vertcat(*[o(self, ensemble_member) for o in old_obj]))
-                    if self.goal_programming_options()['scale_by_problem_size'] and len(old_obj) > 0:
-                        expr /= len(old_obj)
-                    for iter_ens_memb in range(1, self.ensemble_size):
-                        expr_tmp = self.ensemble_member_probability(iter_ens_memb) * \
-                                    ca.sum1(ca.vertcat(*[o(self, iter_ens_memb) for o in old_obj]))
-                        if self.goal_programming_options()['scale_by_problem_size'] and len(old_obj) > 0:
-                            expr_tmp /= len(old_obj)
-                        expr += expr_tmp
-                    if expr.is_constant():
-                        pass
-                    else:
-                        constraints.append((expr - val, -np.inf, 0.0))
-            # Pareto optimality constraint for path goals at previous priorities
-            if ensemble_member == 0:
-                for old_obj, val in self.__old_subproblem_path_objectives:
-                    expr = self.ensemble_member_probability(ensemble_member) * \
-                           ca.sum1(self.map_path_expression(old_obj, ensemble_member))
-                    if self.goal_programming_options()['scale_by_problem_size']:
-                        expr /= len(old_obj) / len(self.times())
-                    for iter_ens_memb in range(1, self.ensemble_size):
-                        expr_tmp = self.ensemble_member_probability(iter_ens_memb) * \
-                                ca.sum1(self.map_path_expression(old_obj, ensemble_member))
-                        if self.goal_programming_options()['scale_by_problem_size']:
-                            expr_tmp /= len(old_obj) / len(self.times())
-                        expr += expr_tmp
-                    if expr.is_constant():
-                        pass
-                    else:
-                        constraints.append((expr - val, -np.inf, 0.0))
+            # Pareto optimality constraint for minimization goals
+            for old_objs, old_path_objs, val in self.__old_objective_functions:
+                tot_expr = 0.0
+                for ensemble_member in range(self.ensemble_size):
+                    expr = self.__objective(old_objs, ensemble_member)
+                    expr += ca.sum1(self.map_path_expression(self.__path_objective(old_path_objs, ensemble_member),
+                                                             ensemble_member))
+                    tot_expr += self.ensemble_member_probability(ensemble_member) * expr
+                # Add a relaxation to the value
+                val += self.goal_programming_options()['constraint_relaxation']
+                constraints.append((tot_expr, -np.inf, val))
             if self.goal_programming_options()['linear_obj_eps']:
                 # Epsilon alias constraints
                 for constraint_eps in self.__problem_constraint_epsilons_alias[ensemble_member]:
@@ -1023,11 +1002,10 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
 
         if options['keep_eps_variable']:
             # Expanding list of variables / objective functions
+            self.__old_objective_functions = []
             self.__problem_path_timeseries = []
             self.__problem_epsilons = []
             self.__problem_path_epsilons = []
-            self.__old_subproblem_objectives = []
-            self.__old_subproblem_path_objectives = []
         if options['linear_obj_eps']:
             # Expanding list of epsilon alias variables
             self.__problem_constraint_epsilons_alias = [[] for ensemble_member in range(self.ensemble_size)]
@@ -1233,47 +1211,16 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
                 # Extract information about the objective value, this is used for the Pareto optimality constraint.
                 # We only retain information about the objective functions defined through the goal framework as user
                 # define objective functions may relay on local variables.
-                if len(self.__subproblem_objectives) > 0:
-                    for ensemble_member in range(self.ensemble_size):
-                        if ensemble_member == 0:
-                            expr = self.ensemble_member_probability(ensemble_member) * \
-                                   ca.sum1(ca.vertcat(*[o(self, ensemble_member)
-                                                        for o in self.__subproblem_objectives]))
-                            if options['scale_by_problem_size']:
-                                expr /= len(self.__subproblem_objectives)
-                        else:
-                            expr_tmp = self.ensemble_member_probability(ensemble_member) * \
-                                    ca.sum1(ca.vertcat(*[o(self, ensemble_member)
-                                                         for o in self.__subproblem_objectives]))
-                            if options['scale_by_problem_size']:
-                                expr_tmp /= len(self.__subproblem_objectives)
-                            expr += expr_tmp
+                val = 0.0
+                for ensemble_member in range(self.ensemble_size):
+                    expr = self.__objective(self.__subproblem_objectives, ensemble_member)
+                    expr += ca.sum1(self.map_path_expression(self.__path_objective(self.__subproblem_path_objectives,
+                                                                                   ensemble_member), ensemble_member))
                     f = ca.Function('tmp', [self.solver_input], [expr])
-                    val = float(f(self.solver_output))
-                    # Add a relaxation to avoid infeasibility issues arising from tolerance settings
-                    val += self.goal_programming_options()['constraint_relaxation']
-                    self.__old_subproblem_objectives.append((self.__subproblem_objectives.copy(), val))
+                    val += self.ensemble_member_probability(ensemble_member) * float(f(self.solver_output))
 
-                # Extract information about the objective value, this is used for the Pareto optimality constraint.
-                if len(self.__subproblem_path_objectives) > 0:
-                    for ensemble_member in range(self.ensemble_size):
-                        if ensemble_member == 0:
-                            expr = self.ensemble_member_probability(ensemble_member) * ca.sum1(self.map_path_expression(
-                                self.__path_objective(ensemble_member), ensemble_member))
-                            if options['scale_by_problem_size']:
-                                expr /= len(self.__subproblem_path_objectives) / len(self.times())
-                        else:
-                            expr_tmp = self.ensemble_member_probability(ensemble_member)\
-                                       * ca.sum1(self.map_path_expression(self.__path_objective(ensemble_member),
-                                                                          ensemble_member))
-                            if options['scale_by_problem_size']:
-                                expr_tmp /= len(self.__subproblem_path_objectives) / len(self.times())
-                            expr += expr_tmp
-                    f = ca.Function('tmp', [self.solver_input], [expr])
-                    val = float(f(self.solver_output))
-                    # Add a relaxation to avoid infeasibility issues arising from tolerance settings
-                    val += self.goal_programming_options()['constraint_relaxation']
-                    self.__old_subproblem_path_objectives.append((self.__path_objective(ensemble_member), val))
+                self.__old_objective_functions.append((self.__subproblem_objectives.copy(),
+                                                       self.__subproblem_path_objectives.copy(), val))
             else:
                 # Re-add constraints, this time with epsilon values fixed
                 for ensemble_member in range(self.ensemble_size):

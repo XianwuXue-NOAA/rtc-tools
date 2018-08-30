@@ -433,20 +433,6 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
         else:
             return ca.MX(0)
 
-    # def objective(self, ensemble_member):
-    #     if len(self.__subproblem_objectives) > 0:
-    #         acc_objective = ca.sum1(ca.vertcat(*[o(self, ensemble_member) for o in self.__subproblem_objectives]))
-    #         return acc_objective / len(self.__subproblem_objectives)
-    #     else:
-    #         return ca.MX(0)
-
-    # def path_objective(self, ensemble_member):
-    #     if len(self.__subproblem_path_objectives) > 0:
-    #         acc_objective = ca.sum1(ca.vertcat(*[o(self, ensemble_member) for o in self.__subproblem_path_objectives]))
-    #         return acc_objective / len(self.__subproblem_path_objectives)
-    #     else:
-    #         return ca.MX(0)
-
     def constraints(self, ensemble_member):
         constraints = super().constraints(ensemble_member)
         for l in self.__subproblem_constraints[ensemble_member].values():
@@ -868,14 +854,12 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
         # Validate goal definitions
         for goal in itertools.chain(goals, path_goals):
 
-            if isinstance(goal.function_range, np.ndarray):
+            m, M = goal.function_range
+
+            if isinstance(m, np.ndarray):
                 # The function range should not be a symbolic expression
-                assert np.issubdtype(goal.function_range, np.number)
-
-                m, M = goal.function_range[:, 0], goal.function_range[:, 1]
+                assert np.issubdtype(m.dtype, np.number)
             else:
-                m, M = goal.function_range
-
                 # The function range should not be a symbolic expression
                 assert (not isinstance(m, ca.MX) or m.is_constant())
                 assert (not isinstance(M, ca.MX) or M.is_constant())
@@ -921,6 +905,7 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
                     fk_goal_map = {}
 
                     for goal in sorted_goals:
+                        # TODO(Tjerk): Handle vector goals
                         fk = goal.get_function_key(self, e)
                         prev = fk_goal_map.get(fk)
                         fk_goal_map[fk] = goal
@@ -948,6 +933,9 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
             for goal in sorted_goals:
                 goal_m, goal_M = self.__min_max_arrays(goal)
 
+                assert goal_m.ndim == 2
+                assert goal_M.ndim == 2
+
                 if goal.has_target_min and goal.has_target_max:
                     indices = np.where(np.logical_not(np.logical_or(
                         np.isnan(goal_m), np.isnan(goal_M))))
@@ -957,13 +945,19 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
 
                 if goal.has_target_min:
                     indices = np.where(np.logical_not(np.isnan(goal_m)))
-                    if np.any(goal_m[indices] <= goal.function_range[0]):
+                    frange_m = goal.function_range[0]
+                    if isinstance(frange_m, np.ndarray):
+                        frange_m = frange_m[indices[0]]
+                    if np.any(goal_m[indices] <= frange_m):
                         raise Exception(
                             'Target minimum should be greater than the lower bound of the function range for goal {}'
                             .format(goal))
                 if goal.has_target_max:
                     indices = np.where(np.logical_not(np.isnan(goal_M)))
-                    if np.any(goal_M[indices] >= goal.function_range[1]):
+                    frange_M = goal.function_range[1]
+                    if isinstance(frange_M, np.ndarray):
+                        frange_M = frange_M[indices[0]]
+                    if np.any(goal_M[indices] >= frange_M):
                         raise Exception(
                             'Target maximum should be smaller than the upper bound of the function range for goal {}'
                             .format(goal))

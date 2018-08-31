@@ -293,23 +293,28 @@ class ModelicaMixin(OptimizationProblem):
 
         # Load seeds
         for var in itertools.chain(self.__pymoca_model.states, self.__pymoca_model.alg_states):
-            start = ca.MX(var.start)
-            if not var.fixed and not start.is_zero():
-                # If start contains symbolics, try substituting parameter values
-                if not start.is_constant():
-                    [start] = substitute_in_external([start], self.__mx['parameters'], parameter_values)
+            if var.fixed:
+                # Values will be set from import timeseries
+                continue
 
-                # If start is constant, seed it. Else, warn.
+            start = var.start
+
+            # NOTE: If start is symbolic, a cast to float will result in NaN
+            if float(start) != 0.0:
+                # If start contains symbolics, try substituting parameter values
+                if isinstance(start, ca.MX) and not start.is_constant():
+                    [start] = substitute_in_external([start], self.__mx['parameters'], parameter_values)
+                    if not start.is_constant():
+                        logger.error('ModelicaMixin: Could not resolve seed value for {}'.format(sym_name))
+
                 sym_name = var.symbol.name()
-                if start.is_constant():
-                    times = self.times(sym_name)
-                    start = var.python_type(var.start)
-                    s = Timeseries(times, np.full_like(times, start))
-                    if logger.getEffectiveLevel() == logging.DEBUG:
-                        logger.debug("ModelicaMixin: Seeded variable {} = {}".format(sym_name, start))
-                    seed[sym_name] = s
-                else:
-                    logger.error('ModelicaMixin: Could not resolve seed value for {}'.format(sym_name))
+                times = self.times(sym_name)
+                start = var.python_type(var.start)
+                s = Timeseries(times, np.full_like(times, start))
+                if logger.getEffectiveLevel() == logging.DEBUG:
+                    logger.debug("ModelicaMixin: Seeded variable {} = {}".format(sym_name, start))
+                seed[sym_name] = s
+
         return seed
 
     def variable_is_discrete(self, variable):

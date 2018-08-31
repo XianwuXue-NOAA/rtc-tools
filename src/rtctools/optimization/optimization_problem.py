@@ -629,6 +629,11 @@ class OptimizationProblem(metaclass=ABCMeta):
 
         :returns: The interpolated value.
         """
+
+        if np.all(t == ts):
+            # Nothing to interpolate
+            return fs
+
         if hasattr(t, '__iter__'):
             if fs.ndim > 1:
                 return np.vstack(tuple(self.interpolate(t, ts, fs_i, f_left, f_right) for fs_i in fs))

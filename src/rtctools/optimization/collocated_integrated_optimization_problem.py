@@ -2239,9 +2239,9 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
             history = self.history(ensemble_member)
             try:
                 htimes = history[variable].times[:-1]
+                history_and_times = np.hstack((htimes, times))
             except KeyError:
-                htimes = []
-            history_and_times = np.hstack((htimes, times))
+                history_and_times = times
         else:
             history_and_times = times
 

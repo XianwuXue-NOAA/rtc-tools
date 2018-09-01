@@ -176,6 +176,9 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
         self.__path_variable_names = [variable.name()
                                       for variable in self.path_variables]
 
+        self.__path_variable_sizes = [variable.size1()
+                                      for variable in self.path_variables]
+
         # Collocation times
         collocation_times = self.times()
         n_collocation_times = len(collocation_times)
@@ -308,6 +311,9 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
         X = ca.MX.sym('X', control_size + state_size)
         self.__solver_input = X
 
+        # Convenience variable such that we can get indices from a slice() object
+        x_inds = list(range(X.size1()))
+
         # Initialize bound and seed vectors
         discrete = np.zeros(X.size1(), dtype=np.bool)
 
@@ -347,6 +353,12 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                 repr(integrated_variables)))
             logger.debug("Collocating variables {}".format(
                 repr(collocated_variables)))
+
+        integrated_variable_names = [v.name() for v in integrated_variables]
+        integrated_variable_nominals = np.array([self.variable_nominal(v) for v in integrated_variable_names])
+
+        collocated_variable_names = [v.name() for v in collocated_variables]
+        collocated_variable_nominals = np.array([self.variable_nominal(v) for v in collocated_variable_names])
 
         # Split derivatives into "integrated" and "collocated" lists.
         integrated_derivatives = []
@@ -394,25 +406,42 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
 
         # Update the store of all ensemble-member-specific data for all ensemble members
         # with initial states, derivatives, and path variables.
-        for ensemble_member in range(self.ensemble_size):
-            ensemble_data = ensemble_store[ensemble_member]
+        # Use vectorized approach to avoid SWIG call overhead for each CasADi call.
+        ensemble_member_size = int(self.__state_size / self.ensemble_size)
 
-            # Store initial state and derivatives
-            initial_state = []
-            initial_derivatives = []
-            for variable in integrated_variables + collocated_variables:
-                variable = variable.name()
-                value = self.state_vector(
-                    variable, ensemble_member=ensemble_member)[0]
-                nominal = self.variable_nominal(variable)
-                if nominal != 1:
-                    value *= nominal
-                initial_state.append(value)
-                initial_derivatives.append(self.der_at(
-                    variable, t0, ensemble_member=ensemble_member))
-            ensemble_data["initial_state"] = ca.vertcat(*initial_state)
-            ensemble_data["initial_derivatives"] = ca.vertcat(
-                *initial_derivatives)
+        n = len(integrated_variables) + len(collocated_variables)
+        for ensemble_member in range(self.ensemble_size):
+            initial_state_indices = [None] * n
+
+            # Derivatives take a bit more effort to vectorize, as we can have both constant values and elements in the state vector
+            initial_derivatives = ca.MX.zeros((n, 1))
+            init_der_variable = []
+            init_der_variable_indices = []
+            init_der_constant = []
+            init_der_constant_values = []
+
+            der_offset = (control_size
+                          + (ensemble_member + 1) * ensemble_member_size
+                          - len(self.dae_variables['derivatives']))
+            for j, variable in enumerate(integrated_variable_names + collocated_variable_names):
+                initial_state_indices[j] = self.__indices[ensemble_member][variable].start
+                try:
+                    i = self.__differentiated_states_map[variable]
+                except KeyError:
+                    # TODO: Leave the call to der_at, or do history interpolation here as well?
+                    init_der_constant_values.append(self.der_at(
+                        variable, t0, ensemble_member=ensemble_member))
+                    init_der_constant.append(j)
+                else:
+                    init_der_variable_indices.append(der_offset + i)
+                    init_der_variable.append(j)
+
+            initial_derivatives[init_der_variable] = X[init_der_variable_indices]
+            initial_derivatives[init_der_constant] = init_der_constant_values
+
+            ensemble_data["initial_state"] = X[initial_state_indices] * np.concatenate(
+                (integrated_variable_nominals, collocated_variable_nominals))
+            ensemble_data["initial_derivatives"] = initial_derivatives
 
             # Store initial path variables
             initial_path_variables = []
@@ -424,6 +453,13 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                 initial_path_variables.append(values[0::n_collocation_times])
             ensemble_data["initial_path_variables"] = nullvertcat(
                 *initial_path_variables)
+
+            initial_path_variable_inds = []
+            for variable in self.__path_variable_names:
+                inds = x_inds[self.__indices[ensemble_member][variable]]
+                initial_path_variable_inds.extend(inds[0::n_collocation_times])
+
+            ensemble_data["initial_path_variables"] = X[initial_path_variable_inds]
 
         # Replace parameters which are constant across the entire ensemble
         constant_parameters = []
@@ -955,10 +991,6 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                 + len(self.__extra_constant_inputs))
 
             # Most variables have collocation times equal to the global collocation times. Use a vectorized approach to process them.
-            collocated_variable_names = [v.name() for v in collocated_variables]
-            collocated_variable_nominals = np.array([self.variable_nominal(v) for v in collocated_variable_names])
-
-            x_inds = list(range(X.size1()))
             interpolated_states_explicit = []
             interpolated_states_implicit = []
 

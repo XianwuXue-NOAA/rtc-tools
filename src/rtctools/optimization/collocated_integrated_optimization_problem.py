@@ -573,9 +573,9 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
             # Split DAE into integrated and into a collocated part
             dae_residual_integrated = []
             dae_residual_collocated = []
-            for output_index in range(dae_residual.size1()):
-                output = dae_residual[output_index]
 
+            dae_outputs = ca.vertsplit(dae_residual)
+            for output in dae_outputs:
                 contains = False
                 for derivative in integrated_derivatives:
                     if ca.depends_on(output, derivative):

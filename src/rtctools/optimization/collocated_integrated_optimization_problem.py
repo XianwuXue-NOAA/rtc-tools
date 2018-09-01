@@ -423,18 +423,33 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
             der_offset = (control_size
                           + (ensemble_member + 1) * ensemble_member_size
                           - len(self.dae_variables['derivatives']))
+
+            history = self.history(ensemble_member)
+
             for j, variable in enumerate(integrated_variable_names + collocated_variable_names):
                 initial_state_indices[j] = self.__indices[ensemble_member][variable].start
                 try:
                     i = self.__differentiated_states_map[variable]
-                except KeyError:
-                    # TODO: Leave the call to der_at, or do history interpolation here as well?
-                    init_der_constant_values.append(self.der_at(
-                        variable, t0, ensemble_member=ensemble_member))
-                    init_der_constant.append(j)
-                else:
+
                     init_der_variable_indices.append(der_offset + i)
                     init_der_variable.append(j)
+                except KeyError:
+                    # We do interpolation here instead of relying on der_at. This faster is because:
+                    # 1. We can reuse the history variable.
+                    # 2. We know that "variable" is a canonical state
+                    # 3. We know that we are only dealing with history (numeric values, not symbolics)
+                    try:
+                        h = history[variable]
+                        if h.times[0] == t0 or len(h.values) == 1:
+                            init_der = 0.0
+                        else:
+                            assert h.times[-1] == t0
+                            init_der = (h.values[-1] - h.values[-2])/(h.times[-1] - h.times[-2])
+                    except KeyError:
+                        init_der = 0.0
+
+                    init_der_constant_values.append(init_der)
+                    init_der_constant.append(j)
 
             initial_derivatives[init_der_variable] = X[init_der_variable_indices]
             initial_derivatives[init_der_constant] = init_der_constant_values

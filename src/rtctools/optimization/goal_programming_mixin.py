@@ -625,8 +625,12 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
                 # Epsilon encodes the position within the function range.
                 fix_value = True
 
-                constraint.min = (epsilon - goal.relaxation) / goal.function_nominal
-                constraint.max = (epsilon + goal.relaxation) / goal.function_nominal
+                if options['fix_minimized_values'] and goal.relaxation == 0.0:
+                    constraint.min = epsilon / goal.function_nominal
+                    constraint.max = epsilon / goal.function_nominal
+                else:
+                    constraint.min = -np.inf
+                    constraint.max = (epsilon + goal.relaxation) / goal.function_nominal
 
             # Epsilon is fixed.  Override previous {min,max} constraints for
             # this state.

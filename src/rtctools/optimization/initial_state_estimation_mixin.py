@@ -8,8 +8,7 @@ class _MeasurementGoal(Goal):
         self.__state = state
         self.__measurement_id = measurement_id
 
-        self.function_range = -max_deviation, max_deviation
-        self.function_nominal = 1.0
+        self.function_nominal = max_deviation
 
     def function(self, optimization_problem, ensemble_member):
         op = optimization_problem
@@ -26,8 +25,7 @@ class _SmoothingGoal(Goal):
         self.__state1 = state1
         self.__state2 = state2
 
-        self.function_range = -max_deviation, max_deviation
-        self.function_nominal = 1.0
+        self.function_nominal = max_deviation
 
     def function(self, optimization_problem, ensemble_member):
         op = optimization_problem

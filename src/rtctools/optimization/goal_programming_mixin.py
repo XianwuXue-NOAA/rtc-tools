@@ -468,8 +468,10 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
         is normally not required.
 
         If ``fix_minimized_values`` is set to ``True``, goal functions will be set to equal their
-        optimized values in optimization problems generated during subsequent priorities.  Otherwise,
-        only as upper bound will be set.  Use of this option is normally not required.
+        optimized values in optimization problems generated during subsequent priorities. Otherwise,
+        only an upper bound will be set. Use of this option is normally not required.
+        Note that a non-zero goal relaxation overrules this option; a non-zero relaxation will always
+        result in only an upper bound being set.
 
         If ``check_monotonicity`` is set to ``True``, then it will be checked whether goals with the same
         function key form a monotonically decreasing sequence with regards to the target interval.
@@ -775,11 +777,12 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
                 # Epsilon encodes the position within the function range.
                 fix_value = True
 
-                if options['fix_minimized_values']:
-                    m = (epsilon - goal.relaxation) / goal.function_nominal
+                if options['fix_minimized_values'] and goal.relaxation == 0.0:
+                    m = epsilon / goal.function_nominal
+                    M = epsilon / goal.function_nominal
                 else:
                     m = -np.inf * np.ones(len(times))
-                M = (epsilon + goal.relaxation) / goal.function_nominal
+                    M = (epsilon + goal.relaxation) / goal.function_nominal
 
             constraint = self.__GoalConstraint(
                 goal,

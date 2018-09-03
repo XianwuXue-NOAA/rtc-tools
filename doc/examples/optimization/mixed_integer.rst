@@ -12,6 +12,14 @@ Mixed Integer Optimization: Pumps and Orifices
     hydraulic model, and assumes basic exposure to RTC-Tools. To start with
     basics, see :doc:`basic`.
 
+.. note::
+
+  By default, if you define any integer or boolean variables in the model, RTC-Tools
+  will switch from IPOPT to BONMIN. You can modify solver options by overriding
+  the
+  :meth:`solver_options()<rtctools.optimization.optimization_problem.OptimizationProblem.solver_options>`
+  method. Refer to CasADi's nlpsol interface for a list of supported solvers.
+
 
 The Model
 ---------

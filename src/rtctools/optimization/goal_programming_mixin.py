@@ -423,12 +423,19 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
         ipopt_options = options[solver]
         ipopt_options['fixed_variable_treatment'] = 'make_parameter'
 
-        if not self.goal_programming_options()['mu_reinit']:
-            ipopt_options['mu_strategy'] = 'monotone'
-            ipopt_options['gather_stats'] = True
-            if not self.__first_run:
-                ipopt_options['mu_init'] = self.solver_stats['iterations'][
-                    'mu'][-1]
+        # Define temporary variable to avoid infinite loop between
+        # solver_options and goal_programming_options.
+        self._loop_breaker_solver_options = True
+
+        if not hasattr(self, '_loop_breaker_goal_programming_options'):
+            if not self.goal_programming_options()['mu_reinit']:
+                ipopt_options['mu_strategy'] = 'monotone'
+                ipopt_options['gather_stats'] = True
+                if not self.__first_run:
+                    ipopt_options['mu_init'] = self.solver_stats['iterations'][
+                        'mu'][-1]
+
+        delattr(self, '_loop_breaker_solver_options')
 
         # Done
         return options
@@ -444,7 +451,7 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
         +---------------------------+-----------+---------------+
         | ``mu_reinit``             | ``bool``  | ``True``      |
         +---------------------------+-----------+---------------+
-        | ``fix_minimized_values``  | ``bool``  | ``True``      |
+        | ``fix_minimized_values``  | ``bool``  | ``True/False``|
         +---------------------------+-----------+---------------+
         | ``check_monotonicity``    | ``bool``  | ``True``      |
         +---------------------------+-----------+---------------+
@@ -472,6 +479,9 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
         only an upper bound will be set. Use of this option is normally not required.
         Note that a non-zero goal relaxation overrules this option; a non-zero relaxation will always
         result in only an upper bound being set.
+        Also note that the use of this option may add non-convex constraints to the optimization problem.
+        The default value for this parameter is ``True`` for the default solvers IPOPT/BONMIN. If any
+        other solver is used, the default value is ``False``.
 
         If ``check_monotonicity`` is set to ``True``, then it will be checked whether goals with the same
         function key form a monotonically decreasing sequence with regards to the target interval.
@@ -495,11 +505,21 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
         options['mu_reinit'] = True
         options['constraint_relaxation'] = 0.0  # Disable by default
         options['violation_tolerance'] = np.inf  # Disable by default
-        options['fix_minimized_values'] = True
+        options['fix_minimized_values'] = False
         options['check_monotonicity'] = True
         options['equality_threshold'] = 1e-8
         options['interior_distance'] = 1e-6
         options['scale_by_problem_size'] = False
+
+        # Define temporary variable to avoid infinite loop between
+        # solver_options and goal_programming_options.
+        self._loop_breaker_goal_programming_options = True
+
+        if not hasattr(self, '_loop_breaker_solver_options'):
+            if self.solver_options()['solver'] in {'ipopt', 'bonmin'}:
+                options['fix_minimized_values'] = True
+
+        delattr(self, '_loop_breaker_goal_programming_options')
 
         return options
 

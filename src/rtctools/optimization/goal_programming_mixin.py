@@ -980,9 +980,10 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
 
                 if not goal.critical:
                     if goal.has_target_bounds:
+                        scale_fac = 1.0 / len(self.times()) if options['scale_by_problem_size'] else 1.0
                         self.__subproblem_objectives.append(
-                            lambda problem, ensemble_member, goal=goal, epsilon=epsilon: (
-                                goal.weight * ca.sum1(ca.constpow(
+                            lambda problem, ensemble_member, goal=goal, epsilon=epsilon, scale_fac=scale_fac: (
+                                goal.weight * scale_fac * ca.sum1(ca.constpow(
                                     problem.state_vector(epsilon.name(), ensemble_member=ensemble_member),
                                     goal.order))))
                     else:

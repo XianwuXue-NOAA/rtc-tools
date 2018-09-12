@@ -26,8 +26,7 @@ class Example(CSVMixin, ModelicaMixin, CollocatedIntegratedOptimizationProblem):
     def path_constraints(self, ensemble_member):
         # Call super to get default constraints
         constraints = super().path_constraints(ensemble_member)
-        # M is a handy big number
-        M = 1e10
+        M = 2  # The so-called "big-M"
 
         # Release through orifice downhill only. This constraint enforces the
         # fact that water only flows downhill.

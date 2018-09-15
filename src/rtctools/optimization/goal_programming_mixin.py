@@ -382,17 +382,26 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
         self.__original_parameter_keys = {}
         self.__original_constant_input_keys = {}
 
+        # Lists that are only filled when 'keep_soft_constraints' is True
+        self.__problem_constraints = []
+        self.__problem_path_constraints = []
+        self.__problem_epsilons = []
+        self.__problem_path_epsilons = []
+        self.__problem_path_timeseries = []
+        self.__problem_parameters = []
+
     @property
     def extra_variables(self):
-        return self.__subproblem_epsilons
+        return self.__problem_epsilons + self.__subproblem_epsilons
 
     @property
     def path_variables(self):
-        return self.__subproblem_path_epsilons.copy()
+        return self.__problem_path_epsilons + self.__subproblem_path_epsilons
 
     def bounds(self):
         bounds = super().bounds()
-        for epsilon in self.__subproblem_epsilons + self.__subproblem_path_epsilons:
+        for epsilon in (self.__subproblem_epsilons + self.__subproblem_path_epsilons +
+                        self.__problem_epsilons + self.__problem_path_epsilons):
             bounds[epsilon.name()] = (0.0, 1.0)
         return bounds
 
@@ -409,7 +418,7 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
 
         # Append min/max timeseries to the constant inputs. Note that min/max
         # timeseries are shared between all ensemble members.
-        for (variable, value) in self.__subproblem_path_timeseries:
+        for (variable, value) in self.__subproblem_path_timeseries + self.__problem_path_timeseries:
             if not isinstance(value, Timeseries):
                 value = Timeseries(self.times(), np.full_like(self.times(), value))
             constant_inputs[variable] = value
@@ -428,7 +437,7 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
 
         # Append min/max values to the parameters. Note that min/max values
         # are shared between all ensemble members.
-        for (variable, value) in self.__subproblem_parameters:
+        for (variable, value) in self.__subproblem_parameters + self.__problem_parameters:
             parameters[variable] = value
         return parameters
 
@@ -445,7 +454,7 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
                     # with the specified time stamps.
                     seed[key] = Timeseries(times, result)
 
-        # Seed epsilons
+        # Seed epsilons of current priority
         for epsilon in self.__subproblem_epsilons:
             seed[epsilon.name()] = 1.0
 
@@ -455,44 +464,60 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
 
         return seed
 
-    def objective(self, ensemble_member):
-        if len(self.__subproblem_objectives) > 0:
-            acc_objective = ca.sum1(ca.vertcat(*[o(self, ensemble_member) for o in self.__subproblem_objectives]))
+    def __objective(self, subproblem_objectives, n_objectives, ensemble_member):
+        if len(subproblem_objectives) > 0:
+            acc_objective = ca.sum1(ca.vertcat(*[o(self, ensemble_member) for o in subproblem_objectives]))
 
             if self.goal_programming_options()['scale_by_problem_size']:
-                n_objectives = len(self.__subproblem_objectives) + len(self.__subproblem_path_objectives)
                 acc_objective = acc_objective / n_objectives
 
             return acc_objective
         else:
             return ca.MX(0)
 
-    def path_objective(self, ensemble_member):
-        if len(self.__subproblem_path_objectives) > 0:
-            acc_objective = ca.sum1(ca.vertcat(*[o(self, ensemble_member) for o in self.__subproblem_path_objectives]))
+    def objective(self, ensemble_member):
+        n_objectives = len(self.__subproblem_objectives) + len(self.__subproblem_path_objectives)
+        return self.__objective(self.__subproblem_objectives, n_objectives, ensemble_member)
+
+    def __path_objective(self, subproblem_path_objectives, n_objectives, ensemble_member):
+        if len(subproblem_path_objectives) > 0:
+            acc_objective = ca.sum1(ca.vertcat(*[o(self, ensemble_member) for o in subproblem_path_objectives]))
 
             if self.goal_programming_options()['scale_by_problem_size']:
-                n_objectives = len(self.__subproblem_objectives) + len(self.__subproblem_path_objectives)
                 acc_objective = acc_objective / n_objectives / len(self.times())
 
             return acc_objective
         else:
             return ca.MX(0)
 
+    def path_objective(self, ensemble_member):
+        n_objectives = len(self.__subproblem_objectives) + len(self.__subproblem_path_objectives)
+        return self.__path_objective(self.__subproblem_path_objectives, n_objectives, ensemble_member)
+
     def constraints(self, ensemble_member):
         constraints = super().constraints(ensemble_member)
-        for constraint in self.__subproblem_soft_constraints[ensemble_member]:
+
+        additional_constraints = itertools.chain(
+            self.__constraint_store[ensemble_member].values(),
+            self.__problem_constraints[ensemble_member],
+            self.__subproblem_soft_constraints[ensemble_member])
+
+        for constraint in additional_constraints:
             constraints.append((constraint.function(self), constraint.min, constraint.max))
-        for constraint in self.__constraint_store[ensemble_member].values():
-            constraints.append((constraint.function(self), constraint.min, constraint.max))
+
         return constraints
 
     def path_constraints(self, ensemble_member):
         path_constraints = super().path_constraints(ensemble_member)
-        for constraint in self.__subproblem_path_soft_constraints[ensemble_member]:
+
+        additional_path_constraints = itertools.chain(
+            self.__path_constraint_store[ensemble_member].values(),
+            self.__problem_path_constraints[ensemble_member],
+            self.__subproblem_path_soft_constraints[ensemble_member])
+
+        for constraint in additional_path_constraints:
             path_constraints.append((constraint.function(self), constraint.min, constraint.max))
-        for constraint in self.__path_constraint_store[ensemble_member].values():
-            path_constraints.append((constraint.function(self), constraint.min, constraint.max))
+
         return path_constraints
 
     def solver_options(self):
@@ -547,6 +572,8 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
         +---------------------------+-----------+---------------+
         | ``scale_by_problem_size`` | ``bool``  | ``False``     |
         +---------------------------+-----------+---------------+
+        | ``keep_soft_constraints`` | ``bool``  | ``False``     |
+        +---------------------------+-----------+---------------+
 
         Before turning a soft constraint of the goal programming algorithm into a hard constraint,
         the violation variable (also known as epsilon) of each goal is relaxed with the
@@ -554,8 +581,14 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
 
         When turning a soft constraint of the goal programming algorithm into a hard constraint,
         the constraint is relaxed with ``constraint_relaxation``. Use of this option is
-        normally not required. Note that minimization goals do not get ``constraint_relaxation``
-        applied when ``fix_minimized_values`` is True.
+        normally not required. Note that:
+
+        1. Minimization goals do not get ``constraint_relaxation`` applied when
+           ``fix_minimized_values`` is True.
+
+        2. Because of the constraints it generates, when ``keep_soft_constraints`` is True, the option
+           ``fix_minimized_values`` needs to be set to False for the ``constraint_relaxation`` to
+           be applied at all.
 
         A goal is considered to be violated if the violation, scaled between 0 and 1, is greater
         than the specified tolerance. Violated goals are fixed.  Use of this option is normally not
@@ -589,6 +622,18 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
         of path goals and the number of time steps. This will make sure the objectives are always in
         the range [0, 1], at the cost of solving each goal/time step less accurately.
 
+        The option ``keep_soft_constraints`` controls how the epsilon variables introduced in the target
+        goals are dealt with in subsequent priorities.
+        If ``keep_soft_constraints`` is set to False, each epsilon is replaced by its computed value and
+        those are used to derive a new set of constraints.
+        If ``keep_soft_constraints`` is set to True, the epsilons are kept as variables and the constraints
+        are not modified. To ensure the goal programming philosophy, i.e., Pareto optimality, a single
+        constraint is added to enforce that the objective function must always be at most the objective
+        value. This method allows for a larger solution space, at the cost of having a (possibly) more complex
+        optimization problem. Indeed, more variables are kept around throughout the optimization and any
+        objective function is turned into a constraint for the subsequent priorities (while in the False
+        option this was the case only for the function of minimization goals).
+
         :returns: A dictionary of goal programming options.
         """
 
@@ -603,6 +648,7 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
         options['equality_threshold'] = 1e-8
         options['interior_distance'] = 1e-6
         options['scale_by_problem_size'] = False
+        options['keep_soft_constraints'] = False
 
         # Define temporary variable to avoid infinite loop between
         # solver_options and goal_programming_options.
@@ -694,6 +740,10 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
                 int(goal.priority)
             except ValueError:
                 raise Exception("Priority of not int or castable to int for goal {}".format(goal))
+
+            if options['keep_soft_constraints']:
+                if goal.relaxation != 0.0:
+                    raise Exception("Relaxation not allowed with `keep_soft_constraints` for goal {}".format(goal))
 
         if is_path_goal:
             target_shape = len(self.times())
@@ -1073,6 +1123,56 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
                 constraint_store[ensemble_member][fk] = self.__goal_hard_constraint(
                     goal, epsilon, existing_constraint, ensemble_member, options, is_path_goal)
 
+    def __add_subproblem_objective_constraint(self):
+        # We want to keep the additional variables/parameters we set around
+        self.__problem_epsilons.extend(self.__subproblem_epsilons)
+        self.__problem_path_epsilons.extend(self.__subproblem_path_epsilons)
+        self.__problem_path_timeseries.extend(self.__subproblem_path_timeseries)
+        self.__problem_parameters.extend(self.__subproblem_parameters)
+
+        for ensemble_member in range(self.ensemble_size):
+            self.__problem_constraints[ensemble_member].extend(
+                self.__subproblem_soft_constraints[ensemble_member])
+            self.__problem_path_constraints[ensemble_member].extend(
+                self.__subproblem_path_soft_constraints[ensemble_member])
+
+        # Extract information about the objective value, this is used for the Pareto optimality constraint.
+        # We only retain information about the objective functions defined through the goal framework as user
+        # define objective functions may relay on local variables.
+        subproblem_objectives = self.__subproblem_objectives.copy()
+        subproblem_path_objectives = self.__subproblem_path_objectives.copy()
+
+        def _constraint_func(problem,
+                             subproblem_objectives=subproblem_objectives,
+                             subproblem_path_objectives=subproblem_path_objectives):
+            val = 0.0
+            for ensemble_member in range(problem.ensemble_size):
+                # NOTE: Users might be overriding objective() and/or path_objective(). Use the
+                # private methods that work only on the goals.
+                n_objectives = len(subproblem_objectives) + len(subproblem_path_objectives)
+                expr = problem.__objective(subproblem_objectives, n_objectives, ensemble_member)
+                expr += ca.sum1(problem.map_path_expression(
+                    problem.__path_objective(subproblem_path_objectives, n_objectives, ensemble_member),
+                    ensemble_member))
+                val += problem.ensemble_member_probability(ensemble_member) * expr
+
+            return val
+
+        f = ca.Function('tmp', [self.solver_input], [_constraint_func(self)])
+        obj_val = float(f(self.solver_output))
+
+        options = self.goal_programming_options()
+
+        if options['fix_minimized_values']:
+            constraint = _GoalConstraint(None, _constraint_func, obj_val, obj_val, True)
+        else:
+            obj_val += options['constraint_relaxation']
+            constraint = _GoalConstraint(None, _constraint_func, -np.inf, obj_val, True)
+
+        # The goal works over all ensemble members, so we add it to the first
+        # one as that one is always present.
+        self.__problem_constraints[0].append(constraint)
+
     def optimize(self, preprocessing=True, postprocessing=True, log_solver_failure_as_error=True):
         # Do pre-processing
         if preprocessing:
@@ -1082,6 +1182,12 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
         subproblems = []
         goals = self.goals()
         path_goals = self.path_goals()
+
+        options = self.goal_programming_options()
+
+        # Validate (in)compatible options
+        if options['keep_soft_constraints'] and options['violation_relaxation']:
+            raise Exception("The option 'violation_relaxation' cannot be used when 'keep_soft_constraints' is set.")
 
         # Validate goal definitions
         self.__validate_goals(goals, is_path_goal=False)
@@ -1100,10 +1206,16 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
 
         success = False
 
-        options = self.goal_programming_options()
-
         self.__constraint_store = [OrderedDict() for ensemble_member in range(self.ensemble_size)]
         self.__path_constraint_store = [OrderedDict() for ensemble_member in range(self.ensemble_size)]
+
+        # Lists for when `keep_soft_constraints` is True
+        self.__problem_constraints = [[] for ensemble_member in range(self.ensemble_size)]
+        self.__problem_epsilons = []
+        self.__problem_parameters = []
+        self.__problem_path_constraints = [[] for ensemble_member in range(self.ensemble_size)]
+        self.__problem_path_epsilons = []
+        self.__problem_path_timeseries = []
 
         self.__first_run = True
         self.__results_are_current = False
@@ -1148,8 +1260,11 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
             # logged/inspected.
             self.priority_completed(priority)
 
-            self.__soft_to_hard_constraints(goals, i, is_path_goal=False)
-            self.__soft_to_hard_constraints(path_goals, i, is_path_goal=True)
+            if options['keep_soft_constraints']:
+                self.__add_subproblem_objective_constraint()
+            else:
+                self.__soft_to_hard_constraints(goals, i, is_path_goal=False)
+                self.__soft_to_hard_constraints(path_goals, i, is_path_goal=True)
 
         logger.info("Done goal programming")
 

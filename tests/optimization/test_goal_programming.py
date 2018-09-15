@@ -368,11 +368,41 @@ class TestGoalMinU(Goal):
 
 class ModelPathGoalsMixed(ModelPathGoals):
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._objective_values = []
+
+    def solver_options(self):
+        options = super().solver_options()
+
+        # Relatively strict convergence and constraint criteria to be able to
+        # compare. Errors propagate/compound from one priority to the next,
+        # which is these are tighter than usual.
+        options['ipopt']['tol'] = 1e-9
+        options['ipopt']['acceptable_tol'] = 1e-8
+        options['ipopt']['constr_viol_tol'] = 1e-8
+        options['ipopt']['compl_inf_tol'] = 1e-8
+        options['ipopt']['acceptable_constr_viol_tol'] = 1e-7
+        options['ipopt']['acceptable_compl_inf_tol'] = 1e-7
+        return options
+
     def path_goals(self):
-        return [PathGoal1(), PathGoal2()]
+        goals = [PathGoal1(), PathGoal2()]
+
+        # These goals typically evaluate to a very small values making
+        # comparisons on the objective value of a later priority goal
+        # difficult. We add a weight to solve them more accurately.
+        goals[0].weight = 10000
+        goals[1].weight = 10000
+
+        return goals
 
     def goals(self):
         return [TestGoalMinU()]
+
+    def priority_completed(self, priority):
+        super().priority_completed(priority)
+        self._objective_values.append(self.objective_value)
 
 
 class PathGoal1Critical(Goal):
@@ -410,6 +440,29 @@ class TestGoalProgrammingPathGoalsMixed(TestGoalProgrammingPathGoals):
         self.problem = ModelPathGoalsMixed()
         self.problem.optimize()
         self.tolerance = 1e-6
+
+
+class ModelPathGoalsMixedKeepSoft(ModelPathGoalsMixed):
+
+    def goal_programming_options(self):
+        options = super().goal_programming_options()
+        options['keep_soft_constraints'] = True
+        return options
+
+
+class TestGoalProgrammingKeepSoftVariable(TestCase):
+
+    def setUp(self):
+        self.problem1 = ModelPathGoalsMixed()
+        self.problem2 = ModelPathGoalsMixedKeepSoft()
+        self.problem1.optimize()
+        self.problem2.optimize()
+
+    def test_keep_soft_constraints_objective(self):
+        self.assertEqual(self.problem1._objective_values[0], self.problem2._objective_values[0])
+        self.assertAlmostEqual(self.problem1._objective_values[1], self.problem2._objective_values[1], 1e-6)
+        self.assertAlmostEqual(self.problem1._objective_values[2], self.problem2._objective_values[2], 1e-3)
+        self.assertLess(self.problem2._objective_values[2], self.problem1._objective_values[2])
 
 
 class ModelEnsemble(Model):

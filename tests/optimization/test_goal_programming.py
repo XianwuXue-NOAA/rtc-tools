@@ -1,5 +1,7 @@
 import logging
 
+import casadi as ca
+
 import numpy as np
 
 from rtctools.optimization.collocated_integrated_optimization_problem import (
@@ -371,6 +373,21 @@ class ModelPathGoalsMixed(ModelPathGoals):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._objective_values = []
+        self._objective_hessians = []
+
+    def transcribe(self):
+        discrete, lbx, ubx, lbg, ubg, x0, nlp = super().transcribe()
+
+        # Calculate the Hessian such that we test if the objective is linear
+        # or quadratic. Replace with SX symbols first, as MX hessian is known
+        # to be troublesome (i.e. not returning nnz = 0 when it should).
+        expand_f_g = ca.Function('f_g', [nlp['x']], [nlp['f'], nlp['g']]).expand()
+        X_sx = ca.SX.sym('X', *nlp['x'].shape)
+        f_sx, g_sx = expand_f_g(X_sx)
+
+        self._objective_hessians.append(ca.hessian(f_sx, X_sx)[0])
+
+        return discrete, lbx, ubx, lbg, ubg, x0, nlp
 
     def solver_options(self):
         options = super().solver_options()
@@ -463,6 +480,69 @@ class TestGoalProgrammingKeepSoftVariable(TestCase):
         self.assertAlmostEqual(self.problem1._objective_values[1], self.problem2._objective_values[1], 1e-6)
         self.assertAlmostEqual(self.problem1._objective_values[2], self.problem2._objective_values[2], 1e-3)
         self.assertLess(self.problem2._objective_values[2], self.problem1._objective_values[2])
+
+
+class ModelPathGoalsMixedLinearObj(ModelPathGoalsMixed):
+
+    def goal_programming_options(self):
+        options = super().goal_programming_options()
+        options['force_linear_objective'] = True
+        return options
+
+
+class ModelPathGoalsMixedKeepSoftLinearObj(ModelPathGoalsMixed):
+
+    def goal_programming_options(self):
+        options = super().goal_programming_options()
+        options['keep_soft_constraints'] = True
+        options['force_linear_objective'] = True
+        return options
+
+
+class TestGoalProgrammingLinearObjective(TestCase):
+
+    def setUp(self):
+        self.tolerance = 1e-4
+
+    def _check_objective_hessians(self):
+        # Check that problem 1 has a quadratic objective, and problem 2 a
+        # linear one.
+        p1_hessian_constant = [x.is_constant() for x in self.problem1._objective_hessians]
+        p1_hessian_nnz = [x.nnz() for x in self.problem1._objective_hessians]
+
+        p2_hessian_constant = [x.is_constant() for x in self.problem2._objective_hessians]
+        p2_hessian_nnz = [x.nnz() for x in self.problem2._objective_hessians]
+
+        self.assertEqual(p1_hessian_constant, [True, True, True])
+        self.assertEqual(p2_hessian_constant, [True, True, True])
+
+        self.assertEqual([x > 0 for x in p1_hessian_nnz], [True, True, True])
+        self.assertEqual(p2_hessian_nnz, [0, 0, 0])
+
+    def test_goal_force_linear_objective(self):
+        self.problem1 = ModelPathGoalsMixed()
+        self.problem2 = ModelPathGoalsMixedLinearObj()
+        self.problem1.optimize()
+        self.problem2.optimize()
+
+        self.assertAlmostEqual(np.array(self.problem1._objective_values),
+                               np.array(self.problem2._objective_values),
+                               self.tolerance)
+
+        self._check_objective_hessians()
+
+    def test_goal_keep_soft_force_linear_objective(self):
+
+        self.problem1 = ModelPathGoalsMixedKeepSoft()
+        self.problem2 = ModelPathGoalsMixedKeepSoftLinearObj()
+        self.problem1.optimize()
+        self.problem2.optimize()
+
+        self.assertAlmostEqual(np.array(self.problem1._objective_values),
+                               np.array(self.problem2._objective_values),
+                               self.tolerance)
+
+        self._check_objective_hessians()
 
 
 class ModelEnsemble(Model):

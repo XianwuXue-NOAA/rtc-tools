@@ -390,13 +390,19 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
         self.__problem_path_timeseries = []
         self.__problem_parameters = []
 
+        # Lists that are only filled when `force_linear_objective` is True
+        self.__linear_obj_variables = []
+        self.__linear_obj_constraints = []
+        self.__linear_obj_path_variables = []
+        self.__linear_obj_path_constraints = []
+
     @property
     def extra_variables(self):
-        return self.__problem_epsilons + self.__subproblem_epsilons
+        return self.__problem_epsilons + self.__subproblem_epsilons + self.__linear_obj_variables
 
     @property
     def path_variables(self):
-        return self.__problem_path_epsilons + self.__subproblem_path_epsilons
+        return self.__problem_path_epsilons + self.__subproblem_path_epsilons + self.__linear_obj_path_variables
 
     def bounds(self):
         bounds = super().bounds()
@@ -505,6 +511,9 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
         for constraint in additional_constraints:
             constraints.append((constraint.function(self), constraint.min, constraint.max))
 
+        for constraint_function, m, M in self.__linear_obj_constraints:
+            constraints.append((constraint_function(self, ensemble_member), m, M))
+
         return constraints
 
     def path_constraints(self, ensemble_member):
@@ -517,6 +526,9 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
 
         for constraint in additional_path_constraints:
             path_constraints.append((constraint.function(self), constraint.min, constraint.max))
+
+        for constraint_function, m, M in self.__linear_obj_path_constraints:
+            path_constraints.append((constraint_function(self, ensemble_member), m, M))
 
         return path_constraints
 
@@ -573,6 +585,8 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
         | ``scale_by_problem_size`` | ``bool``  | ``False``     |
         +---------------------------+-----------+---------------+
         | ``keep_soft_constraints`` | ``bool``  | ``False``     |
+        +---------------------------+-----------+---------------+
+        | ``force_linear_objective``| ``bool``  | ``False``     |
         +---------------------------+-----------+---------------+
 
         Before turning a soft constraint of the goal programming algorithm into a hard constraint,
@@ -634,6 +648,14 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
         objective function is turned into a constraint for the subsequent priorities (while in the False
         option this was the case only for the function of minimization goals).
 
+        If ``force_linear_objective`` is set to True, the objective function
+        constructed by target and minimization goals will be linearized by introducing
+        alias variables. For example, if the objective function is equal to eps_1^2 +
+        eps_2^2, then it will become eps*_1 + eps*_2 with the additional constraints
+        eps*_1 >= eps_1^2 and eps*_2 >= eps_2^2. This option should be used when a
+        solver can handle quadratically constrainted problems but not quadratic
+        objective function and quadratic constrainted problems.
+
         :returns: A dictionary of goal programming options.
         """
 
@@ -649,6 +671,7 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
         options['interior_distance'] = 1e-6
         options['scale_by_problem_size'] = False
         options['keep_soft_constraints'] = False
+        options['force_linear_objective'] = False
 
         # Define temporary variable to avoid infinite loop between
         # solver_options and goal_programming_options.
@@ -1173,6 +1196,39 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
         # one as that one is always present.
         self.__problem_constraints[0].append(constraint)
 
+    def __make_linear_objective(self, objectives, sym_index, is_path_goal):
+        syms = []
+        constraints = []
+        linear_objectives = []
+
+        sym_format = "linobj_{}_{}"
+        if is_path_goal:
+            sym_format = "path_" + sym_format
+
+        for j, obj in enumerate(objectives):
+            sym = ca.MX.sym(sym_format.format(sym_index, j))
+            syms.append(sym)
+
+            def _constraint_func(problem, ensemble_member, sym=sym, obj=obj, is_path_goal=is_path_goal):
+                if is_path_goal:
+                    sym = problem.variable(sym.name())
+                else:
+                    sym = problem.extra_variable(sym.name(), ensemble_member)
+
+                return sym - obj(problem, ensemble_member)
+
+            constraints.append((_constraint_func, 0, np.inf))
+
+            def _objective_func(problem, ensemble_member, sym=sym, is_path_goal=is_path_goal):
+                if is_path_goal:
+                    return problem.variable(sym.name())
+                else:
+                    return problem.extra_variable(sym.name(), ensemble_member)
+
+            linear_objectives.append(_objective_func)
+
+        return syms, linear_objectives, constraints
+
     def optimize(self, preprocessing=True, postprocessing=True, log_solver_failure_as_error=True):
         # Do pre-processing
         if preprocessing:
@@ -1217,6 +1273,12 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
         self.__problem_path_epsilons = []
         self.__problem_path_timeseries = []
 
+        # Lists for when `force_linear_objective` is True
+        self.__linear_obj_variables = []
+        self.__linear_obj_constraints = []
+        self.__linear_obj_path_variables = []
+        self.__linear_obj_path_constraints = []
+
         self.__first_run = True
         self.__results_are_current = False
         self.__original_constant_input_keys = {}
@@ -1236,6 +1298,17 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
              self.__subproblem_path_soft_constraints, path_hard_constraints,
              self.__subproblem_path_timeseries) = \
                 self.__goal_constraints(path_goals, i, options, is_path_goal=True)
+
+            if options['force_linear_objective']:
+                syms, self.__subproblem_objectives, constraints = \
+                    self.__make_linear_objective(self.__subproblem_objectives, i, False)
+                self.__linear_obj_variables.extend(syms)
+                self.__linear_obj_constraints.extend(constraints)
+
+                syms, self.__subproblem_path_objectives, constraints = \
+                    self.__make_linear_objective(self.__subproblem_path_objectives, i, True)
+                self.__linear_obj_path_variables.extend(syms)
+                self.__linear_obj_path_constraints.extend(constraints)
 
             # Put hard constraints in the constraint stores
             self.__update_constraint_store(self.__constraint_store, hard_constraints)
@@ -1265,6 +1338,11 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
             else:
                 self.__soft_to_hard_constraints(goals, i, is_path_goal=False)
                 self.__soft_to_hard_constraints(path_goals, i, is_path_goal=True)
+
+                self.__linear_obj_variables = []
+                self.__linear_obj_constraints = []
+                self.__linear_obj_path_variables = []
+                self.__linear_obj_path_constraints = []
 
         logger.info("Done goal programming")
 

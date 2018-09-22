@@ -1167,10 +1167,32 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
 
             return val
 
-        f = ca.Function('tmp', [self.solver_input], [_constraint_func(self)])
-        obj_val = float(f(self.solver_output))
-
         options = self.goal_programming_options()
+
+        # Add epsilon relaxation by modifying the solver output
+        relaxed_output = self.solver_output
+
+        if options['violation_relaxation'] > 0:
+            all_epsilons = []
+
+            for ensemble_member in range(self.ensemble_size):
+                for eps in self.__subproblem_epsilons + self.__subproblem_path_epsilons:
+                    all_epsilons.append(self.state_vector(eps.name(), ensemble_member))
+
+            all_epsilons = ca.vertcat(*all_epsilons)
+            eps_relaxation = all_epsilons.ones(*all_epsilons.shape) * options['violation_relaxation']
+
+            # Turn the relaxation into a vector the shape of solver_output. Note that the
+            # jtimes() operation should result in a constant symbol, but CasADi thinks it
+            # is still a symbolic expression. We manually force a conversion to DM using a
+            # Function call.
+            relaxation_mx = ca.jtimes(all_epsilons, self.solver_input, eps_relaxation, True)
+            relaxation = ca.Function('tmp', [ca.MX()], [relaxation_mx])(ca.DM())
+
+            relaxed_output = self.solver_output + relaxation
+
+        f = ca.Function('tmp', [self.solver_input], [_constraint_func(self)])
+        obj_val = float(f(relaxed_output))
 
         if options['fix_minimized_values']:
             constraint = _GoalConstraint(None, _constraint_func, obj_val, obj_val, True)
@@ -1226,10 +1248,6 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
         path_goals = self.path_goals()
 
         options = self.goal_programming_options()
-
-        # Validate (in)compatible options
-        if options['keep_soft_constraints'] and options['violation_relaxation']:
-            raise Exception("The option 'violation_relaxation' cannot be used when 'keep_soft_constraints' is set.")
 
         # Validate goal definitions
         self.__validate_goals(goals, is_path_goal=False)

@@ -108,7 +108,7 @@ class OptimizationProblem(metaclass=ABCMeta):
 
         # Extract relevant stats
         self.__objective_value = float(results['f'])
-        self.__solver_output = np.array(results['x'])
+        self.__solver_output = np.array(results['x']).ravel()
         self.__solver_stats = solver.stats()
 
         success, log_level = self.solver_success(self.__solver_stats, log_solver_failure_as_error)
@@ -242,7 +242,7 @@ class OptimizationProblem(metaclass=ABCMeta):
         return self.__objective_value
 
     @property
-    def solver_output(self) -> ca.DM:
+    def solver_output(self) -> np.ndarray:
         """
         The raw output from the last NLP solver run.
         """

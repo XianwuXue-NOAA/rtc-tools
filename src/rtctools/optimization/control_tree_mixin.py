@@ -232,13 +232,13 @@ class ControlTreeMixin(OptimizationProblem):
 
     def extract_controls(self, ensemble_member=0):
         # Solver output
-        X = self.solver_output
+        X = self.solver_output.copy()
 
         # Extract control inputs
         results = {}
         for variable in self.controls:
-            results[variable] = np.array(self.variable_nominal(
-                variable) * X[self.__control_indices[ensemble_member][variable], 0]).ravel()
+            results[variable] = self.variable_nominal(
+                variable) * X[self.__control_indices[ensemble_member][variable]].ravel()
 
         # Done
         return results

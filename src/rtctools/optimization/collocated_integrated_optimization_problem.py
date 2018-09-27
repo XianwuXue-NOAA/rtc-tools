@@ -160,20 +160,47 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
         # Split the constant inputs into those used in the DAE, and additional
         # ones used for just the objective and/or constraints
         dae_constant_inputs_names = [x.name() for x in self.dae_variables['constant_inputs']]
-        extra_constant_inputs_names = []
+        extra_constant_inputs_name_and_size = []
         for ensemble_member in range(self.ensemble_size):
-            extra_constant_inputs_names.extend([x for x in self.constant_inputs(ensemble_member)
-                                                if x not in dae_constant_inputs_names])
+            extra_constant_inputs_name_and_size.extend(
+                [(x, v.values.shape[0] if v.values.ndim > 1 else 1)
+                 for x, v in self.constant_inputs(ensemble_member).items()
+                 if x not in dae_constant_inputs_names])
 
         self.__extra_constant_inputs = []
-        for var_name in extra_constant_inputs_names:
-            var = ca.MX.sym(var_name)
+        for var_name, size in extra_constant_inputs_name_and_size:
+            var = ca.MX.sym(var_name, size)
             self.__variables[var_name] = var
             self.__extra_constant_inputs.append(var)
 
-        # Cache path variable names
+        # Cache extra and path variable names, and variable sizes
         self.__path_variable_names = [variable.name()
                                       for variable in self.path_variables]
+        self.__extra_variable_names = [variable.name()
+                                       for variable in self.extra_variables]
+
+        # Cache the variable sizes, as a repeated call to .name() and .size1()
+        # is expensive due to SWIG call overhead.
+        self.__variable_sizes = {}
+
+        for variable in itertools.chain(self.differentiated_states, self.algebraic_states):
+            self.__variable_sizes[variable] = 1
+
+        for mx_symbol, variable in zip(self.path_variables, self.__path_variable_names):
+            self.__variable_sizes[variable] = mx_symbol.size1()
+
+        for mx_symbol, variable in zip(self.extra_variables, self.__extra_variable_names):
+            self.__variable_sizes[variable] = mx_symbol.size1()
+
+        # Variables that are integrated states are not yet allowed to have size > 1
+        for variable in self.integrated_states:
+            if self.__variable_sizes.get(variable, 1) > 1:
+                raise NotImplementedError("Vector symbol not supported for integrated state '{}'".format(variable))
+
+        # The same holds for controls
+        for variable in self.controls:
+            if self.__variable_sizes.get(variable, 1) > 1:
+                raise NotImplementedError("Vector symbol not supported for control state '{}'".format(variable))
 
         # Collocation times
         collocation_times = self.times()
@@ -253,6 +280,11 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                 self.dae_variables['constant_inputs'])
             ensemble_data["extra_constant_inputs"] = _interpolate_constant_inputs(
                 self.__extra_constant_inputs)
+
+            # Handle all constant input data uniformly as 2D arrays
+            for k, v in ensemble_data["extra_constant_inputs"].items():
+                if v.ndim == 1:
+                    ensemble_data["extra_constant_inputs"][k] = v[None, :]
 
         # Resolve variable bounds
         bounds = self.bounds()
@@ -467,9 +499,11 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
             ensemble_data["initial_derivatives"] = initial_derivatives
 
             # Store initial path variables
-            initial_path_variable_inds = [None] * len(self.__path_variable_names)
-            for j, variable in enumerate(self.__path_variable_names):
-                initial_path_variable_inds[j] = self.__indices_as_lists[ensemble_member][variable][0]
+            initial_path_variable_inds = []
+
+            for variable in self.__path_variable_names:
+                step = len(self.times(variable))
+                initial_path_variable_inds.extend(self.__indices_as_lists[ensemble_member][variable][0::step])
 
             ensemble_data["initial_path_variables"] = X[initial_path_variable_inds]
 
@@ -521,7 +555,7 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
             for d in ensemble_store])
         ensemble_aggregate["initial_extra_constant_inputs"] = ca.horzcat(*[
             nullvertcat(*[
-                float(d["extra_constant_inputs"][variable.name()][0])
+                d["extra_constant_inputs"][variable.name()][:, 0]
                 for variable in self.__extra_constant_inputs])
             for d in ensemble_store])
         ensemble_aggregate["initial_state"] = ca.horzcat(
@@ -746,12 +780,16 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
             accumulated_X = ca.MX.sym('accumulated_X', len(integrated_variables))
         else:
             accumulated_X = ca.MX.sym('accumulated_X', 0)
+
+        path_variables_size = sum(x.size1() for x in self.path_variables)
+        extra_constant_inputs_size = sum(x.size1() for x in self.__extra_constant_inputs)
+
         accumulated_U = ca.MX.sym(
             'accumulated_U',
             (2 * (len(collocated_variables) +
              len(self.dae_variables['constant_inputs']) + 1) +
-             len(self.path_variables) +
-             len(self.__extra_constant_inputs)))
+             path_variables_size +
+             extra_constant_inputs_size))
 
         integrated_states_0 = accumulated_X[0:len(integrated_variables)]
         integrated_states_1 = ca.MX.sym(
@@ -767,8 +805,8 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
         offset = 2 * (len(collocated_variables) + len(self.dae_variables['constant_inputs']))
         collocation_time_0 = accumulated_U[offset + 0]
         collocation_time_1 = accumulated_U[offset + 1]
-        path_variables_1 = accumulated_U[offset + 2:offset + 2 + len(self.path_variables)]
-        extra_constant_inputs_1 = accumulated_U[offset + 2 + len(self.path_variables):]
+        path_variables_1 = accumulated_U[offset + 2:offset + 2 + path_variables_size]
+        extra_constant_inputs_1 = accumulated_U[offset + 2 + path_variables_size:]
 
         # Approximate derivatives using backwards finite differences
         dt = collocation_time_1 - collocation_time_0
@@ -1062,11 +1100,12 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                 'constant_inputs']) + 1] = ca.MX(collocation_times[1:n_collocation_times])
 
             path_variables = [None] * len(self.path_variables)
-            for j, variable in enumerate(self.path_variables):
-                variable = variable.name()
+            for j, variable in enumerate(self.__path_variable_names):
+                variable_size = self.__variable_sizes[variable]
                 values = self.state_vector(
                     variable, ensemble_member=ensemble_member)
-                path_variables[j] = values[1:n_collocation_times]
+                path_variables[j] = values.reshape((n_collocation_times, variable_size))[1:, :]
+
             accumulation_U[1 + 2 * len(
                 self.dae_variables['constant_inputs']) + 2] = reduce_matvec(
                     ca.horzcat(*path_variables), self.solver_input)
@@ -1075,7 +1114,7 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                 variable = variable.name()
                 constant_input = extra_constant_inputs[variable]
                 accumulation_U[1 + 2 * len(self.dae_variables['constant_inputs']) + 3 + j] = \
-                    ca.MX(constant_input[1:n_collocation_times])
+                    ca.transpose(ca.MX(constant_input[:, 1:n_collocation_times]))
 
             # Construct matrix using O(states) CasADi operations
             # This is faster than using blockcat, presumably because of the
@@ -1110,10 +1149,10 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                     0:n_collocation_times - 1])
                 discretized_path_constraints = ca.vec(integrators_and_collocation_and_path_constraints[
                     dae_residual_collocated_size + path_objective.size1():dae_residual_collocated_size +
-                    path_objective.size1() + len(path_constraints),
+                    path_objective.size1() + path_constraint_expressions.size1(),
                     0:n_collocation_times - 1])
                 discretized_delayed_feedback = integrators_and_collocation_and_path_constraints[
-                    dae_residual_collocated_size + path_objective.size1() + len(path_constraints):,
+                    dae_residual_collocated_size + path_objective.size1() + path_constraint_expressions.size1():,
                     0:n_collocation_times - 1]
             else:
                 collocation_constraints = ca.MX()
@@ -1192,13 +1231,20 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                 initial_delayed_feedback = delayed_feedback_function.call(
                     self.__func_initial_inputs[ensemble_member], False, True)
 
+                path_variables_nominal = np.ones(path_variables_size)
+                offset = 0
+                for variable in self.__path_variable_names:
+                    variable_size = self.__variable_sizes[variable]
+                    path_variables_nominal[offset:offset + variable_size] = self.variable_nominal(variable)
+                    offset += variable_size
+
                 nominal_delayed_feedback = delayed_feedback_function.call(
                     [parameters, ca.vertcat(
                         [self.variable_nominal(var.name()) for var in integrated_variables + collocated_variables],
                         np.zeros((initial_derivatives.size1(), 1)),
                         initial_constant_inputs,
                         0.0,
-                        [self.variable_nominal(var.name()) for var in self.path_variables],
+                        path_variables_nominal,
                         initial_extra_constant_inputs)])
 
             for i in range(len(delayed_feedback_expressions)):
@@ -1308,6 +1354,26 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
 
             if constraints:
                 g_constraint, lbg_constraint, ubg_constraint = list(zip(*constraints))
+
+                lbg_constraint = list(lbg_constraint)
+                ubg_constraint = list(ubg_constraint)
+
+                # Broadcast lbg/ubg if it's a vector constraint
+                for i, (g_i, lbg_i, ubg_i) in enumerate(zip(g_constraint, lbg_constraint, ubg_constraint)):
+                    s = g_i.size1()
+                    if s > 1:
+                        if not isinstance(lbg_i, np.ndarray) or lbg_i.shape[0] == 1:
+                            lbg_constraint[i] = np.full(s, lbg_i)
+                        elif lbg_i.shape[0] != g_i.shape[0]:
+                            raise Exception("Shape mismatch between constraint #{} ({},) and its lower bound ({},)"
+                                            .format(i, g_i.shape[0], lbg_i.shape[0]))
+
+                        if not isinstance(ubg_i, np.ndarray) or ubg_i.shape[0] == 1:
+                            ubg_constraint[i] = np.full(s, ubg_i)
+                        elif ubg_i.shape[0] != g_i.shape[0]:
+                            raise Exception("Shape mismatch between constraint #{} ({},) and its upper bound ({},)"
+                                            .format(i, g_i.shape[0], ubg_i.shape[0]))
+
                 g.extend(g_constraint)
                 lbg.extend(lbg_constraint)
                 ubg.extend(ubg_constraint)
@@ -1327,13 +1393,17 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                 g.append(discretized_path_constraints)
 
                 lbg_path_constraints = np.empty(
-                    (len(path_constraints), n_collocation_times))
+                    (path_constraint_expressions.size1(), n_collocation_times))
                 ubg_path_constraints = np.empty(
-                    (len(path_constraints), n_collocation_times))
-                for j, path_constraint in enumerate(path_constraints):
+                    (path_constraint_expressions.size1(), n_collocation_times))
+
+                j = 0
+                for path_constraint in path_constraints:
                     if logger.getEffectiveLevel() == logging.DEBUG:
                         logger.debug(
                             "Adding path constraint {}, {}, {}".format(*path_constraint))
+
+                    s = path_constraint[0].size1()
 
                     lb = path_constraint[1]
                     if isinstance(lb, ca.MX) and not lb.is_constant():
@@ -1342,6 +1412,8 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                     elif isinstance(lb, Timeseries):
                         lb = self.interpolate(
                             collocation_times, lb.times, lb.values, -np.inf, -np.inf)
+                    elif isinstance(lb, np.ndarray):
+                        lb = np.broadcast_to(lb, (n_collocation_times, s)).transpose()
 
                     ub = path_constraint[2]
                     if isinstance(ub, ca.MX) and not ub.is_constant():
@@ -1350,9 +1422,14 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                     elif isinstance(ub, Timeseries):
                         ub = self.interpolate(
                             collocation_times, ub.times, ub.values, np.inf, np.inf)
+                    elif isinstance(ub, np.ndarray):
+                        ub = np.broadcast_to(ub, (n_collocation_times, s)).transpose()
 
-                    lbg_path_constraints[j, :] = lb
-                    ubg_path_constraints[j, :] = ub
+                    lbg_path_constraints[j:j+s, :] = lb
+                    ubg_path_constraints[j:j+s, :] = ub
+
+                    j += s
+
                 lbg.extend(lbg_path_constraints.transpose().ravel())
                 ubg.extend(ubg_path_constraints.transpose().ravel())
 
@@ -1558,15 +1635,18 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
         # Default implementation: States for all ensemble members
         ensemble_member_size = 0
 
+        variable_sizes = self.__variable_sizes
+
         # Space for collocated states
         for variable in itertools.chain(self.differentiated_states, self.algebraic_states, self.__path_variable_names):
             if variable in self.integrated_states:
                 ensemble_member_size += 1  # Initial state
             else:
-                ensemble_member_size += len(self.times(variable))
+                ensemble_member_size += variable_sizes[variable] * len(self.times(variable))
 
         # Space for extra variables
-        ensemble_member_size += len(self.extra_variables)
+        for variable in self.__extra_variable_names:
+            ensemble_member_size += variable_sizes[variable]
 
         # Space for initial states and derivatives
         ensemble_member_size += len(self.dae_variables['derivatives'])
@@ -1589,30 +1669,39 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
             offset = ensemble_member * ensemble_member_size
             for variable in itertools.chain(
                     self.differentiated_states, self.algebraic_states, self.__path_variable_names):
+
+                variable_size = variable_sizes[variable]
+
                 if variable in self.integrated_states:
+                    assert variable_size == 1
                     indices[ensemble_member][variable] = offset
 
                     offset += 1
-
                 else:
                     times = self.times(variable)
                     n_times = len(times)
 
-                    indices[ensemble_member][variable] = slice(offset, offset + n_times)
+                    indices[ensemble_member][variable] = slice(offset, offset + n_times * variable_size)
 
-                    offset += n_times
+                    offset += n_times * variable_size
 
-            for extra_variable in self.extra_variables:
-                indices[ensemble_member][extra_variable.name()] = offset
+            for extra_variable in self.__extra_variable_names:
+                variable_size = variable_sizes[extra_variable]
 
-                offset += 1
+                indices[ensemble_member][extra_variable] = slice(offset, offset + variable_size)
+
+                offset += variable_size
 
         # Types
         for ensemble_member in range(self.ensemble_size):
             offset = ensemble_member * ensemble_member_size
             for variable in itertools.chain(
                     self.differentiated_states, self.algebraic_states, self.__path_variable_names):
+
+                variable_size = variable_sizes[variable]
+
                 if variable in self.integrated_states:
+                    assert variable_size == 1
                     discrete[offset] = self.variable_is_discrete(variable)
 
                     offset += 1
@@ -1622,20 +1711,28 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                     n_times = len(times)
 
                     discrete[offset:offset +
-                             n_times] = self.variable_is_discrete(variable)
+                             n_times * variable_size] = self.variable_is_discrete(variable)
 
-                    offset += n_times
+                    offset += n_times * variable_size
 
-            for k in range(len(self.extra_variables)):
+            for variable in self.__extra_variable_names:
+                variable_size = variable_sizes[variable]
+
                 discrete[
-                    offset + k] = self.variable_is_discrete(self.extra_variables[k].name())
+                    offset:offset + variable_size] = self.variable_is_discrete(variable)
+
+                offset += variable_size
 
         # Bounds, defaulting to +/- inf, if not set
         for ensemble_member in range(self.ensemble_size):
             offset = ensemble_member * ensemble_member_size
             for variable in itertools.chain(
                     self.differentiated_states, self.algebraic_states, self.__path_variable_names):
+
+                variable_size = variable_sizes[variable]
+
                 if variable in self.integrated_states:
+                    assert variable_size == 1
                     try:
                         bound = resolved_bounds[variable]
                     except KeyError:
@@ -1676,42 +1773,52 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                         if bound[0] is not None:
                             if isinstance(bound[0], Timeseries):
                                 lower_bound = self.interpolate(
-                                    times, bound[0].times, bound[0].values, -np.inf, -np.inf)
+                                    times, bound[0].times, bound[0].values, -np.inf, -np.inf).ravel()
+                            elif isinstance(bound[0], np.ndarray):
+                                lower_bound = np.broadcast_to(bound[0], (n_times, variable_size)).transpose().ravel()
                             else:
                                 lower_bound = bound[0]
-                            lbx[offset:offset + n_times] = lower_bound / nominal
+                            lbx[offset:offset + variable_size * n_times] = lower_bound / nominal
+
                         if bound[1] is not None:
                             if isinstance(bound[1], Timeseries):
                                 upper_bound = self.interpolate(
-                                    times, bound[1].times, bound[1].values, +np.inf, +np.inf)
+                                    times, bound[1].times, bound[1].values, +np.inf, +np.inf).ravel()
+                            elif isinstance(bound[1], np.ndarray):
+                                upper_bound = np.broadcast_to(bound[1], (n_times, variable_size)).transpose().ravel()
                             else:
                                 upper_bound = bound[1]
-                            ubx[offset:offset + n_times] = upper_bound / nominal
+                            ubx[offset:offset + variable_size * n_times] = upper_bound / nominal
 
                     # Warn for NaNs
-                    if np.any(np.isnan(lbx[offset:offset + n_times])):
+                    if np.any(np.isnan(lbx[offset:offset + n_times * variable_size])):
                         logger.error('Lower bound on variable {} contains NaN'.format(variable))
-                    if np.any(np.isnan(ubx[offset:offset + n_times])):
+                    if np.any(np.isnan(ubx[offset:offset + n_times * variable_size])):
                         logger.error('Upper bound on variable {} contains NaN'.format(variable))
 
-                    offset += n_times
+                    offset += n_times * variable_size
 
-            for k in range(len(self.extra_variables)):
+            for variable in self.__extra_variable_names:
+
+                variable_size = variable_sizes[variable]
+
                 try:
-                    bound = resolved_bounds[self.extra_variables[k].name()]
+                    bound = resolved_bounds[variable]
                 except KeyError:
                     pass
                 else:
                     if bound[0] is not None:
-                        lbx[offset + k] = bound[0]
+                        lbx[offset:offset + variable_size] = bound[0]
                     if bound[1] is not None:
-                        ubx[offset + k] = bound[1]
+                        ubx[offset:offset + variable_size] = bound[1]
 
                 # Warn for NaNs
-                if np.any(np.isnan(lbx[offset + k])):
-                    logger.error('Lower bound on variable {} contains NaN'.format(self.extra_variables[k].name()))
-                if np.any(np.isnan(ubx[offset + k])):
-                    logger.error('Upper bound on variable {} contains NaN'.format(self.extra_variables[k].name()))
+                if np.any(np.isnan(lbx[offset:offset + variable_size])):
+                    logger.error('Lower bound on variable {} contains NaN'.format(variable))
+                if np.any(np.isnan(ubx[offset:offset + variable_size])):
+                    logger.error('Upper bound on variable {} contains NaN'.format(variable))
+
+                offset += variable_size
 
             # Initial guess based on provided seeds, defaulting to zero if no
             # seed is given
@@ -1720,7 +1827,11 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
             offset = ensemble_member * ensemble_member_size
             for variable in itertools.chain(
                     self.differentiated_states, self.algebraic_states, self.__path_variable_names):
+
+                variable_size = variable_sizes[variable]
+
                 if variable in self.integrated_states:
+                    assert variable_size == 1
                     try:
                         seed_k = seed[variable]
                         nominal = self.variable_nominal(variable)
@@ -1738,18 +1849,23 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                     try:
                         seed_k = seed[variable]
                         nominal = self.variable_nominal(variable)
-                        x0[offset:offset + n_times] = self.interpolate(
-                            times, seed_k.times, seed_k.values, 0, 0) / nominal
+                        x0[offset:offset + n_times * variable_size] = self.interpolate(
+                            times, seed_k.times, seed_k.values, 0, 0).ravel() / nominal
                     except KeyError:
                         pass
 
-                    offset += n_times
+                    offset += n_times * variable_size
 
-            for k in range(len(self.extra_variables)):
+            for variable in self.__extra_variable_names:
+
+                variable_size = variable_sizes[variable]
+
                 try:
-                    x0[offset + k] = seed[self.extra_variables[k].name()]
+                    x0[offset:offset + variable_size] = seed[variable]
                 except KeyError:
                     pass
+
+                offset += variable_size
 
         # Return number of state variables
         return count, discrete, lbx, ubx, x0, indices
@@ -1803,17 +1919,33 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                 results[variable] = np.interp(self.times(
                     variable), constant_input.times, constant_input.values)
 
+        variable_sizes = self.__variable_sizes
+
         # Extract path variables
         n_collocation_times = len(self.times())
-        for variable in self.path_variables:
-            variable = variable.name()
-            results[variable] = X[offset:offset + n_collocation_times]
-            offset += n_collocation_times
+        for variable in self.__path_variable_names:
+            variable_size = variable_sizes[variable]
+
+            if variable_size > 1:
+                results[variable] = X[offset:offset + n_collocation_times * variable_size] \
+                    .reshape((variable_size, n_collocation_times))
+            else:
+                results[variable] = X[offset:offset + n_collocation_times]
+            offset += n_collocation_times * variable_size
 
         # Extract extra variables
-        for k in range(len(self.extra_variables)):
-            variable = self.extra_variables[k].name()
-            results[variable] = X[offset + k].ravel()
+        for variable in self.__extra_variable_names:
+            variable_size = variable_sizes[variable]
+
+            if variable_size > 1:
+                # NOTE: To avoid confusion with 1D flat array for collocated variables, we
+                # want to explicitly return a column vector here.
+                results[variable] = X[offset:offset + variable_size][:, None]
+                assert results[variable].ndim == 2
+            else:
+                results[variable] = X[offset].ravel()
+
+            offset += variable_size
 
         # Done
         return results
@@ -1825,6 +1957,10 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
     def state_at(self, variable, t, ensemble_member=0, scaled=False, extrapolate=True):
         if isinstance(variable, ca.MX):
             variable = variable.name()
+
+        if self.__variable_sizes.get(variable, 1) > 1:
+            raise NotImplementedError("state_at() not supported for vector states")
+
         name = "{}[{},{}]{}".format(
             variable, ensemble_member, t - self.initial_time, 'S' if scaled else '')
         if extrapolate:

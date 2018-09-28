@@ -482,7 +482,8 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
 
         for i, parameter in enumerate(self.dae_variables['parameters']):
             values = [ensemble_store[ensemble_member]["parameters"][i] for ensemble_member in range(self.ensemble_size)]
-            if (np.min(values) == np.max(values)) and (parameter.name() not in dynamic_parameter_names):
+            if ((len(values) == 1 or (np.all(values) == values[0]))
+                    and parameter.name() not in dynamic_parameter_names):
                 constant_parameters.append(parameter)
                 constant_parameter_values.append(values[0])
             else:

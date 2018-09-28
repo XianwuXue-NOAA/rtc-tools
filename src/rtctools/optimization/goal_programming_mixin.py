@@ -152,6 +152,9 @@ class Goal(metaclass=ABCMeta):
     #: function.
     order = 2
 
+    #: The size of the goal if it's a vector goal.
+    size = 1
+
     #: Critical goals must always be fully satisfied.
     critical = False
 
@@ -172,7 +175,7 @@ class Goal(metaclass=ABCMeta):
         if isinstance(self.target_min, Timeseries):
             return True
         else:
-            return np.isfinite(self.target_min)
+            return np.any(np.isfinite(self.target_min))
 
     @property
     def has_target_max(self) -> bool:
@@ -182,7 +185,7 @@ class Goal(metaclass=ABCMeta):
         if isinstance(self.target_max, Timeseries):
             return True
         else:
-            return np.isfinite(self.target_max)
+            return np.any(np.isfinite(self.target_max))
 
     @property
     def has_target_bounds(self) -> bool:
@@ -299,13 +302,18 @@ class _GoalConstraint:
             self,
             goal: Goal,
             function: Callable[[OptimizationProblem], ca.MX],
-            m: Union[float, Timeseries],
-            M: Union[float, Timeseries],
+            m: Union[float, np.ndarray, Timeseries],
+            M: Union[float, np.ndarray, Timeseries],
             optimized: bool):
 
-        assert isinstance(m, (float, Timeseries))
-        assert isinstance(M, (float, Timeseries))
+        assert isinstance(m, (float, np.ndarray, Timeseries))
+        assert isinstance(M, (float, np.ndarray, Timeseries))
         assert type(m) == type(M)
+
+        # NumPy arrays only allowed for vector goals
+        if isinstance(m, np.ndarray):
+            assert len(m) == goal.size
+            assert len(M) == goal.size
 
         self.goal = goal
         self.function = function
@@ -420,11 +428,16 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
             if k not in self.__original_constant_input_keys[ensemble_member]:
                 del constant_inputs[k]
 
+        n_times = len(self.times())
+
         # Append min/max timeseries to the constant inputs. Note that min/max
         # timeseries are shared between all ensemble members.
         for (variable, value) in self.__subproblem_path_timeseries + self.__problem_path_timeseries:
-            if not isinstance(value, Timeseries):
-                value = Timeseries(self.times(), np.full_like(self.times(), value))
+            if isinstance(value, np.ndarray):
+                value = Timeseries(self.times(), np.broadcast_to(value, (n_times, len(value))).transpose())
+            elif not isinstance(value, Timeseries):
+                value = Timeseries(self.times(), np.full(n_times, value))
+
             constant_inputs[variable] = value
         return constant_inputs
 
@@ -460,13 +473,25 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
 
         # Seed epsilons of current priority
         for epsilon in self.__subproblem_epsilons:
-            seed[epsilon.name()] = 1.0
+            eps_size = epsilon.size1()
+            if eps_size > 1:
+                seed[epsilon.name()] = np.ones(eps_size)
+            else:
+                seed[epsilon.name()] = 1.0
 
         times = self.times()
         for epsilon in self.__subproblem_path_epsilons:
-            seed[epsilon.name()] = Timeseries(times, np.ones(len(times)))
+            eps_size = epsilon.size1()
+            if eps_size > 1:
+                seed[epsilon.name()] = Timeseries(times, np.ones((eps_size, len(times))))
+            else:
+                seed[epsilon.name()] = Timeseries(times, np.ones(len(times)))
 
         return seed
+
+    def __n_objectives(self, ensemble_member):
+        return ca.vertcat(*[o(self, ensemble_member) for o in self.__subproblem_objectives]).size1() \
+               + ca.vertcat(*[o(self, ensemble_member) for o in self.__subproblem_path_objectives]).size1()
 
     def __objective(self, subproblem_objectives, n_objectives, ensemble_member):
         if len(subproblem_objectives) > 0:
@@ -480,7 +505,7 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
             return ca.MX(0)
 
     def objective(self, ensemble_member):
-        n_objectives = len(self.__subproblem_objectives) + len(self.__subproblem_path_objectives)
+        n_objectives = self.__n_objectives(ensemble_member)
         return self.__objective(self.__subproblem_objectives, n_objectives, ensemble_member)
 
     def __path_objective(self, subproblem_path_objectives, n_objectives, ensemble_member):
@@ -495,7 +520,7 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
             return ca.MX(0)
 
     def path_objective(self, ensemble_member):
-        n_objectives = len(self.__subproblem_objectives) + len(self.__subproblem_path_objectives)
+        n_objectives = self.__n_objectives(ensemble_member)
         return self.__path_objective(self.__subproblem_path_objectives, n_objectives, ensemble_member)
 
     def constraints(self, ensemble_member):
@@ -706,6 +731,8 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
         if isinstance(g.target_min, Timeseries):
             m = self.interpolate(
                 times, g.target_min.times, g.target_min.values, -np.inf, -np.inf)
+        elif isinstance(g.target_min, np.ndarray) and target_shape:
+            m = np.broadcast_to(g.target_min, (target_shape, len(g.target_min))).transpose()
         elif target_shape:
             m = np.full(target_shape, g.target_min)
         else:
@@ -713,10 +740,14 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
         if isinstance(g.target_max, Timeseries):
             M = self.interpolate(
                 times, g.target_max.times, g.target_max.values, np.inf, np.inf)
+        elif isinstance(g.target_max, np.ndarray) and target_shape:
+            M = np.broadcast_to(g.target_max, (target_shape, len(g.target_max))).transpose()
         elif target_shape:
             M = np.full(target_shape, g.target_max)
         else:
             M = np.array([g.target_max])
+
+        assert m.shape == M.shape
 
         return m, M
 
@@ -730,22 +761,34 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
             m, M = goal.function_range
 
             # The function range should not be a symbolic expression
-            assert (not isinstance(m, ca.MX) or m.is_constant())
-            assert (not isinstance(M, ca.MX) or M.is_constant())
+            if isinstance(m, ca.MX):
+                assert m.is_constant()
+                if m.size1() == 1:
+                    m = float(m)
+                else:
+                    m = np.array(m.to_DM())
 
-            m, M = float(m), float(M)
+            if isinstance(M, ca.MX):
+                assert M.is_constant()
+                if M.size1() == 1:
+                    M = float(M)
+                else:
+                    M = np.array(M.to_DM())
 
-            if goal.function_nominal <= 0:
+            assert isinstance(m, (float, int, np.ndarray))
+            assert isinstance(M, (float, int, np.ndarray))
+
+            if np.any(goal.function_nominal <= 0):
                 raise Exception("Nonpositive nominal value specified for goal {}".format(goal))
 
             if goal.critical and not goal.has_target_bounds:
                 raise Exception("Minimization goals cannot be critical")
 
             if goal.has_target_bounds:
-                if not np.isfinite(m) or not np.isfinite(M):
+                if not np.all(np.isfinite(m)) or not np.all(np.isfinite(M)):
                     raise Exception("No function range specified for goal {}".format(goal))
 
-                if m >= M:
+                if np.any(m >= M):
                     raise Exception("Invalid function range for goal {}.".format(goal))
             else:
                 if goal.function_range != (np.nan, np.nan):
@@ -765,6 +808,9 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
             if options['keep_soft_constraints']:
                 if goal.relaxation != 0.0:
                     raise Exception("Relaxation not allowed with `keep_soft_constraints` for goal {}".format(goal))
+            else:
+                if goal.size > 1:
+                    raise Exception("Option `keep_soft_constraints` needs to be set for vector goal {}".format(goal))
 
         if is_path_goal:
             target_shape = len(self.times())
@@ -816,14 +862,16 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
                     raise Exception("Target minimum exceeds target maximum for goal {}".format(goal))
 
             if goal.has_target_min:
-                indices = np.where(np.logical_not(np.isnan(goal_m)))
-                if np.any(goal_m[indices] <= goal.function_range[0]):
+                indices = np.where(np.isfinite(goal_m))
+                lb = np.broadcast_to(goal.function_range[0], reversed(goal_m.shape)).transpose()
+                if np.any(goal_m[indices] <= lb[indices]):
                     raise Exception(
                         'Target minimum should be greater than the lower bound of the function range for goal {}'
                         .format(goal))
             if goal.has_target_max:
-                indices = np.where(np.logical_not(np.isnan(goal_M)))
-                if np.any(goal_M[indices] >= goal.function_range[1]):
+                indices = np.where(np.isfinite(goal_M))
+                ub = np.broadcast_to(goal.function_range[1], reversed(goal_M.shape)).transpose()
+                if np.any(goal_M[indices] >= ub[indices]):
                     raise Exception(
                         'Target maximum should be smaller than the upper bound of the function range for goal {}'
                         .format(goal))
@@ -861,9 +909,9 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
 
         for j, goal in enumerate(goals):
             if goal.critical:
-                epsilon = np.array([0.0])
+                epsilon = np.zeros(goal.size)
             elif goal.has_target_bounds:
-                epsilon = ca.MX.sym(eps_format.format(sym_index, j))
+                epsilon = ca.MX.sym(eps_format.format(sym_index, j), goal.size)
                 epsilons.append(epsilon)
 
             # Make symbols for the target bounds (if set)
@@ -876,6 +924,13 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
                         np.logical_or(
                             np.isnan(target_min.values),
                             np.isneginf(target_min.values))
+                        ] = -sys.float_info.max
+                elif isinstance(goal.target_min, np.ndarray):
+                    target_min = goal.target_min
+                    target_min[
+                        np.logical_or(
+                            np.isnan(target_min),
+                            np.isneginf(target_min))
                         ] = -sys.float_info.max
                 else:
                     target_min = goal.target_min
@@ -893,6 +948,13 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
                         np.logical_or(
                             np.isnan(target_max.values),
                             np.isposinf(target_max.values))
+                        ] = sys.float_info.max
+                elif isinstance(goal.target_max, np.ndarray):
+                    target_max = goal.target_max
+                    target_max[
+                        np.logical_or(
+                            np.isnan(target_max),
+                            np.isposinf(target_max))
                         ] = sys.float_info.max
                 else:
                     target_max = goal.target_max

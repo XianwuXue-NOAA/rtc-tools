@@ -215,11 +215,19 @@ class ModelicaMixin(OptimizationProblem):
         constant_input_names = {sym.name() for sym in self.__mx['constant_inputs']}
         for v in self.__pymoca_model.inputs:
             if v.symbol.name() in constant_input_names:
-                constant_inputs[v.symbol.name()] = Timeseries(
-                    times, np.full_like(times, v.value))
-                if logger.getEffectiveLevel() == logging.DEBUG:
-                    logger.debug("Read constant input {} = {} from Modelica model".format(
-                        v.symbol.name(), v.value))
+                # NOTE: v.value can be a DM. Cast to float to make sure the
+                # isnan call succeeds.
+                value = float(v.value)
+
+                if not np.isnan(value):
+                    constant_inputs[v.symbol.name()] = Timeseries(
+                        times, np.full_like(times, value))
+                    if logger.getEffectiveLevel() == logging.DEBUG:
+                        logger.debug(
+                            "Read constant input {} = {} from Modelica model".format(
+                                v.symbol.name(), value
+                            )
+                        )
 
         return constant_inputs
 

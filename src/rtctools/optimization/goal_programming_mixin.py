@@ -1025,9 +1025,6 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
             # Re-add constraints, this time with epsilon values fixed
             for ensemble_member in range(self.ensemble_size):
                 for j, goal in enumerate(goals):
-                    if goal.critical:
-                        continue
-
                     if (
                             not goal.has_target_bounds or
                             goal.violation_timeseries_id is not None or
@@ -1041,6 +1038,9 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
                             self.set_timeseries(
                                 goal.function_value_timeseries_id,
                                 np.full_like(times, function_value), ensemble_member)
+
+                    if goal.critical:
+                        continue
 
                     if goal.has_target_bounds:
                         epsilon = self.__results[ensemble_member][
@@ -1073,9 +1073,6 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
                         goal, epsilon, ensemble_member, options)
 
                 for j, goal in enumerate(path_goals):
-                    if goal.critical:
-                        continue
-
                     if (
                             not goal.has_target_bounds or
                             goal.violation_timeseries_id is not None or
@@ -1089,6 +1086,9 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
                         # Store results
                         if goal.function_value_timeseries_id is not None:
                             self.set_timeseries(goal.function_value_timeseries_id, function_value, ensemble_member)
+
+                    if goal.critical:
+                        continue
 
                     if goal.has_target_bounds:
                         epsilon = self.__results[ensemble_member][

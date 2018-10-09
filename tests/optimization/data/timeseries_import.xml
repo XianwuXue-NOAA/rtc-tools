@@ -6,12 +6,14 @@
 			<ns0:locationId>Controls</ns0:locationId>
 			<ns0:parameterId>U_Min</ns0:parameterId>
 			<ns0:timeStep multiplier="3600" unit="second" />
-			<ns0:startDate date="2013-05-19" time="22:00:00" />
+			<ns0:startDate date="2013-05-19" time="20:00:00" />
 			<ns0:forecastDate date="2013-05-19" time="22:00:00" />
 			<ns0:endDate date="2013-05-20" time="19:00:00" />
 			<ns0:missVal>-999.0</ns0:missVal>
 			<ns0:units>m3/s</ns0:units>
 		</ns0:header>
+		<ns0:event date="2013-05-19" flag="0" time="20:00:00" value="-1.3" />
+		<ns0:event date="2013-05-19" flag="0" time="21:00:00" value="-1.5" />
 		<ns0:event date="2013-05-19" flag="0" time="22:00:00" value="-2.0" />
 		<ns0:event date="2013-05-19" flag="0" time="23:00:00" value="-2.0" />
 		<ns0:event date="2013-05-20" flag="0" time="00:00:00" value="-2.0" />
@@ -41,12 +43,14 @@
 			<ns0:locationId>Controls</ns0:locationId>
 			<ns0:parameterId>U_Max</ns0:parameterId>
 			<ns0:timeStep multiplier="3600" unit="second" />
-			<ns0:startDate date="2013-05-19" time="22:00:00" />
+			<ns0:startDate date="2013-05-19" time="20:00:00" />
 			<ns0:forecastDate date="2013-05-19" time="22:00:00" />
 			<ns0:endDate date="2013-05-20" time="19:00:00" />
 			<ns0:missVal>-999.0</ns0:missVal>
 			<ns0:units>m3/s</ns0:units>
 		</ns0:header>
+		<ns0:event date="2013-05-19" flag="0" time="20:00:00" value="1.3" />
+		<ns0:event date="2013-05-19" flag="0" time="21:00:00" value="1.5" />
 		<ns0:event date="2013-05-19" flag="0" time="22:00:00" value="2.0" />
 		<ns0:event date="2013-05-19" flag="0" time="23:00:00" value="2.0" />
 		<ns0:event date="2013-05-20" flag="0" time="00:00:00" value="2.0" />
@@ -76,12 +80,14 @@
 			<ns0:locationId>States</ns0:locationId>
 			<ns0:parameterId>X</ns0:parameterId>
 			<ns0:timeStep multiplier="3600" unit="second" />
-			<ns0:startDate date="2013-05-19" time="22:00:00" />
+			<ns0:startDate date="2013-05-19" time="20:00:00" />
 			<ns0:forecastDate date="2013-05-19" time="22:00:00" />
 			<ns0:endDate date="2013-05-20" time="19:00:00" />
 			<ns0:missVal>-999.0</ns0:missVal>
 			<ns0:units>m3/s</ns0:units>
 		</ns0:header>
+		<ns0:event date="2013-05-19" flag="0" time="20:00:00" value="0.62" />
+		<ns0:event date="2013-05-19" flag="0" time="21:00:00" value="0.82" />
 		<ns0:event date="2013-05-19" flag="0" time="22:00:00" value="1.02" />
 		<ns0:event date="2013-05-19" flag="0" time="23:00:00" value="0.0" />
 		<ns0:event date="2013-05-20" flag="0" time="00:00:00" value="0.03" />
@@ -111,12 +117,14 @@
 			<ns0:locationId>States</ns0:locationId>
 			<ns0:parameterId>W</ns0:parameterId>
 			<ns0:timeStep multiplier="3600" unit="second" />
-			<ns0:startDate date="2013-05-19" time="22:00:00" />
+			<ns0:startDate date="2013-05-19" time="20:00:00" />
 			<ns0:forecastDate date="2013-05-19" time="22:00:00" />
 			<ns0:endDate date="2013-05-20" time="19:00:00" />
 			<ns0:missVal>-999.0</ns0:missVal>
 			<ns0:units>m3/s</ns0:units>
 		</ns0:header>
+		<ns0:event date="2013-05-19" flag="0" time="20:00:00" value="0.12" />
+		<ns0:event date="2013-05-19" flag="0" time="21:00:00" value="0.02" />
 		<ns0:event date="2013-05-19" flag="0" time="22:00:00" value="0.0" />
 		<ns0:event date="2013-05-19" flag="0" time="23:00:00" value="0.0" />
 		<ns0:event date="2013-05-20" flag="0" time="00:00:00" value="0.03" />
@@ -146,12 +154,14 @@
 			<ns0:locationId>Inputs</ns0:locationId>
 			<ns0:parameterId>I</ns0:parameterId>
 			<ns0:timeStep multiplier="3600" unit="second" />
-			<ns0:startDate date="2013-05-19" time="22:00:00" />
+			<ns0:startDate date="2013-05-19" time="20:00:00" />
 			<ns0:forecastDate date="2013-05-19" time="22:00:00" />
 			<ns0:endDate date="2013-05-20" time="19:00:00" />
 			<ns0:missVal>-999.0</ns0:missVal>
 			<ns0:units>m3/s</ns0:units>
 		</ns0:header>
+		<ns0:event date="2013-05-19" flag="0" time="21:00:00" value="1.3" />
+		<ns0:event date="2013-05-19" flag="0" time="21:00:00" value="1.1" />
 		<ns0:event date="2013-05-19" flag="0" time="22:00:00" value="1.0" />
 		<ns0:event date="2013-05-19" flag="0" time="23:00:00" value="1.0" />
 		<ns0:event date="2013-05-20" flag="0" time="00:00:00" value="1.0" />

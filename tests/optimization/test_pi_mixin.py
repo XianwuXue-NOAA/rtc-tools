@@ -63,9 +63,15 @@ class TestPIMixin(TestCase):
         initial_state = self.problem.initial_state(0)
         self.assertAlmostEqual(initial_state["x"], 1.02, self.tolerance)
 
+    def test_history(self):
+        history = self.problem.history(0)
+        self.assertEqual(len(history['x'].times), 3)
+        self.assertEqual(history['x'].times[1], -3600)
+        self.assertAlmostEqual(history['x'].values[1], 0.82, self.tolerance)
+
     def test_seed(self):
         seed = self.problem.seed(0)
-        self.assertAlmostEqual(seed["x"].values[2], 0.03, self.tolerance)
+        self.assertAlmostEqual(seed["x"].values[4], 0.03, self.tolerance)
 
     def test_objective_value(self):
         objective_value_tol = 1e-6

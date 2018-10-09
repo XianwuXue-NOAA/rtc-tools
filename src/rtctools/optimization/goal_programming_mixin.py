@@ -570,6 +570,8 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
         +---------------------------+-----------+---------------+
         | ``constraint_relaxation`` | ``float`` | ``0.0``       |
         +---------------------------+-----------+---------------+
+        | ``obj_constr_relaxation`` | ``list``  | ``[]``        |
+        +---------------------------+-----------+---------------+
         | ``mu_reinit``             | ``bool``  | ``True``      |
         +---------------------------+-----------+---------------+
         | ``fix_minimized_values``  | ``bool``  | ``True/False``|
@@ -601,6 +603,9 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
         2. Because of the constraints it generates, when ``keep_soft_constraints`` is True, the option
            ``fix_minimized_values`` needs to be set to False for the ``constraint_relaxation`` to
            be applied at all.
+
+        The option ``obj_constr_relaxation`` relaxes the objective value of the constraints. It can either be
+        an empty vector, a single value or a vector containing a value of each active priority.
 
         A goal is considered to be violated if the violation, scaled between 0 and 1, is greater
         than the specified tolerance. Violated goals are fixed.  Use of this option is normally not
@@ -662,6 +667,7 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
         options['mu_reinit'] = True
         options['violation_relaxation'] = 0.0  # Disable by default
         options['constraint_relaxation'] = 0.0  # Disable by default
+        options['obj_constr_relaxation'] = []
         options['violation_tolerance'] = np.inf  # Disable by default
         options['fix_minimized_values'] = False
         options['check_monotonicity'] = True
@@ -1171,11 +1177,19 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
         obj_val = float(f(self.solver_output))
 
         options = self.goal_programming_options()
+        if isinstance(options['obj_constr_relaxation'], (float, int)):
+            obj_cons_rel = options['obj_constr_relaxation']
+            options['obj_constr_relaxation'] = [obj_cons_rel] * (self.__cardinality_priorities - 1)
 
         if options['fix_minimized_values']:
             constraint = _GoalConstraint(None, _constraint_func, obj_val, obj_val, True)
         else:
             obj_val += options['constraint_relaxation']
+
+            if len(options['obj_constr_relaxation']) == self.__cardinality_priorities - 1:
+                obj_val += options['obj_constr_relaxation'][self.__cardinality_current_priority - 1]
+            else:
+                pass
             constraint = _GoalConstraint(None, _constraint_func, -np.inf, obj_val, True)
 
         # The goal works over all ensemble members, so we add it to the first
@@ -1237,6 +1251,22 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
 
         priorities = {int(goal.priority) for goal in itertools.chain(goals, path_goals) if not goal.is_empty}
 
+        self.__cardinality_priorities = len(priorities)
+        self.__cardinality_current_priority = 0
+
+        if isinstance(options['obj_constr_relaxation'], (float, int)):
+            obj_cons_rel = options['obj_constr_relaxation']
+            options['obj_constr_relaxation'] = [obj_cons_rel] * (self.__cardinality_priorities - 1)
+        assert all(isinstance(k, (float, int)) for k in options['obj_constr_relaxation'])
+        if len(options['obj_constr_relaxation']) not in [0, (self.__cardinality_priorities - 1)]:
+            raise Exception("Wrong lenght of 'obj_constr_relaxation'."
+                            "It must contain a value for each active priority")
+        if len(options['obj_constr_relaxation']) > 0 and options['fix_minimized_values']:
+            raise Exception("The option 'obj_constr_relaxationn' cannot be used"
+                            "when 'fix_minimized_values' is True.")
+        if len(options['obj_constr_relaxation']) > 0 and not options['keep_soft_constraints']:
+            raise Exception("Not implemented yet.")
+
         for priority in sorted(priorities):
             subproblems.append((
                 priority,
@@ -1274,6 +1304,8 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
 
             # Call the pre priority hook
             self.priority_started(priority)
+
+            self.__cardinality_current_priority += 1
 
             (self.__subproblem_epsilons, self.__subproblem_objectives,
              self.__subproblem_soft_constraints, hard_constraints,
@@ -1319,16 +1351,17 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
             # logged/inspected.
             self.priority_completed(priority)
 
-            if options['keep_soft_constraints']:
-                self.__add_subproblem_objective_constraint()
-            else:
-                self.__soft_to_hard_constraints(goals, i, is_path_goal=False)
-                self.__soft_to_hard_constraints(path_goals, i, is_path_goal=True)
+            if self.__cardinality_current_priority < self.__cardinality_priorities:
+                if options['keep_soft_constraints']:
+                    self.__add_subproblem_objective_constraint()
+                else:
+                    self.__soft_to_hard_constraints(goals, i, is_path_goal=False)
+                    self.__soft_to_hard_constraints(path_goals, i, is_path_goal=True)
 
-                self.__linear_obj_variables = []
-                self.__linear_obj_constraints = []
-                self.__linear_obj_path_variables = []
-                self.__linear_obj_path_constraints = []
+                    self.__linear_obj_variables = []
+                    self.__linear_obj_constraints = []
+                    self.__linear_obj_path_variables = []
+                    self.__linear_obj_path_constraints = []
 
         logger.info("Done goal programming")
 

@@ -1,3 +1,4 @@
+import datetime
 import logging
 
 import numpy as np
@@ -25,6 +26,8 @@ class Model(CSVMixin, ModelicaMixin, CollocatedIntegratedOptimizationProblem):
         kwargs["output_folder"] = data_path()
         kwargs["model_folder"] = data_path()
         super().__init__(**kwargs)
+
+        self.csv_forecast_date = datetime.datetime(2013, 5, 19, 22)
 
     def objective(self, ensemble_member):
         # Quadratic penalty on state 'x' at final time
@@ -83,6 +86,12 @@ class TestCSVMixin(TestCase):
     def test_initial_state(self):
         initial_state = self.problem.initial_state(0)
         self.assertAlmostEqual(initial_state["x"], 1.02, self.tolerance)
+
+    def test_history(self):
+        history = self.problem.history(0)
+        self.assertEqual(len(history['u'].times), 3)
+        self.assertEqual(history['u'].times[1], -3600)
+        self.assertAlmostEqual(history['u'].values[1], 0.2, self.tolerance)
 
     def test_objective_value(self):
         objective_value_tol = 1e-6

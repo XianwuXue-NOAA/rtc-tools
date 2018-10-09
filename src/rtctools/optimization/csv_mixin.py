@@ -27,13 +27,14 @@ class CSVMixin(OptimizationProblem):
 
     In ensemble mode, a file named ``ensemble.csv`` is read from the ``input`` folder.  This file
     contains two columns. The first column gives the name of the ensemble member, and the second
-    column its probability.  Furthermore, the other XML files appear one level deeper inside the
+    column its probability.  Furthermore, the other CSV files appear one level deeper inside the
     filesystem hierarchy, inside subfolders with the names of the ensemble members.
 
     :cvar csv_delimiter:           Column delimiter used in CSV files.  Default is ``,``.
     :cvar csv_equidistant:         Whether or not the timeseries data is equidistant.  Default is ``True``.
     :cvar csv_ensemble_mode:       Whether or not to use ensembles.  Default is ``False``.
     :cvar csv_validate_timeseries: Check consistency of timeseries.  Default is ``True``.
+    :cvar csv_forecast_date:       Start of the forecast data. Default is the first timestep (no history).
     """
 
     #: Column delimiter used in CSV files
@@ -47,6 +48,9 @@ class CSVMixin(OptimizationProblem):
 
     #: Check consistency of timeseries
     csv_validate_timeseries = True
+
+    #: Start date of the forecast data
+    csv_forecast_date = None
 
     def __init__(self, **kwargs):
         # Check arguments
@@ -150,6 +154,13 @@ class CSVMixin(OptimizationProblem):
                 _initial_state = {}
             self.__initial_state.append(AliasDict(self.alias_relation, _initial_state))
 
+        if self.csv_forecast_date is None:
+            self.__forecast_date = self.__timeseries_times[0]
+            self.__forecast_index = 0
+        else:
+            self.__forecast_date = self.csv_forecast_date
+            self.__forecast_index = np.where(self.__timeseries_times == self.__forecast_date)[0][0]
+
         self.__timeseries_times_sec = self.__datetime_to_sec(
             self.__timeseries_times)
 
@@ -173,7 +184,7 @@ class CSVMixin(OptimizationProblem):
                             'if this is intended.'.format(self.__timeseries_times[i + 1]))
 
     def times(self, variable=None):
-        return self.__timeseries_times_sec
+        return self.__timeseries_times_sec[self.__forecast_index:]
 
     @property
     def equidistant(self):
@@ -242,7 +253,7 @@ class CSVMixin(OptimizationProblem):
 
             timeseries_id = self.min_timeseries_id(variable)
             try:
-                m = self.__timeseries[0][timeseries_id]
+                m = self.__timeseries[0][timeseries_id][self.__forecast_index:]
             except (KeyError, ValueError):
                 pass
             else:
@@ -251,7 +262,7 @@ class CSVMixin(OptimizationProblem):
 
             timeseries_id = self.max_timeseries_id(variable)
             try:
-                M = self.__timeseries[0][timeseries_id]
+                M = self.__timeseries[0][timeseries_id][self.__forecast_index:]
             except (KeyError, ValueError):
                 pass
             else:
@@ -261,15 +272,37 @@ class CSVMixin(OptimizationProblem):
             # Replace NaN with +/- inf, and create Timeseries objects
             if m is not None:
                 m[np.isnan(m)] = np.finfo(m.dtype).min
-                m = Timeseries(self.__timeseries_times_sec, m)
+                m = Timeseries(self.__timeseries_times_sec[self.__forecast_index:], m)
             if M is not None:
                 M[np.isnan(M)] = np.finfo(M.dtype).max
-                M = Timeseries(self.__timeseries_times_sec, M)
+                M = Timeseries(self.__timeseries_times_sec[self.__forecast_index:], M)
 
             # Store
             if m is not None or M is not None:
                 bounds[variable] = (m, M)
         return bounds
+
+    @cached
+    def history(self, ensemble_member):
+        # Load history
+        history = AliasDict(self.alias_relation)
+
+        end_index = self.__forecast_index + 1
+        variable_list = self.dae_variables['states'] + self.dae_variables['algebraics'] + \
+            self.dae_variables['control_inputs'] + self.dae_variables['constant_inputs']
+
+        for variable in variable_list:
+            variable = variable.name()
+            try:
+                history[variable] = Timeseries(
+                    self.__timeseries_times_sec[:end_index],
+                    self.__timeseries[ensemble_member][variable][:end_index])
+            except KeyError:
+                pass
+            else:
+                if logger.getEffectiveLevel() == logging.DEBUG:
+                    logger.debug("Read history for state {}".format(variable))
+        return history
 
     @property
     def initial_time(self):
@@ -324,8 +357,8 @@ class CSVMixin(OptimizationProblem):
             names = ['time'] + sorted({sym.name() for sym in self.output_variables})
             formats = ['O'] + (len(names) - 1) * ['f8']
             dtype = {'names': names, 'formats': formats}
-            data = np.zeros(len(self.__timeseries_times), dtype=dtype)
-            data['time'] = self.__timeseries_times
+            data = np.zeros(len(self.__timeseries_times[self.__forecast_index:]), dtype=dtype)
+            data['time'] = self.__timeseries_times[self.__forecast_index:]
             for output_variable in self.output_variables:
                 output_variable = output_variable.name()
                 try:
@@ -361,16 +394,18 @@ class CSVMixin(OptimizationProblem):
     def __datetime_to_sec(self, d):
         # Return the date/timestamps in seconds since t0.
         if hasattr(d, '__iter__'):
-            return np.array([(t - self.__timeseries_times[0]).total_seconds() for t in d])
+            return np.array([(t - self.__timeseries_times[self.__forecast_index]).total_seconds()
+                             for t in d])
         else:
-            return (d - self.__timeseries_times[0]).total_seconds()
+            return (d - self.__timeseries_times[self.__forecast_index]).total_seconds()
 
     def __sec_to_datetime(self, s):
         # Return the date/timestamps in seconds since t0 as datetime objects.
         if hasattr(s, '__iter__'):
-            return [self.__timeseries_times[0] + timedelta(seconds=t) for t in s]
+            return [self.__timeseries_times[self.__forecast_index] + timedelta(seconds=t)
+                    for t in s]
         else:
-            return self.__timeseries_times[0] + timedelta(seconds=s)
+            return self.__timeseries_times[self.__forecast_index] + timedelta(seconds=s)
 
     def get_timeseries(self, variable, ensemble_member=0):
         return Timeseries(self.__timeseries_times_sec, self.__timeseries[ensemble_member][variable])
@@ -391,6 +426,9 @@ class CSVMixin(OptimizationProblem):
             timeseries = Timeseries(self.times(), timeseries)
             assert(len(timeseries.times) == len(timeseries.values))
         self.__timeseries[ensemble_member][variable] = timeseries.values
+
+    def get_forecast_index(self):
+        return self.__forecast_index
 
     def timeseries_at(self, variable, t, ensemble_member=0):
         return self.interpolate(t, self.__timeseries_times_sec, self.__timeseries[ensemble_member][variable])

@@ -1862,7 +1862,7 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
 
                 try:
                     x0[offset:offset + variable_size] = seed[variable]
-                except KeyError:
+                except (KeyError, TypeError):
                     pass
 
                 offset += variable_size

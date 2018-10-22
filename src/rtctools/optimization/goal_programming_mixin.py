@@ -470,6 +470,12 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
                     # Only include seed timeseries which are consistent
                     # with the specified time stamps.
                     seed[key] = Timeseries(times, result)
+                else:
+                    try:
+                        result.shape[1] == len(times)
+                        seed[key] = Timeseries(times, result)
+                    except IndexError:
+                        pass
 
         # Seed epsilons of current priority
         for epsilon in self.__subproblem_epsilons:

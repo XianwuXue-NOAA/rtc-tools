@@ -470,6 +470,8 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
                     # Only include seed timeseries which are consistent
                     # with the specified time stamps.
                     seed[key] = Timeseries(times, result)
+                elif len(result) == 1:
+                    seed[key] = result
                 else:
                     try:
                         result.shape[1] == len(times)

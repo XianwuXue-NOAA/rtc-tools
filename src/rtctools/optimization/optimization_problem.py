@@ -119,6 +119,12 @@ class OptimizationProblem(metaclass=ABCMeta):
         else:
             logger.log(log_level, "Solver failed with status {}".format(
                 self.__solver_stats['return_status']))
+            if not self._GoalProgrammingMixin__first_run:
+                # Use the previous run
+                logger.log(log_level, "Use solution from the previous run")
+                success = True
+                self.__objective_value = np.nan
+                self.__solver_output = x0
 
         # Do any postprocessing
         if postprocessing:

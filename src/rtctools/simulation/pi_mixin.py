@@ -170,7 +170,8 @@ class PIMixin(SimulationProblem):
 
         # Extract consistent t0 values
         for variable in self.__output_variables:
-            self.__output[variable][self.__timeseries_import.forecast_index] = self.get_var(variable)
+            name, sign = self.alias_relation.canonical_signed(variable)
+            self.__output[name][self.__timeseries_import.forecast_index] = self.get_var(name)
 
     def update(self, dt):
         # Time step
@@ -197,7 +198,8 @@ class PIMixin(SimulationProblem):
 
         # Extract results
         for variable in self.__output_variables:
-            self.__output[variable][t_idx] = self.get_var(variable)
+            name, sign = self.alias_relation.canonical_signed(variable)
+            self.__output[name][t_idx] = self.get_var(name)
 
     def post(self):
         # Call parent class first for default behaviour.

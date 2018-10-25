@@ -1686,6 +1686,15 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                     x0[offset + k] = seed[self.extra_variables[k].name()]
                 except KeyError:
                     pass
+            offset += len(self.extra_variables)
+
+            for k in range(len(self.dae_variables['derivatives'])):
+                try:
+                    der_name = self.dae_variables['derivatives'][k].name()
+                    variable = "initial_" + der_name
+                    x0[offset + k] = seed[variable]
+                except KeyError:
+                    pass
 
         # Return number of state variables
         return count, discrete, lbx, ubx, x0, indices
@@ -1749,6 +1758,13 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
         # Extract extra variables
         for k in range(len(self.extra_variables)):
             variable = self.extra_variables[k].name()
+            results[variable] = X[offset + k].ravel()
+        offset += len(self.extra_variables)
+
+        # Extract derivatives
+        for k in range(len(self.dae_variables['derivatives'])):
+            der_name = self.dae_variables['derivatives'][k].name()
+            variable = "initial_" + der_name
             results[variable] = X[offset + k].ravel()
 
         # Done

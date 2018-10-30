@@ -460,6 +460,29 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
                     # with the specified time stamps.
                     seed[key] = Timeseries(times, result)
 
+            # Seed linear objective variables of the current priority that are not linked to an epsilon variable.
+            for j, lin_obj_var in enumerate(self.__subproblem_linear_obj_variables):
+                ending = lin_obj_var.name()[6:]
+                if np.any([eps_var.name().endswith(ending) for eps_var in self.__subproblem_epsilons]):
+                    pass
+                else:
+                    expr = ca.sum1(ca.vertcat(*[self.__subproblem_orig_objectives[j](self, ensemble_member)]))
+                    function = ca.Function('tmp', [self.solver_input], [expr])
+                    result = function(self.solver_output)
+                    seed[lin_obj_var.name()] = result
+
+            for j, lin_obj_path_var in enumerate(self.__subproblem_linear_obj_path_variables):
+                ending = lin_obj_path_var.name()[11:]
+                if np.any([eps_var.name().endswith(ending) for eps_var in self.__subproblem_path_epsilons]):
+                    pass
+                else:
+                    expr = self.map_path_expression(self.__subproblem_orig_path_objectives[j](
+                        self, ensemble_member), ensemble_member)
+                    function = ca.Function('tmp', [self.solver_input], [expr])
+                    result = np.array(function(self.solver_output)).flatten()
+                    times = self.times(key)
+                    seed[lin_obj_path_var.name()] = Timeseries(times, result)
+
         # Seed epsilons of current priority
         for epsilon in self.__subproblem_epsilons:
             seed[epsilon.name()] = 1.0
@@ -467,6 +490,17 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
         times = self.times()
         for epsilon in self.__subproblem_path_epsilons:
             seed[epsilon.name()] = Timeseries(times, np.ones(len(times)))
+
+        # Seed linear objective variables of the current priority linked to a epsilon variable
+        for lin_obj_var in self.__subproblem_linear_obj_variables:
+            ending = lin_obj_var.name()[6:]
+            if np.any([eps_var.name().endswith(ending) for eps_var in self.__subproblem_epsilons]):
+                seed[lin_obj_var.name()] = 1.0
+
+        for lin_obj_path_var in self.__subproblem_linear_obj_path_variables:
+            ending = lin_obj_path_var.name()[11:]
+            if np.any([eps_var.name().endswith(ending) for eps_var in self.__subproblem_path_epsilons]):
+                seed[lin_obj_path_var.name()] = Timeseries(times, np.ones(len(times)))
 
         return seed
 
@@ -1200,6 +1234,7 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
         syms = []
         constraints = []
         linear_objectives = []
+        original_objectives = objectives
 
         sym_format = "linobj_{}_{}"
         if is_path_goal:
@@ -1227,7 +1262,7 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
 
             linear_objectives.append(_objective_func)
 
-        return syms, linear_objectives, constraints
+        return syms, linear_objectives, original_objectives, constraints,
 
     def optimize(self, preprocessing=True, postprocessing=True, log_solver_failure_as_error=True):
         # Do pre-processing
@@ -1278,6 +1313,8 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
         self.__linear_obj_constraints = []
         self.__linear_obj_path_variables = []
         self.__linear_obj_path_constraints = []
+        self.__subproblem_linear_obj_variables = []
+        self.__subproblem_linear_obj_path_variables = []
 
         self.__first_run = True
         self.__results_are_current = False
@@ -1300,14 +1337,16 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
                 self.__goal_constraints(path_goals, i, options, is_path_goal=True)
 
             if options['force_linear_objective']:
-                syms, self.__subproblem_objectives, constraints = \
+                syms, self.__subproblem_objectives, self.__subproblem_orig_objectives, constraints = \
                     self.__make_linear_objective(self.__subproblem_objectives, i, False)
                 self.__linear_obj_variables.extend(syms)
+                self.__subproblem_linear_obj_variables.extend(syms)
                 self.__linear_obj_constraints.extend(constraints)
 
-                syms, self.__subproblem_path_objectives, constraints = \
+                syms, self.__subproblem_path_objectives, self.__subproblem_orig_path_objectives, constraints = \
                     self.__make_linear_objective(self.__subproblem_path_objectives, i, True)
                 self.__linear_obj_path_variables.extend(syms)
+                self.__subproblem_linear_obj_path_variables.extend(syms)
                 self.__linear_obj_path_constraints.extend(constraints)
 
             # Put hard constraints in the constraint stores
@@ -1343,6 +1382,10 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
                 self.__linear_obj_constraints = []
                 self.__linear_obj_path_variables = []
                 self.__linear_obj_path_constraints = []
+
+            if options['force_linear_objective']:
+                self.__subproblem_linear_obj_variables = []
+                self.__subproblem_linear_obj_path_variables = []
 
         logger.info("Done goal programming")
 

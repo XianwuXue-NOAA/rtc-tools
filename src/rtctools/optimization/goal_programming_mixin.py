@@ -384,6 +384,7 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
 
         # Lists that are only filled when 'keep_soft_constraints' is True
         self.__problem_constraints = []
+        self.__subproblem_objective_constraints = []
         self.__problem_path_constraints = []
         self.__problem_epsilons = []
         self.__problem_path_epsilons = []
@@ -1185,19 +1186,6 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
                     goal, epsilon, existing_constraint, ensemble_member, options, is_path_goal)
 
     def __add_subproblem_objective_constraint(self, goals, path_goals):
-        # We want to keep the additional variables/parameters we set around
-        self.__problem_epsilons.extend(self.__subproblem_epsilons)
-        self.__problem_path_epsilons.extend(self.__subproblem_path_epsilons)
-        self.__problem_path_timeseries.extend(self.__subproblem_path_timeseries)
-        self.__problem_parameters.extend(self.__subproblem_parameters)
-        self.__subproblem_objective_constraints = []
-
-        for ensemble_member in range(self.ensemble_size):
-            self.__problem_constraints[ensemble_member].extend(
-                self.__subproblem_soft_constraints[ensemble_member])
-            self.__problem_path_constraints[ensemble_member].extend(
-                self.__subproblem_path_soft_constraints[ensemble_member])
-
         # Extract information about the objective value, this is used for the Pareto optimality constraint(s).
         # We only retain information about the objective functions defined through the goal framework as user
         # define objective functions may relay on local variables.
@@ -1278,10 +1266,26 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
                 constraint = _GoalConstraint(None, _f, -np.inf, obj_val, True)
             self.__subproblem_objective_constraints.append(constraint)
 
+    def __update_soft_constraints(self):
+        # We want to keep the additional variables/parameters we set around
+        self.__problem_epsilons.extend(self.__subproblem_epsilons)
+        self.__problem_path_epsilons.extend(self.__subproblem_path_epsilons)
+        self.__problem_path_timeseries.extend(self.__subproblem_path_timeseries)
+        self.__problem_parameters.extend(self.__subproblem_parameters)
+
+        for ensemble_member in range(self.ensemble_size):
+            self.__problem_constraints[ensemble_member].extend(
+                self.__subproblem_soft_constraints[ensemble_member])
+            self.__problem_path_constraints[ensemble_member].extend(
+                self.__subproblem_path_soft_constraints[ensemble_member])
+
         # The goal works over all ensemble members, so we add it to the first
         # one as that one is always present.
         for constraint in self.__subproblem_objective_constraints:
             self.__problem_constraints[0].append(constraint)
+
+        # Reset the list for the next priority
+        self.__subproblem_objective_constraints = []
 
     def __make_linear_objective(self, objectives, sym_index, is_path_goal):
         syms = []
@@ -1355,6 +1359,7 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
 
         # Lists for when `keep_soft_constraints` is True
         self.__problem_constraints = [[] for ensemble_member in range(self.ensemble_size)]
+        self.__subproblem_objective_constraints = []
         self.__problem_epsilons = []
         self.__problem_parameters = []
         self.__problem_path_constraints = [[] for ensemble_member in range(self.ensemble_size)]
@@ -1439,6 +1444,9 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
 
                 # Add Pareto optimality constraint(s)
                 self.__add_subproblem_objective_constraint(goals, path_goals)
+
+                # Update constraints
+                self.__update_soft_constraints()
             else:
                 self.__soft_to_hard_constraints(goals, i, is_path_goal=False)
                 self.__soft_to_hard_constraints(path_goals, i, is_path_goal=True)

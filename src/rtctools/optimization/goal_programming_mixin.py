@@ -798,10 +798,6 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
             except ValueError:
                 raise Exception("Priority of not int or castable to int for goal {}".format(goal))
 
-            if options['keep_soft_constraints']:
-                if goal.relaxation != 0.0:
-                    raise Exception("Relaxation not allowed with `keep_soft_constraints` for goal {}".format(goal))
-
         if is_path_goal:
             target_shape = len(self.times())
         else:
@@ -867,7 +863,7 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
             if goal.relaxation < 0.0:
                 raise Exception('Relaxation of goal {} should be a nonnegative value'.format(goal))
 
-    def __goal_constraints(self, goals, sym_index, options, is_path_goal):
+    def __goal_constraints(self, goals, sym_index, options, is_path_goal, relaxation):
         """
         There are three ways in which a goal turns into objectives/constraints:
 
@@ -986,12 +982,20 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
                         if goal.has_target_min:
                             _f = functools.partial(
                                 _soft_constraint_func, target=min_variable, bound=goal.function_range[0])
-                            constraint = _GoalConstraint(goal, _f, 0.0, np.inf, False)
+                            if relaxation:
+                                value = - goal.relaxation / goal.function_nominal
+                            else:
+                                value = 0.0
+                            constraint = _GoalConstraint(goal, _f, value, np.inf, False)
                             soft_constraints[ensemble_member].append(constraint)
                         if goal.has_target_max:
                             _f = functools.partial(
                                 _soft_constraint_func, target=max_variable, bound=goal.function_range[1])
-                            constraint = _GoalConstraint(goal, _f, -np.inf, 0.0, False)
+                            if relaxation:
+                                value = goal.relaxation / goal.function_nominal
+                            else:
+                                value = 0.0
+                            constraint = _GoalConstraint(goal, _f, -np.inf, value, False)
                             soft_constraints[ensemble_member].append(constraint)
 
         return epsilons, objectives, soft_constraints, hard_constraints, extra_constants
@@ -1180,12 +1184,13 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
                 constraint_store[ensemble_member][fk] = self.__goal_hard_constraint(
                     goal, epsilon, existing_constraint, ensemble_member, options, is_path_goal)
 
-    def __add_subproblem_objective_constraint(self):
+    def __add_subproblem_objective_constraint(self, goals, path_goals):
         # We want to keep the additional variables/parameters we set around
         self.__problem_epsilons.extend(self.__subproblem_epsilons)
         self.__problem_path_epsilons.extend(self.__subproblem_path_epsilons)
         self.__problem_path_timeseries.extend(self.__subproblem_path_timeseries)
         self.__problem_parameters.extend(self.__subproblem_parameters)
+        self.__subproblem_objective_constraints = []
 
         for ensemble_member in range(self.ensemble_size):
             self.__problem_constraints[ensemble_member].extend(
@@ -1193,15 +1198,13 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
             self.__problem_path_constraints[ensemble_member].extend(
                 self.__subproblem_path_soft_constraints[ensemble_member])
 
-        # Extract information about the objective value, this is used for the Pareto optimality constraint.
+        # Extract information about the objective value, this is used for the Pareto optimality constraint(s).
         # We only retain information about the objective functions defined through the goal framework as user
         # define objective functions may relay on local variables.
         subproblem_objectives = self.__subproblem_objectives.copy()
         subproblem_path_objectives = self.__subproblem_path_objectives.copy()
 
-        def _constraint_func(problem,
-                             subproblem_objectives=subproblem_objectives,
-                             subproblem_path_objectives=subproblem_path_objectives):
+        def _constraint_func(problem, subproblem_objectives, subproblem_path_objectives):
             val = 0.0
             for ensemble_member in range(problem.ensemble_size):
                 # NOTE: Users might be overriding objective() and/or path_objective(). Use the
@@ -1215,20 +1218,70 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
 
             return val
 
-        f = ca.Function('tmp', [self.solver_input], [_constraint_func(self)])
-        obj_val = float(f(self.solver_output))
-
         options = self.goal_programming_options()
 
-        if options['fix_minimized_values']:
-            constraint = _GoalConstraint(None, _constraint_func, obj_val, obj_val, True)
-        else:
+        # For any minimization goal / path goal with a positive goal relaxation, we introduce a separate objective
+        # function constraint. While for all the other goals a unique aggregated objective function is defined.
+
+        separate_obj_constr = []
+        unique_obj_constr = []
+        for i, goal in enumerate(goals):
+            if goal.has_target_bounds or goal.relaxation == 0.0:
+                unique_obj_constr.append(i)
+            else:
+                separate_obj_constr.append(i)
+
+        separate_obj_path_constr = []
+        unique_obj_path_constr = []
+        for i, path_goal in enumerate(path_goals):
+            if path_goal.has_target_bounds or path_goal.relaxation == 0.0:
+                unique_obj_path_constr.append(i)
+            else:
+                separate_obj_path_constr.append(i)
+
+        # Objective constraint for minimization goals with positive relaxation
+        for i in separate_obj_constr:
+            f = ca.Function('tmp', [self.solver_input], [_constraint_func(self, [subproblem_objectives[i]], [])])
+            obj_val = float(f(self.solver_output))
+            obj_val += goals[i].relaxation / goals[i].function_nominal
             obj_val += options['constraint_relaxation']
-            constraint = _GoalConstraint(None, _constraint_func, -np.inf, obj_val, True)
+            _f = functools.partial(
+                _constraint_func, subproblem_objectives=[subproblem_objectives[i]], subproblem_path_objectives=[])
+            constraint = _GoalConstraint(None, _f, -np.inf, obj_val, True)
+            self.__subproblem_objective_constraints.append(constraint)
+
+        for i in separate_obj_path_constr:
+            f = ca.Function('tmp', [self.solver_input], [_constraint_func(self, [], [subproblem_path_objectives[i]])])
+            obj_val = float(f(self.solver_output))
+            obj_val += path_goals[i].relaxation / path_goals[i].function_nominal
+            obj_val += options['constraint_relaxation']
+            _f = functools.partial(
+                _constraint_func, subproblem_objectives=[], subproblem_path_objectives=[subproblem_path_objectives[i]])
+            constraint = _GoalConstraint(None, _f, -np.inf, obj_val, True)
+            self.__subproblem_objective_constraints.append(constraint)
+
+        # Objective constraint for the remaining goals
+        subproblem_objectives_res = [subproblem_objectives[i] for i in unique_obj_constr]
+        subproblem_path_objectives_res = [subproblem_path_objectives[i] for i in unique_obj_path_constr]
+
+        if subproblem_objectives_res or subproblem_path_objectives_res:
+            f = ca.Function('tmp', [self.solver_input],
+                            [_constraint_func(self, subproblem_objectives_res, subproblem_path_objectives_res)])
+            obj_val = float(f(self.solver_output))
+            _f = functools.partial(
+                _constraint_func, subproblem_objectives=subproblem_objectives_res,
+                subproblem_path_objectives=subproblem_path_objectives_res)
+            if options['fix_minimized_values']:
+                constraint = _GoalConstraint(None, _f, obj_val, obj_val, True)
+            else:
+                obj_val += options['constraint_relaxation']
+                constraint = _GoalConstraint(None, _f, -np.inf, obj_val, True)
+            self.__subproblem_objective_constraints.append(constraint)
 
         # The goal works over all ensemble members, so we add it to the first
         # one as that one is always present.
-        self.__problem_constraints[0].append(constraint)
+        for constraint in self.__subproblem_objective_constraints:
+            self.__problem_constraints[0].append(constraint)
 
     def __make_linear_objective(self, objectives, sym_index, is_path_goal):
         syms = []
@@ -1329,12 +1382,12 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
             (self.__subproblem_epsilons, self.__subproblem_objectives,
              self.__subproblem_soft_constraints, hard_constraints,
              self.__subproblem_parameters) = \
-                self.__goal_constraints(goals, i, options, is_path_goal=False)
+                self.__goal_constraints(goals, i, options, is_path_goal=False, relaxation=False)
 
             (self.__subproblem_path_epsilons, self.__subproblem_path_objectives,
              self.__subproblem_path_soft_constraints, path_hard_constraints,
              self.__subproblem_path_timeseries) = \
-                self.__goal_constraints(path_goals, i, options, is_path_goal=True)
+                self.__goal_constraints(path_goals, i, options, is_path_goal=True, relaxation=False)
 
             if options['force_linear_objective']:
                 syms, self.__subproblem_objectives, self.__subproblem_orig_objectives, constraints = \
@@ -1373,7 +1426,19 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
             self.priority_completed(priority)
 
             if options['keep_soft_constraints']:
-                self.__add_subproblem_objective_constraint()
+                # New soft constraints allowing goal relaxation
+                (self.__subproblem_epsilons, self.__subproblem_objectives,
+                 self.__subproblem_soft_constraints, hard_constraints,
+                 self.__subproblem_parameters) = \
+                    self.__goal_constraints(goals, i, options, is_path_goal=False, relaxation=True)
+
+                (self.__subproblem_path_epsilons, self.__subproblem_path_objectives,
+                 self.__subproblem_path_soft_constraints, path_hard_constraints,
+                 self.__subproblem_path_timeseries) = \
+                    self.__goal_constraints(path_goals, i, options, is_path_goal=True, relaxation=True)
+
+                # Add Pareto optimality constraint(s)
+                self.__add_subproblem_objective_constraint(goals, path_goals)
             else:
                 self.__soft_to_hard_constraints(goals, i, is_path_goal=False)
                 self.__soft_to_hard_constraints(path_goals, i, is_path_goal=True)

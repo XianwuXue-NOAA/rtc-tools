@@ -545,6 +545,102 @@ class TestGoalProgrammingLinearObjective(TestCase):
         self._check_objective_hessians()
 
 
+class TestGoalNoMinMaxRelaxation(Goal):
+
+    def function(self, optimization_problem, ensemble_member):
+        return optimization_problem.integral("x", ensemble_member=ensemble_member)
+
+    function_nominal = 2e1
+    priority = 1
+    order = 1
+    relaxation = 1e-6
+
+
+class PathGoal1Relaxation(Goal):
+
+    def function(self, optimization_problem, ensemble_member):
+        return optimization_problem.state("x")
+
+    function_range = (-1e1, 1e1)
+    priority = 1
+    target_min = 0.0
+    relaxation = 1e-6
+
+
+class PathGoal2Relaxation(Goal):
+
+    def function(self, optimization_problem, ensemble_member):
+        return optimization_problem.state("x")
+
+    function_range = (-1e1, 1e1)
+    priority = 2
+    target_max = Timeseries(np.linspace(0.0, 1.0, 21), 21 * [1.0])
+    relaxation = 1e-6
+
+
+class ModelPathGoalsMixedRelaxation(ModelPathGoals):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._objective_values = []
+
+    def path_goals(self):
+        return [PathGoal1Relaxation(), PathGoal2Relaxation(), PathGoal3(), PathGoal4()]
+
+    def goals(self):
+        return [TestGoalNoMinMaxRelaxation()]
+
+    def priority_completed(self, priority):
+        super().priority_completed(priority)
+        self._objective_values.append(self.objective_value)
+
+
+class ModelPathGoalsMixedRelaxationKeepSoft(ModelPathGoalsMixedRelaxation):
+
+    def goal_programming_options(self):
+        options = super().goal_programming_options()
+        options['keep_soft_constraints'] = True
+        return options
+
+
+class TestGoalProgrammingRelaxationKeepSoftVariable(TestCase):
+
+    def setUp(self):
+        self.problem1 = ModelPathGoalsMixedRelaxation()
+        self.problem2 = ModelPathGoalsMixedRelaxationKeepSoft()
+        self.problem1.optimize()
+        self.problem2.optimize()
+
+    def test_keep_soft_constraints_objective(self):
+        self.assertEqual(self.problem1._objective_values[0], self.problem2._objective_values[0])
+        self.assertAlmostEqual(self.problem1._objective_values[1], self.problem2._objective_values[1], 1e-3)
+        self.assertAlmostEqual(self.problem1._objective_values[2], self.problem2._objective_values[2], 0.5)
+        self.assertAlmostEqual(self.problem1._objective_values[3], self.problem2._objective_values[3], 1e-3)
+
+
+class ModelPathGoalsMixedRelaxationKeepSoftLinearObj(ModelPathGoalsMixedRelaxationKeepSoft):
+
+    def goal_programming_options(self):
+        options = super().goal_programming_options()
+        options['force_linear_objective'] = True
+        return options
+
+
+class TestGoalProgrammingRelaxationKeepSoftVariableLinearObj(TestCase):
+
+    def setUp(self):
+        self.problem1 = ModelPathGoalsMixedRelaxationKeepSoft()
+        self.problem2 = ModelPathGoalsMixedRelaxationKeepSoftLinearObj()
+        self.problem1.optimize()
+        self.problem2.optimize()
+
+    def test_keep_soft_constraints_objective(self):
+        self.assertAlmostEqual(self.problem1._objective_values[0], self.problem2._objective_values[0], 1e-4)
+        self.assertAlmostEqual(self.problem1._objective_values[1], self.problem2._objective_values[1], 1e-4)
+        self.assertAlmostEqual(self.problem1._objective_values[2], self.problem2._objective_values[2], 1e-4)
+        self.assertAlmostEqual(self.problem1._objective_values[3], self.problem2._objective_values[3], 1e-4)
+
+
 class ModelEnsemble(Model):
 
     @property

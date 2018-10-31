@@ -21,8 +21,8 @@ class OptimizationProblem(metaclass=ABCMeta):
     def __init__(self, **kwargs):
         self.__mixed_integer = False
 
-    def optimize(self, preprocessing: bool=True, postprocessing: bool=True,
-                 log_solver_failure_as_error: bool=True) -> bool:
+    def optimize(self, preprocessing: bool = True, postprocessing: bool = True,
+                 log_solver_failure_as_error: bool = True) -> bool:
         """
         Perform one initialize-transcribe-solve-finalize cycle.
 
@@ -320,7 +320,7 @@ class OptimizationProblem(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def extract_results(self, ensemble_member: int=0) -> Dict[str, np.ndarray]:
+    def extract_results(self, ensemble_member: int = 0) -> Dict[str, np.ndarray]:
         """
         Extracts state and control input time series from optimizer results.
 
@@ -687,9 +687,9 @@ class OptimizationProblem(metaclass=ABCMeta):
             t: Union[float, np.ndarray],
             ts: np.ndarray,
             fs: np.ndarray,
-            f_left: float=np.nan,
-            f_right: float=np.nan,
-            mode: int=INTERPOLATION_LINEAR) -> Union[float, np.ndarray]:
+            f_left: float = np.nan,
+            f_right: float = np.nan,
+            mode: int = INTERPOLATION_LINEAR) -> Union[float, np.ndarray]:
         """
         Linear interpolation over time.
 
@@ -828,7 +828,7 @@ class OptimizationProblem(metaclass=ABCMeta):
         return []
 
     @abstractmethod
-    def extract_controls(self, ensemble_member: int=0) -> Dict[str, np.ndarray]:
+    def extract_controls(self, ensemble_member: int = 0) -> Dict[str, np.ndarray]:
         """
         Extracts state time series from optimizer results.
 
@@ -840,7 +840,7 @@ class OptimizationProblem(metaclass=ABCMeta):
         """
         pass
 
-    def control_vector(self, variable: str, ensemble_member: int=0) -> Union[ca.MX, List[ca.MX]]:
+    def control_vector(self, variable: str, ensemble_member: int = 0) -> Union[ca.MX, List[ca.MX]]:
         """
         Return the optimization variables for the entire time horizon of the given state.
 
@@ -866,7 +866,7 @@ class OptimizationProblem(metaclass=ABCMeta):
         return self.variable(variable)
 
     @abstractmethod
-    def control_at(self, variable: str, t: float, ensemble_member: int=0, scaled: bool=False) -> ca.MX:
+    def control_at(self, variable: str, t: float, ensemble_member: int = 0, scaled: bool = False) -> ca.MX:
         """
         Returns an :class:`MX` symbol representing the given control input at the given time.
 
@@ -915,7 +915,7 @@ class OptimizationProblem(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def extract_states(self, ensemble_member: int=0) -> Dict[str, np.ndarray]:
+    def extract_states(self, ensemble_member: int = 0) -> Dict[str, np.ndarray]:
         """
         Extracts state time series from optimizer results.
 
@@ -928,7 +928,7 @@ class OptimizationProblem(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def state_vector(self, variable: str, ensemble_member: int=0) -> Union[ca.MX, List[ca.MX]]:
+    def state_vector(self, variable: str, ensemble_member: int = 0) -> Union[ca.MX, List[ca.MX]]:
         """
         Return the optimization variables for the entire time horizon of the given state.
 
@@ -954,7 +954,7 @@ class OptimizationProblem(metaclass=ABCMeta):
         return self.variable(variable)
 
     @abstractmethod
-    def state_at(self, variable: str, t: float, ensemble_member: int=0, scaled: bool=False) -> ca.MX:
+    def state_at(self, variable: str, t: float, ensemble_member: int = 0, scaled: bool = False) -> ca.MX:
         """
         Returns an :class:`MX` symbol representing the given variable at the given time.
 
@@ -970,7 +970,7 @@ class OptimizationProblem(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def extra_variable(self, variable: str, ensemble_member: int=0) -> ca.MX:
+    def extra_variable(self, variable: str, ensemble_member: int = 0) -> ca.MX:
         """
         Returns an :class:`MX` symbol representing the extra variable inside the state vector.
 
@@ -984,7 +984,7 @@ class OptimizationProblem(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def states_in(self, variable: str, t0: float=None, tf: float=None, ensemble_member: int=0) -> Iterator[ca.MX]:
+    def states_in(self, variable: str, t0: float = None, tf: float = None, ensemble_member: int = 0) -> Iterator[ca.MX]:
         """
         Iterates over symbols for states in the interval [t0, tf].
 
@@ -998,7 +998,7 @@ class OptimizationProblem(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def integral(self, variable: str, t0: float=None, tf: float=None, ensemble_member: int=0) -> ca.MX:
+    def integral(self, variable: str, t0: float = None, tf: float = None, ensemble_member: int = 0) -> ca.MX:
         """
         Returns an expression for the integral over the interval [t0, tf].
 
@@ -1027,7 +1027,7 @@ class OptimizationProblem(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def der_at(self, variable: str, t: float, ensemble_member: int=0) -> ca.MX:
+    def der_at(self, variable: str, t: float, ensemble_member: int = 0) -> ca.MX:
         """
         Returns an expression for the time derivative of the specified variable at time t.
 
@@ -1041,7 +1041,7 @@ class OptimizationProblem(metaclass=ABCMeta):
         """
         pass
 
-    def get_timeseries(self, variable: str, ensemble_member: int=0) -> Timeseries:
+    def get_timeseries(self, variable: str, ensemble_member: int = 0) -> Timeseries:
         """
         Looks up a timeseries from the internal data store.
 
@@ -1059,9 +1059,9 @@ class OptimizationProblem(metaclass=ABCMeta):
             self,
             variable: str,
             timeseries: Timeseries,
-            ensemble_member: int=0,
-            output: bool=True,
-            check_consistency: bool=True) -> None:
+            ensemble_member: int = 0,
+            output: bool = True,
+            check_consistency: bool = True) -> None:
         """
         Sets a timeseries in the internal data store.
 
@@ -1075,7 +1075,7 @@ class OptimizationProblem(metaclass=ABCMeta):
         """
         raise NotImplementedError
 
-    def timeseries_at(self, variable: str, t: float, ensemble_member: int=0) -> float:
+    def timeseries_at(self, variable: str, t: float, ensemble_member: int = 0) -> float:
         """
         Return the value of a time series at the given time.
 

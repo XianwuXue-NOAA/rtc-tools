@@ -28,7 +28,7 @@ class LookupTable:
     Lookup table.
     """
 
-    def __init__(self, inputs: List[ca.MX], function: ca.Function, tck: Tuple=None):
+    def __init__(self, inputs: List[ca.MX], function: ca.Function, tck: Tuple = None):
         """
         Create a new lookup table object.
 

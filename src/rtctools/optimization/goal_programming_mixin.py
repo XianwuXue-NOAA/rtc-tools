@@ -83,7 +83,7 @@ class Goal(metaclass=ABCMeta):
     The goal violation value is taken to the order'th power in the objective function of the final
     optimization problem.
 
-    Example definition of the point goal :math:`x(t) \geq 1.1` for :math:`t=1.0` at priority 1::
+    Example definition of the point goal :math:`x(t) \\geq 1.1` for :math:`t=1.0` at priority 1::
 
         class MyGoal(Goal):
             def function(self, optimization_problem, ensemble_member):
@@ -95,7 +95,7 @@ class Goal(metaclass=ABCMeta):
             target_min = 1.1
             priority = 1
 
-    Example definition of the path goal :math:`x(t) \geq 1.1` for all :math:`t` at priority 2::
+    Example definition of the path goal :math:`x(t) \\geq 1.1` for all :math:`t` at priority 2::
 
         class MyPathGoal(Goal):
             def function(self, optimization_problem, ensemble_member):
@@ -226,7 +226,7 @@ class StateGoal(Goal, metaclass=ABCMeta):
     :cvar critical:         If ``True``, the algorithm will abort if this goal cannot be fully met.
                             Default is ``False``.
 
-    Example definition of the goal :math:`x(t) \geq 1.1` for all :math:`t` at priority 2::
+    Example definition of the goal :math:`x(t) \\geq 1.1` for all :math:`t` at priority 2::
 
         class MyStateGoal(StateGoal):
             state = 'x'

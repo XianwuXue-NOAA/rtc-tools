@@ -1,8 +1,8 @@
 model SingleChannel
   // Elements
   Deltares.ChannelFlow.Hydraulic.Branches.HomotopicTrapezoidal Channel(
-    H_b_down = -10.0,
-    H_b_up = -10.0,
+    H_b_down = -5.0,
+    H_b_up = -5.0,
     friction_coefficient = 30,
     length = 10000,
     theta = theta,
@@ -10,7 +10,7 @@ model SingleChannel
     use_convective_acceleration = false,
     use_upwind = false,
     n_level_nodes = 10,
-    uniform_nominal_depth = 10.0,
+    uniform_nominal_depth = 5.0,
     bottom_width_down = 30,
     bottom_width_up = 30,
     left_slope_angle_up = 45,

@@ -1,4 +1,4 @@
-model SingleChannel
+model Example
   // Elements
   Deltares.ChannelFlow.Hydraulic.Branches.HomotopicTrapezoidal Channel(
     H_b_down = -5.0,
@@ -35,4 +35,4 @@ equation
 initial equation
   Channel.Q = fill(Inflow_Q, Channel.n_level_nodes + 1);
   der(Channel.H) = fill(0.0, Channel.n_level_nodes);
-end SingleChannel;
+end Example;

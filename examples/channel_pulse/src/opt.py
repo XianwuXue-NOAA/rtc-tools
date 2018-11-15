@@ -7,7 +7,7 @@ from rtctools.optimization.homotopy_mixin import HomotopyMixin
 from rtctools.util import run_optimization_problem
 
 
-class SingleChannel(
+class Example(
     HomotopyMixin, CSVMixin, ModelicaMixin, CollocatedIntegratedOptimizationProblem
 ):
     def constraints(self, ensemble_member):
@@ -23,4 +23,4 @@ class SingleChannel(
         return c
 
 
-run_optimization_problem(SingleChannel)
+run_optimization_problem(Example)

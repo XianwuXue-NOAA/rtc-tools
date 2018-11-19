@@ -135,19 +135,25 @@ class OptimizationProblem(metaclass=ABCMeta):
             lb_eval = np.array(g_eval - lbg)
             ub_eval = np.array(ubg - g_eval)
 
-            tol = 1e-7
-
-            if np.any(lb_eval < -tol):
-                logger.warning("Initial guess fails lower constraint")
-                raise Exception()
-
-            if np.any(ub_eval < -tol):
-                logger.warning("Initial guess fails upper constraint")
-                raise Exception()
-
             # Check seed size
             logger.info("Smallest lower constraint violation is {}".format(min(lb_eval)))
             logger.info("Smallest upper constraint violation is {}".format(min(ub_eval)))
+
+            tol = 1e-7
+            try:
+                if my_solver == "cplex":
+                    tol = 1e-6
+                    tol = nlpsol_options['cplex']['CPX_PARAM_EPRHS']
+            except Exception:
+                pass
+
+            if np.any(lb_eval < -tol):
+                logger.warning("Initial guess fails lower constraint ({} < {})".format(lb_eval, -tol))
+                raise Exception()
+
+            if np.any(ub_eval < -tol):
+                logger.warning("Initial guess fails upper constraint ({} < {})".format(ub_eval, -tol))
+                raise Exception()
 
             logger.info("Checking seed to see if nominals are too small.")
 

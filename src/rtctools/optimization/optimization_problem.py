@@ -126,7 +126,7 @@ class OptimizationProblem(metaclass=ABCMeta):
             logger.info("No small ubgs found")
 
         # Sanity check of initial solution when priority > 1
-        if not self._GoalProgrammingMixin__first_run:
+        if hasattr(self, '_GoalProgrammingMixin__first_run') and not self._GoalProgrammingMixin__first_run:
             logger.debug("Checking initial guess against constraints.")
             g_eval = ca.Function('const_f', [nlp['x']], [nlp['g']]).expand()(x0)
 

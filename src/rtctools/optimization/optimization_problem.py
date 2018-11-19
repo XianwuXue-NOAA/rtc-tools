@@ -99,6 +99,81 @@ class OptimizationProblem(metaclass=ABCMeta):
         if my_solver != 'bonmin':
             nlpsol_options.pop('bonmin', None)
 
+        lbg = np.array(ca.veccat(*lbg))
+        ubg = np.array(ca.veccat(*ubg))
+
+        logger.info("Sanity check of lbg and ubg, truncating small values to zero")
+
+        tol = 1e-12
+        lbg_inds = (np.abs(lbg) < tol) & (lbg != 0.0)
+        if np.any(lbg_inds):
+            logger.info("Before, smallest non-zero lbg: {}".format(min(lbg[lbg_inds])))
+            lbg[inds] = 0.0
+
+            lbg_inds = (np.abs(lbg) < tol) & (lbg != 0.0)
+            logger.info("After, smallest non-zero lbg: {}".format(min(lbg[lbg_inds])))
+        else:
+            logger.info("No small lbgs found")
+
+        ubg_inds = (np.abs(ubg) < tol) & (ubg != 0.0)
+        if np.any(ubg_inds):
+            logger.info("Before, smallest non-zero ubg: {}".format(min(ubg[ubg_inds])))
+            ubg[inds] = 0.0
+
+            ubg_inds = (np.abs(ubg) < tol) & (ubg != 0.0)
+            logger.info("After, smallest non-zero ubg: {}".format(min(ubg[ubg_inds])))
+        else:
+            logger.info("No small ubgs found")
+
+        # Sanity check of initial solution when priority > 1
+        if not self._GoalProgrammingMixin__first_run:
+            logger.debug("Checking initial guess against constraints.")
+            g_eval = ca.Function('const_f', [nlp['x']], [nlp['g']]).expand()(x0)
+
+            # Both upper and lower bound should be positive (or very slightly
+            # negative, up to a certain tolerance)
+            lb_eval = np.array(g_eval - lbg)
+            ub_eval = np.array(ubg - g_eval)
+
+            tol = 1e-7
+
+            if np.any(lb_eval < -tol):
+                logger.warning("Initial guess fails lower constraint")
+                raise Exception()
+
+            if np.any(ub_eval < -tol):
+                logger.warning("Initial guess fails upper constraint")
+                raise Exception()
+
+            # Check seed size
+            logger.info("Smallest lower constraint violation is {}".format(min(lb_eval)))
+            logger.info("Smallest upper constraint violation is {}".format(min(ub_eval)))
+
+            logger.info("Checking seed to see if nominals are too small.")
+
+            tol = 1000.0
+
+            # Reverse mapping of variables:
+            var_names = []
+            indices = self._CollocatedIntegratedOptimizationProblem__indices[0]
+            for k, v in indices.items():
+                for i in range(0, v.stop - v.start, 1 if v.step is None else v.step):
+                    var_names.append('{}__{}'.format(k, i))
+
+            n_derivatives = x0.shape[0] - len(var_names)
+            for i in range(n_derivatives):
+                var_names.append("DERIVATIVE__{}".format(i))
+
+
+            inds = np.abs(x0) > tol
+
+            inds = np.where(inds)
+
+            for i in inds[0]:
+                v = var_names[i]
+                n = self.variable_nominal(v)
+                logger.warning("Nominal of '{}' likely to small. Nominal = {}, but x0 entry is {}".format(v, n, x0[i]))
+
         solver = casadi_solver('nlp', my_solver, nlp, nlpsol_options)
 
         # Solve NLP

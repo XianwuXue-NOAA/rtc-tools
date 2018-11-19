@@ -126,6 +126,19 @@ class OptimizationProblem(metaclass=ABCMeta):
                 self.__objective_value = np.nan
                 self.__solver_output = x0
 
+            logger.log(log_level, "Exporting to file")
+
+            # Cache it
+            import pickle
+            import time
+            expand_f_g = ca.Function('f_g', [nlp['x']], [nlp['f'], nlp['g']]).expand()
+            with open("nlp_func_{}.pickle".format(int(time.time())), 'wb') as pck:
+                myd = {}
+                myd['indices'] = self._CollocatedIntegratedOptimizationProblem__indices
+                myd['func'] = expand_f_g
+                myd['other'] = (lbx, ubx, lbg, ubg, x0)
+                pickle.dump(myd, pck)
+
         # Do any postprocessing
         if postprocessing:
             self.post()

@@ -108,7 +108,7 @@ class OptimizationProblem(metaclass=ABCMeta):
         lbg_inds = (np.abs(lbg) < tol) & (lbg != 0.0)
         if np.any(lbg_inds):
             logger.info("Before, smallest non-zero lbg: {}".format(min(lbg[lbg_inds])))
-            lbg[inds] = 0.0
+            lbg[lbg_inds] = 0.0
 
             lbg_inds = (np.abs(lbg) < tol) & (lbg != 0.0)
             logger.info("After, smallest non-zero lbg: {}".format(min(lbg[lbg_inds])))
@@ -118,7 +118,7 @@ class OptimizationProblem(metaclass=ABCMeta):
         ubg_inds = (np.abs(ubg) < tol) & (ubg != 0.0)
         if np.any(ubg_inds):
             logger.info("Before, smallest non-zero ubg: {}".format(min(ubg[ubg_inds])))
-            ubg[inds] = 0.0
+            ubg[ubg_inds] = 0.0
 
             ubg_inds = (np.abs(ubg) < tol) & (ubg != 0.0)
             logger.info("After, smallest non-zero ubg: {}".format(min(ubg[ubg_inds])))
@@ -169,7 +169,6 @@ class OptimizationProblem(metaclass=ABCMeta):
             n_derivatives = x0.shape[0] - len(var_names)
             for i in range(n_derivatives):
                 var_names.append("DERIVATIVE__{}".format(i))
-
 
             inds = np.abs(x0) > tol
 

@@ -466,18 +466,14 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
             seed = AliasDict(self.alias_relation)
             for key, result in self.__results[ensemble_member].items():
                 times = self.times(key)
-                if len(result) == len(times):
+                if ((result.ndim == 1 and len(result) == len(times))
+                        or (result.ndim == 2 and result.shape[1] == len(times))):
                     # Only include seed timeseries which are consistent
                     # with the specified time stamps.
                     seed[key] = Timeseries(times, result)
-                elif len(result) == 1:
+                elif ((result.ndim == 1 and len(result) == 1)
+                        or (result.ndim == 2 and result.shape[1] == 1)):
                     seed[key] = result
-                else:
-                    try:
-                        result.shape[1] == len(times)
-                        seed[key] = Timeseries(times, result)
-                    except IndexError:
-                        pass
 
         # Seed epsilons of current priority
         for epsilon in self.__subproblem_epsilons:

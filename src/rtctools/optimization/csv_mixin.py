@@ -324,8 +324,8 @@ class CSVMixin(OptimizationProblem):
             names = ['time'] + sorted({sym.name() for sym in self.output_variables})
             formats = ['O'] + (len(names) - 1) * ['f8']
             dtype = {'names': names, 'formats': formats}
-            data = np.zeros(len(self.__timeseries_times), dtype=dtype)
-            data['time'] = self.__timeseries_times
+            data = np.zeros(len(times), dtype=dtype)
+            data['time'] = [self.__timeseries_times[0] + timedelta(seconds=s) for s in times]
             for output_variable in self.output_variables:
                 output_variable = output_variable.name()
                 try:

@@ -219,6 +219,16 @@ class OptimizationProblem(metaclass=ABCMeta):
                 myd['other'] = (lbx, ubx, lbg, ubg, x0)
                 pickle.dump(myd, pck)
 
+            logger.info("Checking whether problem is feasible without the objective")
+            nlp_no_obj = nlp.copy()
+            nlp_no_obj['f'] = 1.0
+            solver = casadi_solver('nlp', my_solver, nlp_no_obj, nlpsol_options)
+
+            # Solve NLP
+            logger.info("Calling solver (without objective function)")
+
+            results = solver(x0=x0, lbx=lbx, ubx=ubx, lbg=ca.veccat(*lbg), ubg=ca.veccat(*ubg))
+
         # Do any postprocessing
         if postprocessing:
             self.post()

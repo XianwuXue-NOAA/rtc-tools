@@ -479,7 +479,8 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                     # Guesttimate a nominal
                     assert variable.endswith('.V')
 
-                    init_der_nominals.append(self.variable_nominal(variable[:-1] + "QIn.Q"))
+                    init_der_nominals.append(max(self.variable_nominal(variable[:-1] + "QIn.Q"),
+                                                 self.variable_nominal(variable[:-1] + "QOut.Q")))
                 except KeyError:
                     # We do interpolation here instead of relying on der_at. This faster is because:
                     # 1. We can reuse the history variable.

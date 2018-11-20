@@ -169,6 +169,7 @@ class OptimizationProblem(metaclass=ABCMeta):
                     var_names.append('{}__{}'.format(k, i))
                     var_names_orig.append(k)
 
+            n_vars = len(var_names)
             n_derivatives = x0.shape[0] - len(var_names)
 
             der_map = self._CollocatedIntegratedOptimizationProblem__differentiated_states_map
@@ -185,7 +186,12 @@ class OptimizationProblem(metaclass=ABCMeta):
 
             for i in inds[0]:
                 v = var_names[i]
-                n = self.variable_nominal(var_names_orig[i])
+
+                if i < n_vars:
+                    n = self.variable_nominal(var_names_orig[i])
+                else:
+                    n = self.variable_nominal(var_names_orig[i][:-1] + "QIn.Q")
+
                 logger.warning("Nominal of '{}' likely to small. Nominal = {}, but x0 entry is {}".format(v, n, x0[i]))
 
         solver = casadi_solver('nlp', my_solver, nlp, nlpsol_options)

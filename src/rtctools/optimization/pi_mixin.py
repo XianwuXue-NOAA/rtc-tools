@@ -323,13 +323,22 @@ class PIMixin(OptimizationProblem):
         # Call parent class first for default behaviour.
         super().post()
 
+        # Get time stamps
+        times = self.times()
+        if len(set(times[1:] - times[:-1])) == 1:
+            dt = timedelta(seconds=times[1] - times[0])
+        else:
+            dt = None
+
         # Start of write output
         # Write the time range for the export file.
-        self.__timeseries_export.times = self.__timeseries_import.times[self.__timeseries_import.forecast_index:]
+        self.__timeseries_export.times = [
+            self.__timeseries_import.times[self.__timeseries_import.forecast_index]
+            + timedelta(seconds=s) for s in times]
 
         # Write other time settings
         self.__timeseries_export.forecast_datetime = self.__timeseries_import.forecast_datetime
-        self.__timeseries_export.dt = self.__timeseries_import.dt
+        self.__timeseries_export.dt = dt
         self.__timeseries_export.timezone = self.__timeseries_import.timezone
 
         # Write the ensemble properties for the export file.
@@ -337,7 +346,6 @@ class PIMixin(OptimizationProblem):
         self.__timeseries_export.contains_ensemble = self.__timeseries_import.contains_ensemble
 
         # Start looping over the ensembles for extraction of the output values.
-        times = self.times()
         for ensemble_member in range(self.ensemble_size):
             results = self.extract_results(ensemble_member)
 

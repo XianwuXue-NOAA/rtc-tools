@@ -163,14 +163,21 @@ class OptimizationProblem(metaclass=ABCMeta):
             var_names = []
             var_names_orig = []
             indices = self._CollocatedIntegratedOptimizationProblem__indices[0]
+            # NOTE: Asserting looping in insertion order, i.e. indices are always increasing
             for k, v in indices.items():
                 for i in range(0, v.stop - v.start, 1 if v.step is None else v.step):
                     var_names.append('{}__{}'.format(k, i))
                     var_names_orig.append(k)
 
             n_derivatives = x0.shape[0] - len(var_names)
-            for i in range(n_derivatives):
-                var_names.append("DERIVATIVE__{}".format(i))
+
+            der_map = self._CollocatedIntegratedOptimizationProblem__differentiated_states_map
+            assert len(der_map) == n_derivatives
+
+            # NOTE: Asserting looping in insertion order, i.e. indices are always increasing
+            for k in der_map.keys():
+                var_names.append("{}__INIT_DER".format(k))
+                var_names_orig.append(k)
 
             inds = np.abs(x0) > tol
 

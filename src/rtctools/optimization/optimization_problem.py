@@ -249,10 +249,10 @@ class OptimizationProblem(metaclass=ABCMeta):
 
             if success_2:
                 logger.log(log_level, "Feasibility check succeeded with status {}".format(
-                    self.__solver_stats['return_status']))
+                    solvstats['return_status']))
             else:
                 logger.log(log_level, "Feasibility check failed with status {}".format(
-                    self.__solver_stats['return_status']))
+                    solvstats['return_status']))
 
         # Do any postprocessing
         if postprocessing:

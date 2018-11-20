@@ -465,6 +465,8 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
 
             history = self.history(ensemble_member)
 
+            init_der_nominals = []
+
             for j, variable in enumerate(integrated_variable_names + collocated_variable_names):
                 initial_state_indices[j] = self.__indices_as_lists[ensemble_member][variable][0]
 
@@ -473,6 +475,11 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
 
                     init_der_variable_indices.append(der_offset + i)
                     init_der_variable.append(j)
+
+                    # Guesttimate a nominal
+                    assert variable.endswith('.V')
+
+                    init_der_nominals.append(self.variable_nominal(variable[:-1] + "QIn.Q"))
                 except KeyError:
                     # We do interpolation here instead of relying on der_at. This faster is because:
                     # 1. We can reuse the history variable.
@@ -491,7 +498,7 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                     init_der_constant_values.append(init_der)
                     init_der_constant.append(j)
 
-            initial_derivatives[init_der_variable] = X[init_der_variable_indices]
+            initial_derivatives[init_der_variable] = X[init_der_variable_indices] * np.array(init_der_nominals)
             initial_derivatives[init_der_constant] = init_der_constant_values
 
             ensemble_data["initial_state"] = X[initial_state_indices] * np.concatenate(

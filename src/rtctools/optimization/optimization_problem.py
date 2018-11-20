@@ -161,10 +161,12 @@ class OptimizationProblem(metaclass=ABCMeta):
 
             # Reverse mapping of variables:
             var_names = []
+            var_names_orig = []
             indices = self._CollocatedIntegratedOptimizationProblem__indices[0]
             for k, v in indices.items():
                 for i in range(0, v.stop - v.start, 1 if v.step is None else v.step):
                     var_names.append('{}__{}'.format(k, i))
+                    var_names_orig.append(k)
 
             n_derivatives = x0.shape[0] - len(var_names)
             for i in range(n_derivatives):
@@ -176,7 +178,7 @@ class OptimizationProblem(metaclass=ABCMeta):
 
             for i in inds[0]:
                 v = var_names[i]
-                n = self.variable_nominal(v)
+                n = self.variable_nominal(var_names_orig[i])
                 logger.warning("Nominal of '{}' likely to small. Nominal = {}, but x0 entry is {}".format(v, n, x0[i]))
 
         solver = casadi_solver('nlp', my_solver, nlp, nlpsol_options)

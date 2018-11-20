@@ -231,6 +231,16 @@ class OptimizationProblem(metaclass=ABCMeta):
 
             results = solver(x0=x0, lbx=lbx, ubx=ubx, lbg=ca.veccat(*lbg), ubg=ca.veccat(*ubg))
 
+            solvstats = solver.stats()
+            success_2, log_level = self.solver_success(solvstats, log_solver_failure_as_error)
+
+            if success_2:
+                logger.log(log_level, "Feasibility check succeeded with status {}".format(
+                    self.__solver_stats['return_status']))
+            else:
+                logger.log(log_level, "Feasibility check failed with status {}".format(
+                    self.__solver_stats['return_status']))
+
         # Do any postprocessing
         if postprocessing:
             self.post()

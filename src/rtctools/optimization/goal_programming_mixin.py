@@ -217,8 +217,8 @@ class Goal(metaclass=ABCMeta):
         return self.function_key
 
     def __repr__(self) -> str:
-        return '{}(priority={}, target_min={}, target_max={}, function_range={})'.format(
-            self.__class__, self.priority, self.target_min, self.target_max, self.function_range)
+        return '{}(priority={}, target_min={}, target_max={}, function_range={}, function_nominal={})'.format(
+            self.__class__, self.priority, self.target_min, self.target_max, self.function_range, self.function_nominal)
 
 
 class StateGoal(Goal, metaclass=ABCMeta):
@@ -292,8 +292,8 @@ class StateGoal(Goal, metaclass=ABCMeta):
         return optimization_problem.state(self.state)
 
     def __repr__(self):
-        return '{}(priority={}, state={}, target_min={}, target_max={}, function_range={})'.format(
-            self.__class__, self.priority, self.state, self.target_min, self.target_max, self.function_range)
+        return '{}(priority={}, state={}, target_min={}, target_max={}, function_range={}, function_nominal={})'.format(
+            self.__class__, self.priority, self.state, self.target_min, self.target_max, self.function_range, self.function_nominal)
 
 
 class _GoalConstraint:
@@ -888,6 +888,33 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
 
             if goal.relaxation < 0.0:
                 raise Exception('Relaxation of goal {} should be a nonnegative value'.format(goal))
+
+            tol_up = 1E6
+            tol_down = 1E-6
+
+            goal_m, goal_M = self.__min_max_arrays(goal, target_shape)
+
+            if goal.has_target_min:
+                indices = np.where(np.isfinite(goal_m))
+                lb = np.broadcast_to(goal.function_range[0], reversed(goal_m.shape)).transpose()
+                nom = np.broadcast_to(goal.function_nominal, reversed(goal_m.shape)).transpose()
+
+                r = np.abs(lb - goal_m) / nom
+                r = r[indices]
+
+                if np.any((r > tol_up) | (r < tol_down)):
+                    logger.warning("Goal has insane lower target w.r.t. range and nominal (max ratio = {:g}, min ratio = {:g}): {}".format(max(r), min(r), goal))
+
+            if goal.has_target_max:
+                indices = np.where(np.isfinite(goal_M))
+                ub = np.broadcast_to(goal.function_range[1], reversed(goal_M.shape)).transpose()
+                nom = np.broadcast_to(goal.function_nominal, reversed(goal_M.shape)).transpose()
+
+                r = np.abs(ub - goal_M) / nom
+                r = r[indices]
+
+                if np.any((r > tol_up) | (r < tol_down)):
+                    logger.warning("Goal has insane upper target w.r.t. range and nominal (max ratio = {:g}, min ratio = {:g}): {}".format(max(r), min(r), goal))
 
     def __goal_constraints(self, goals, sym_index, options, is_path_goal):
         """

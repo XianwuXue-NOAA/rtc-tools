@@ -125,6 +125,132 @@ class OptimizationProblem(metaclass=ABCMeta):
         else:
             logger.info("No small ubgs found")
 
+
+        logger.info("Largest lbg coefficient {}".format(max(np.abs(lbg[np.isfinite(lbg)]))))
+        logger.info("Largest ubg coefficient {}".format(max(np.abs(ubg[np.isfinite(ubg)]))))
+
+        tol = 1e6
+        logger.info("Sanity check of lbg and ubg, checking for large values (>{})".format(tol))
+        lbg_inds = (np.abs(lbg) > tol) & np.isfinite(lbg)
+        if np.any(lbg_inds):
+            raise Exception("Too large of a (absolute) lbg found: {}".format(max(lbg[lbg_inds])))
+
+        ubg_inds = (np.abs(ubg) > tol) & np.isfinite(ubg)
+        if np.any(ubg_inds):
+            raise Exception("Too large of a (absolute) ubg found: {}".format(max(ubg[ubg_inds])))
+
+        # Reverse mapping of variables:
+        var_names = []
+        var_names_orig = []
+        indices = self._CollocatedIntegratedOptimizationProblem__indices[0]
+        # NOTE: Asserting looping in insertion order, i.e. indices are always increasing
+        for k, v in indices.items():
+            for i in range(0, v.stop - v.start, 1 if v.step is None else v.step):
+                var_names.append('{}__{}'.format(k, i))
+                var_names_orig.append(k)
+
+        n_vars = len(var_names)
+        n_derivatives = x0.shape[0] - len(var_names)
+
+        der_map = self._CollocatedIntegratedOptimizationProblem__differentiated_states_map
+        assert len(der_map) == n_derivatives
+
+        # NOTE: Asserting looping in insertion order, i.e. indices are always increasing
+        for k in der_map.keys():
+            var_names.append("{}__INIT_DER".format(k))
+            var_names_orig.append(k)
+
+        logger.info("Sanity check of coefficients in objective and constraints matrices/vectors")
+
+        in_var = nlp['x']
+        out = []
+        for o in [nlp['f'], nlp['g']]:
+            Af = ca.Function('Af', [in_var], [ca.jacobian(o, in_var)])
+            bf = ca.Function('bf', [in_var], [o])
+
+            A = Af(0)
+            A = ca.sparsify(A)
+
+            b = bf(0)
+            b = ca.sparsify(b)
+
+            out.append((A.tocsc().tocoo(), b.tocsc().tocoo()))
+
+        # Objective
+        A_obj, b_obj = out[0]
+        logger.info("Statistics of objective: max(A), min(A), max(B), min(B)")
+        max_obj_A = max(np.abs(A_obj.data), default=None)
+        min_obj_A = min(np.abs(A_obj.data[A_obj.data != 0.0]), default=None)
+        max_obj_b = max(np.abs(b_obj.data), default=None)
+        min_obj_b = min(np.abs(b_obj.data[b_obj.data != 0.0]), default=None)
+        logger.info("{}, {}, {}, {}".format(max_obj_A, min_obj_A, max_obj_b, min_obj_b))
+
+        # Constraints
+        A_constr, b_constr = out[1]
+        logger.info("Statistics of constraints: max(A), min(A), max(B), min(B)")
+        max_constr_A = max(np.abs(A_constr.data), default=None)
+        min_constr_A = min(np.abs(A_constr.data[A_constr.data != 0.0]), default=None)
+        max_constr_b = max(np.abs(b_constr.data), default=None)
+        min_constr_b = min(np.abs(b_constr.data[b_constr.data != 0.0]), default=None)
+        logger.info("{}, {}, {}, {}".format(max_constr_A, min_constr_A, max_constr_b, min_constr_b))
+
+        tol_up = 1E6
+        tol_down = 1E-6
+
+        maxs = [x for x in [max_constr_A, max_constr_b, max_obj_A, max_obj_b] if x is not None]
+        mins = [x for x in [min_constr_A, min_constr_b, min_obj_A, min_obj_b] if x is not None]
+        if (maxs and max(maxs) > tol_up) or (mins and min(mins) < tol_down):
+            logger.warning("Coefficient in matrix/vector outside typical range!")
+
+        # Check all individual constraints (only the constraint matrix. not on the objective or the b side of the constraints)
+        A_constr_csr = A_constr.tocsr()
+
+        tol_range = 1E9
+
+        b_constr_dense = b_constr.toarray().ravel()
+        lbg_dense = lbg.ravel()
+        ubg_dense = ubg.ravel()
+
+        exceedences = []
+
+        for i in range(A_constr_csr.shape[0]):
+            r = A_constr_csr.getrow(i)
+            cols = r.indices
+            data = r.data
+
+            max_r = max(np.abs(data))
+            min_r = min(np.abs(data))
+
+            assert min_r != 0.0
+
+            if max_r > tol_up or min_r < tol_down or max_r / min_r > tol_range:
+                c_str = []
+                for j, c in zip(cols, data):
+                    c_str.extend(['+' if c > 0 else '-', str(abs(c)), var_names[j]])
+                c_str = " ".join(c_str)
+
+                if c_str.startswith("+ "):
+                    c_str = c_str[2:]
+                else:
+                    c_str = "-" + c_str[2:]
+
+                l, u, b_i = lbg_dense[i], ubg_dense[i], b_constr_dense[i]
+
+                if np.isfinite(l) and np.isfinite(u) and l == u:
+                    c_str = "{} = {}".format(c_str, l - b_i)
+                elif np.isfinite(l):
+                    c_str = "{} >= {}".format(c_str, l - b_i)
+                elif np.isfinite(u):
+                    c_str = "{} <= {}".format(c_str, u - b_i)
+
+                exceedences.append((i, c_str))
+
+        if exceedences:
+            logger.warning("Exceedence in coefficients in constraints (max > {:g}, min < {:g}, or max / min > {:g}:".format(tol_down, tol_up, tol_range))
+
+            for r, c in exceedences:
+                print("row {}:  {}".format(r, c))
+
         # Sanity check of initial solution when priority > 1
         if hasattr(self, '_GoalProgrammingMixin__first_run') and not self._GoalProgrammingMixin__first_run:
             logger.debug("Checking initial guess against constraints.")
@@ -158,27 +284,6 @@ class OptimizationProblem(metaclass=ABCMeta):
             logger.info("Checking seed to see if nominals are too small.")
 
             tol = 1000.0
-
-            # Reverse mapping of variables:
-            var_names = []
-            var_names_orig = []
-            indices = self._CollocatedIntegratedOptimizationProblem__indices[0]
-            # NOTE: Asserting looping in insertion order, i.e. indices are always increasing
-            for k, v in indices.items():
-                for i in range(0, v.stop - v.start, 1 if v.step is None else v.step):
-                    var_names.append('{}__{}'.format(k, i))
-                    var_names_orig.append(k)
-
-            n_vars = len(var_names)
-            n_derivatives = x0.shape[0] - len(var_names)
-
-            der_map = self._CollocatedIntegratedOptimizationProblem__differentiated_states_map
-            assert len(der_map) == n_derivatives
-
-            # NOTE: Asserting looping in insertion order, i.e. indices are always increasing
-            for k in der_map.keys():
-                var_names.append("{}__INIT_DER".format(k))
-                var_names_orig.append(k)
 
             inds = np.abs(x0) > tol
 

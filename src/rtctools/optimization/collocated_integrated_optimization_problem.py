@@ -512,6 +512,9 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                     constant_parameters,
                     constant_parameter_values)
 
+        # Collect extra variable symbols
+        symbolic_extra_variables = ca.vertcat(*self.extra_variables)
+
         # Aggregate ensemble data
         ensemble_aggregate = {}
         ensemble_aggregate["parameters"] = ca.horzcat(*[nullvertcat(*l) for l in ensemble_parameter_values])
@@ -713,7 +716,8 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                 *integrated_variables, *collocated_variables, *integrated_derivatives,
                 *collocated_derivatives, *self.dae_variables['constant_inputs'],
                 *self.dae_variables['time'], *self.path_variables,
-                *self.__extra_constant_inputs)]
+                *self.__extra_constant_inputs),
+            symbolic_extra_variables]
 
         # Initialize a Function for the path objective
         # Note that we assume that the path objective expression is the same for all ensemble members
@@ -769,6 +773,7 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
         collocation_time_0 = accumulated_U[offset + 0]
         collocation_time_1 = accumulated_U[offset + 1]
         path_variables_1 = accumulated_U[offset + 2:offset + 2 + len(self.path_variables)]
+        extra_variables = ca.vertcat(*[self.extra_variable(var.name()) for var in self.extra_variables])
         extra_constant_inputs_1 = accumulated_U[offset + 2 + len(self.path_variables):]
 
         # Approximate derivatives using backwards finite differences
@@ -856,7 +861,8 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                 constant_inputs_1,
                 collocation_time_1 - t0,
                 path_variables_1,
-                extra_constant_inputs_1)]
+                extra_constant_inputs_1),
+            symbolic_extra_variables]
 
         accumulated_Y.extend(path_objective_function.call(
             self.__func_inputs_implicit, False, True))
@@ -868,7 +874,9 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
             self.__func_inputs_implicit, False, True))
 
         # Save the accumulated inputs such that can be used later in map_path_expression()
-        self.__func_accumulated_inputs = (accumulated_X, accumulated_U, symbolic_parameters)
+        self.__func_accumulated_inputs = (
+            accumulated_X, accumulated_U,
+            ca.veccat(symbolic_parameters, symbolic_extra_variables))
 
         # Use map/mapaccum to capture integration and collocation constraint generation over the
         # entire time horizon with one symbolic operation. This saves a lot of memory.
@@ -1090,11 +1098,13 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
 
             # Save these inputs such that can be used later in map_path_expression()
             self.__func_mapped_inputs.append(
-                (accumulation_X0, accumulation_U, ca.repmat(parameters, 1, n_collocation_times - 1)))
+                (accumulation_X0, accumulation_U,
+                 ca.repmat(ca.vertcat(parameters, extra_variables), 1, n_collocation_times - 1)))
 
             self.__func_initial_inputs.append([parameters, ca.vertcat(
                         initial_state, initial_derivatives, initial_constant_inputs, 0.0,
-                        initial_path_variables, initial_extra_constant_inputs)])
+                        initial_path_variables, initial_extra_constant_inputs),
+                        extra_variables])
 
             integrators_and_collocation_and_path_constraints = accumulation(
                 *self.__func_mapped_inputs[ensemble_member])
@@ -1200,7 +1210,7 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                         initial_constant_inputs,
                         0.0,
                         [self.variable_nominal(var.name()) for var in self.path_variables],
-                        initial_extra_constant_inputs)])
+                        initial_extra_constant_inputs), extra_variables])
 
             for i in range(len(delayed_feedback_expressions)):
                 expression = delayed_feedback_expressions[i]

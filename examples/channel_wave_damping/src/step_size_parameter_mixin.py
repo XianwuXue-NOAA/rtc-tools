@@ -4,7 +4,7 @@ from rtctools.optimization.optimization_problem import OptimizationProblem
 
 
 class StepSizeParameterMixin(OptimizationProblem):
-    step_size = 5 * 60  # 5 minutes
+    step_size = 5 * 60  # 15 minutes
 
     def times(self, variable=None):
         times = super().times(variable)

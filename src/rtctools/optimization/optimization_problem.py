@@ -268,8 +268,8 @@ class OptimizationProblem(metaclass=ABCMeta):
             tol = 1e-7
             try:
                 if my_solver == "cplex":
-                    tol = 1e-6
-                    tol = nlpsol_options['cplex']['CPX_PARAM_EPRHS']
+                    tol = 1e-4
+                    tol = nlpsol_options['cplex']['CPX_PARAM_EPRHS'] * 100
             except Exception:
                 pass
 

@@ -3,7 +3,7 @@ import logging
 import numpy as np
 
 from rtctools.optimization.collocated_integrated_optimization_problem import (
-    CollocatedIntegratedOptimizationProblem,
+    CollocatedIntegratedOptimizationProblem
 )
 from rtctools.optimization.csv_mixin import CSVMixin
 from rtctools.optimization.modelica_mixin import ModelicaMixin
@@ -105,7 +105,7 @@ class TestCSVMixin(TestCase):
                 self.assertAlmostEqual(a, b, self.tolerance)
 
 
-class TestPIMixinEnsemble(TestCase):
+class TestCSVMixinEnsemble(TestCase):
     def setUp(self):
         self.problem = ModelEnsemble()
         self.problem.optimize()

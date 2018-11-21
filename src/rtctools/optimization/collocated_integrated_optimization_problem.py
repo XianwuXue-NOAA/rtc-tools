@@ -1,6 +1,6 @@
 import itertools
 import logging
-from abc import ABCMeta, abstractmethod
+from abc import ABCMeta
 
 import casadi as ca
 
@@ -77,17 +77,6 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
 
         # Call super
         super().__init__(**kwargs)
-
-    @abstractmethod
-    def times(self, variable=None):
-        """
-        List of time stamps for variable.
-
-        :param variable: Variable name.
-
-        :returns: A list of time stamps for the given variable.
-        """
-        pass
 
     def interpolation_method(self, variable=None):
         """

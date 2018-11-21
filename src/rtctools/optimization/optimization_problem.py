@@ -6,19 +6,23 @@ import casadi as ca
 
 import numpy as np
 
-from rtctools._internal.alias_tools import AliasDict, AliasRelation
+from rtctools._internal.alias_tools import AliasDict
+from rtctools.data.storage import DataStore
 
 from .timeseries import Timeseries
 
 logger = logging.getLogger("rtctools")
 
 
-class OptimizationProblem(metaclass=ABCMeta):
+class OptimizationProblem(DataStore, metaclass=ABCMeta):
     """
     Base class for all optimization problems.
     """
 
     def __init__(self, **kwargs):
+        # Call parent class first for default behaviour.
+        super().__init__(**kwargs)
+
         self.__mixed_integer = False
 
     def optimize(self, preprocessing: bool = True, postprocessing: bool = True,
@@ -405,10 +409,6 @@ class OptimizationProblem(metaclass=ABCMeta):
             self.alias_relation,
             {variable: Timeseries(np.array([self.initial_time]), np.array([state]))
              for variable, state in initial_state.items()})
-
-    @abstractproperty
-    def alias_relation(self) -> AliasRelation:
-        raise NotImplementedError
 
     def variable_is_discrete(self, variable: str) -> bool:
         """

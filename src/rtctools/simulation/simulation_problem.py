@@ -15,11 +15,12 @@ import pymoca.backends.casadi.api
 
 from rtctools._internal.alias_tools import AliasDict, AliasRelation
 from rtctools._internal.caching import cached
+from rtctools.data.storage import DataStore
 
 logger = logging.getLogger("rtctools")
 
 
-class SimulationProblem:
+class SimulationProblem(DataStore):
     """
     Implements the `BMI <http://csdms.colorado.edu/wiki/BMI_Description>`_ Interface.
 
@@ -199,7 +200,7 @@ class SimulationProblem:
         self.__do_step = ca.rootfinder("next_state", "nlpsol", self.__res_vals, options)
 
         # Call parent class for default behaviour.
-        super().__init__()
+        super().__init__(**kwargs)
 
     def initialize(self, config_file=None):
         """

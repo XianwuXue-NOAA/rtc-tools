@@ -279,8 +279,14 @@ class ModelicaMixin(OptimizationProblem):
             M_ = float(M_)
 
             # We take the intersection of all provided bounds
-            m = max(m, m_)
-            M = min(M, M_)
+            def intersect(old_bound, new_bound, intersecter):
+                if isinstance(old_bound, Timeseries):
+                    return Timeseries(old_bound.times, intersecter(old_bound.values, new_bound))
+                else:
+                    return intersecter(old_bound, new_bound)
+
+            m = intersect(m, m_, np.maximum)
+            M = intersect(M, M_, np.minimum)
 
             bounds[sym_name] = (m, M)
 
@@ -297,7 +303,7 @@ class ModelicaMixin(OptimizationProblem):
 
         # Load seeds
         for var in itertools.chain(self.__pymoca_model.states, self.__pymoca_model.alg_states):
-            if var.fixed:
+            if var.fixed or var.symbol.name() in seed.keys():
                 # Values will be set from import timeseries
                 continue
 

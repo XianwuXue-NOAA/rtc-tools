@@ -354,6 +354,7 @@ class ModelicaMixin(OptimizationProblem):
             # If nominal contains parameter symbols, substitute them
             if not nominal.is_constant():
                 [nominal] = substitute_in_external([nominal], self.__mx['parameters'], parameter_values)
+                nominal = ca.MX(nominal)
 
             if nominal.is_constant():
                 # Take absolute value (nominal sign is meaningless- a nominal is a magnitude)

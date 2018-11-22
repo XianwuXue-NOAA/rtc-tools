@@ -17,6 +17,16 @@ from .timeseries import Timeseries
 logger = logging.getLogger("rtctools")
 
 
+class _EmptyEnsembleList(list):
+    """
+    An indexable object containing infinitely many empty lists.
+    Only to be used as a placeholder.
+    """
+
+    def __getitem__(self, key):
+        return []
+
+
 class Goal(metaclass=ABCMeta):
     """
     Base class for lexicographic goal programming goals.
@@ -316,8 +326,8 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
         self.__subproblem_path_epsilons = []
         self.__subproblem_path_timeseries = []
         self.__subproblem_objectives = []
-        self.__subproblem_constraints = []
-        self.__subproblem_path_constraints = []
+        self.__subproblem_constraints = _EmptyEnsembleList()
+        self.__subproblem_path_constraints = _EmptyEnsembleList()
 
         self.__original_constant_input_keys = {}
 

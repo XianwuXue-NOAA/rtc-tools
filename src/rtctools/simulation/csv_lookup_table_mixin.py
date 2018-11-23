@@ -3,11 +3,11 @@ from typing import Dict
 from rtctools._internal.csv_lookup_table_provider import CSVLookupTableProvider
 from rtctools._internal.lookup_table import LookupTable
 
-from .optimization_problem import OptimizationProblem
+from .simulation_problem import SimulationProblem
 
 
-class CSVLookupTableMixin(CSVLookupTableProvider, OptimizationProblem):
-    """Adds lookup tables to your OptimizationProblem.
+class CSVLookupTableMixin(CSVLookupTableProvider, SimulationProblem):
+    """Adds lookup tables to your SimulationProblem.
 
     During preprocessing, the CSV files located inside the ``lookup_tables``
     subfolder are read. In every CSV file, the first column contains the output
@@ -45,12 +45,6 @@ class CSVLookupTableMixin(CSVLookupTableProvider, OptimizationProblem):
         Number of evaluation points for plots.  Default is ``100``.
     """
 
-    def lookup_tables(self, ensemble_member: int = 0) -> Dict[str, LookupTable]:
+    def lookup_tables(self) -> Dict[str, LookupTable]:
         """Get a dict of LookupTables found by CSVLookupTableMixin"""
-        # Call parent class first for default values.
-        lookup_tables = super().lookup_tables(ensemble_member)
-
-        # Update lookup_tables with imported csv lookup tables
-        lookup_tables.update(self._provided_lookup_tables)
-
-        return lookup_tables
+        return self._provided_lookup_tables

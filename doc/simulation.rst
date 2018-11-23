@@ -13,3 +13,4 @@ Contents:
    simulation/basics
    simulation/csv_io
    simulation/fews_io
+   simulation/lookup_tables

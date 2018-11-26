@@ -97,7 +97,7 @@ class ExampleOptimization(
 
     @property
     def extra_variables(self):
-        return super().extra_variables #+ [self._a_u, self._a_m]
+        return super().extra_variables + [self._a_u, self._a_m]
 
     def bounds(self):
         bounds = super().bounds()
@@ -113,14 +113,14 @@ class ExampleOptimization(
 
     def path_constraints(self, ensemble_member):
         path_constraints = super().path_constraints(ensemble_member)
-        #path_constraints.append((self.state("dam_upstream.HQUp.Q") - self._a_u, -np.inf, 0.0))
-        #path_constraints.append((self.state("dam_middle.HQUp.Q") - self._a_m, -np.inf, 0.0))
+        path_constraints.append((self.state("dam_upstream.HQUp.Q") - self._a_u, -np.inf, 0.0))
+        path_constraints.append((self.state("dam_middle.HQUp.Q") - self._a_m, -np.inf, 0.0))
         return path_constraints
 
     def goals(self):
         goals = [
-            #MinAmplitudeGoal('a_u', 2),
-            #MinAmplitudeGoal('a_m', 2),
+            MinAmplitudeGoal('a_u', 2),
+            MinAmplitudeGoal('a_m', 2),
         ]
 
         return goals
@@ -131,8 +131,8 @@ class ExampleOptimization(
             TargetLevelGoal("dam_middle.HQUp.H", 15.0, 1.0, 1),
             TargetLevelGoal("dam_upstream.HQUp.H", 20.0, 0.0, 2),
             TargetLevelGoal("dam_middle.HQUp.H", 15.0, 0.0, 2),
-            TargetMaximumDischargeGoal("dam_upstream.HQUp.Q", 100, 0.0, 2),
-            TargetMaximumDischargeGoal("dam_middle.HQUp.Q", 100, 0.0, 2),
+            #TargetMaximumDischargeGoal("dam_upstream.HQUp.Q", 100, 0.0, 2), # instead of MinAmplitudeGoals above
+            #TargetMaximumDischargeGoal("dam_middle.HQUp.Q", 100, 0.0, 2),
             SmoothingGoal("dam_upstream.HQUp.Q", 1e-2, 4),
             SmoothingGoal("dam_middle.HQUp.Q", 1e-2, 4),
         ]

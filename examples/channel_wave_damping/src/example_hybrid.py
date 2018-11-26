@@ -52,7 +52,7 @@ class ExampleHybrid(
             
         return goals
 
-    def solver_options(self):
+    def __solver_options(self):
         options = super().solver_options()
         options['ipopt.linear_solver'] = 'ma86'
         options['ipopt.nlp_scaling_method'] = 'none'
@@ -61,7 +61,7 @@ class ExampleHybrid(
         options['expand'] = True #TODO
         return options
 
-    def goal_programming_options(self):
+    def __goal_programming_options(self):
         options = super().goal_programming_options()
         options['scale_by_problem_size'] = False
         options['keep_soft_constraints'] = False

@@ -12,7 +12,7 @@ model Example
     length = 20000,
     uniform_nominal_depth = 5,
     friction_coefficient = 35,
-    n_level_nodes = 4,
+    n_level_nodes = 21,
     Q(each nominal = 100.0)
   ) annotation(Placement(visible = true, transformation(origin = {-60, 0}, extent = {{-10, -10}, {10, 10}}, rotation = 0)));
   Deltares.ChannelFlow.Hydraulic.Branches.HomotopicTrapezoidal middle(
@@ -25,7 +25,7 @@ model Example
     length = 20000,
     uniform_nominal_depth = 5,
     friction_coefficient = 35,
-    n_level_nodes = 4,
+    n_level_nodes = 21,
     Q(each nominal = 100.0)
   ) annotation(Placement(visible = true, transformation(origin = {0, 0}, extent = {{-10, -10}, {10, 10}}, rotation = 0)));
   Deltares.ChannelFlow.Hydraulic.Branches.HomotopicTrapezoidal downstream(
@@ -38,7 +38,7 @@ model Example
     length = 20000,
     uniform_nominal_depth = 5,
     friction_coefficient = 35,
-    n_level_nodes = 4,
+    n_level_nodes = 21,
     Q(each nominal = 100.0)
   ) annotation(Placement(visible = true, transformation(origin = {58, 0}, extent = {{-10, -10}, {10, 10}}, rotation = 0)));
   Deltares.ChannelFlow.Hydraulic.Structures.DischargeControlledStructure dam_middle annotation(Placement(visible = true, transformation(origin = {30, 0}, extent = {{-10, -10}, {10, 10}}, rotation = 0)));
@@ -64,7 +64,12 @@ equation
   connect(Discharge.HQ, upstream.HQUp) annotation(Line(points = {{-82, 0}, {-68, 0}}, color = {0, 0, 255}));
   connect(Level.HQ, downstream.HQDown) annotation(Line(points = {{66, 0}, {82, 0}, {82, 0}, {82, 0}}, color = {0, 0, 255}));
 initial equation
-  downstream.Q[2:downstream.n_level_nodes + 1] = Inflow_Q;
-  middle.Q[2:middle.n_level_nodes + 1] = Inflow_Q;
-  upstream.Q[2:upstream.n_level_nodes + 1] = Inflow_Q;
+  //der(downstream.H[1:upstream.n_level_nodes - 1]) = 0;//fill(0.0, upstream.n_level_nodes - 1);
+  //der(middle.H[1:middle.n_level_nodes - 1]) = 0; //fill(0.0, middle.n_level_nodes - 1);
+  //der(upstream.H[1:downstream.n_level_nodes - 1]) = 0;// fill(0.0, downstream.n_level_nodes - 1);
+  //downstream.Q[2:downstream.n_level_nodes + 1] = Inflow_Q;
+  //middle.Q[2:middle.n_level_nodes + 1] = Inflow_Q;
+  //upstream.Q[2:upstream.n_level_nodes + 1] = Inflow_Q;
+  // Start on set point
+  //downstream.H[downstream.n_level_nodes + 0] = 10;
 end Example;

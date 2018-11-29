@@ -27,13 +27,13 @@ class DataStore(metaclass=ABCMeta):
     timeseries_export_basename = 'timeseries_export'
 
     def __init__(self, **kwargs):
-        # Check arguments
-        assert ('input_folder' in kwargs)
-        assert ('output_folder' in kwargs)
-
         # Save arguments
-        self._input_folder = kwargs['input_folder']
-        self._output_folder = kwargs['output_folder']
+        self._input_folder = kwargs['input_folder'] if 'input_folder' in kwargs else 'input'
+        self._output_folder = kwargs['output_folder'] if 'output_folder' in kwargs else 'output'
+
+        if logger.getEffectiveLevel() == logging.DEBUG:
+            logger.debug("Expecting input files to be located in '" + self._input_folder + "'.")
+            logger.debug("Writing output files to '" + self._output_folder + "'.")
 
         # Should all be set by subclass via setters
         self.__forecast_index = 0

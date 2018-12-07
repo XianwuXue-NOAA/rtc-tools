@@ -44,7 +44,7 @@ class IOMixin(SimulationProblem, metaclass=ABCMeta):
 
     def initialize(self, config_file=None):
         # Set up experiment
-        timeseries_import_times = self.get_times()
+        timeseries_import_times = self.io.get_times()
         self.__dt = timeseries_import_times[1] - timeseries_import_times[0]
         self.setup_experiment(0, timeseries_import_times[-1], self.__dt)
 
@@ -52,9 +52,9 @@ class IOMixin(SimulationProblem, metaclass=ABCMeta):
 
         logger.debug("Model parameters are {}".format(parameter_variables))
 
-        for parameter in self.get_parameter_names():
+        for parameter in self.io.get_parameter_names():
             if parameter in parameter_variables:
-                value = self.get_parameter(parameter)
+                value = self.io.get_parameter(parameter)
                 logger.debug("IOMixin: Setting parameter {} = {}".format(parameter, value))
                 self.set_var(parameter, value)
 
@@ -62,13 +62,13 @@ class IOMixin(SimulationProblem, metaclass=ABCMeta):
         self.__input_variables = set(self.get_input_variables().keys())
 
         # Set input values
-        self.__set_input_variables(self.get_forecast_index())
+        self.__set_input_variables(self.io.get_forecast_index())
 
         logger.debug("Model inputs are {}".format(self.__input_variables))
 
         # Empty output
         self.__output_variables = self.get_output_variables()
-        n_times = len(self.get_times())
+        n_times = len(self.io.get_times())
         self.__output = AliasDict(self.alias_relation)
         self.__output.update({variable: np.full(n_times, np.nan) for variable in self.__output_variables})
 
@@ -77,12 +77,12 @@ class IOMixin(SimulationProblem, metaclass=ABCMeta):
 
         # Extract consistent t0 values
         for variable in self.__output_variables:
-            self.__output[variable][self.get_forecast_index()] = self.get_var(variable)
+            self.__output[variable][self.io.get_forecast_index()] = self.get_var(variable)
 
     def __set_input_variables(self, t_idx):
         for variable in self.get_variables():
             if variable in self.__input_variables:
-                value = self.get_timeseries_values(variable)[t_idx]
+                value = self.io.get_timeseries_values(variable)[t_idx]
                 if np.isfinite(value):
                     self.set_var(variable, value)
                 else:
@@ -98,7 +98,7 @@ class IOMixin(SimulationProblem, metaclass=ABCMeta):
         t = self.get_current_time()
 
         # Get current time index
-        t_idx = bisect.bisect_left(self.get_times(), t + dt)
+        t_idx = bisect.bisect_left(self.io.get_times(), t + dt)
 
         # Set input values
         self.__set_input_variables(t_idx)
@@ -129,11 +129,11 @@ class IOMixin(SimulationProblem, metaclass=ABCMeta):
         parameters = super().parameters()
 
         # Load parameters from input files (stored in internal data store)
-        for parameter_name in self.get_parameter_names():
-            parameters[parameter_name] = self.get_parameter(parameter_name)
+        for parameter_name in self.io.get_parameter_names():
+            parameters[parameter_name] = self.io.get_parameter(parameter_name)
 
         if logger.getEffectiveLevel() == logging.DEBUG:
-            for parameter_name in self.get_parameter_names():
+            for parameter_name in self.io.get_parameter_names():
                 logger.debug("IOMixin: Read parameter {}".format(parameter_name))
 
         return parameters
@@ -146,7 +146,7 @@ class IOMixin(SimulationProblem, metaclass=ABCMeta):
 
         :returns: List of all the timesteps in seconds.
         """
-        return self.get_times()[self.get_forecast_index():]
+        return self.io.get_times()[self.io.get_forecast_index():]
 
     def timeseries_at(self, variable, t):
         """
@@ -159,8 +159,8 @@ class IOMixin(SimulationProblem, metaclass=ABCMeta):
 
         :raises: KeyError
         """
-        values = self.get_timeseries_values(variable)
-        timeseries_times_sec = self.get_times()
+        values = self.io.get_timeseries_values(variable)
+        timeseries_times_sec = self.io.get_times()
         t_idx = bisect.bisect_left(timeseries_times_sec, t)
         if timeseries_times_sec[t_idx] == t:
             return values[t_idx]

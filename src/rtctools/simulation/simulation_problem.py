@@ -15,12 +15,12 @@ import pymoca.backends.casadi.api
 
 from rtctools._internal.alias_tools import AliasDict, AliasRelation
 from rtctools._internal.caching import cached
-from rtctools.data.storage import DataStore
+from rtctools.data.storage import DataStoreAccessor
 
 logger = logging.getLogger("rtctools")
 
 
-class SimulationProblem(DataStore):
+class SimulationProblem(DataStoreAccessor):
     """
     Implements the `BMI <http://csdms.colorado.edu/wiki/BMI_Description>`_ Interface.
 

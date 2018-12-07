@@ -88,14 +88,14 @@ class CSVMixin(IOMixin):
                     with_time=True,
                 )
                 self.__timeseries_times = _timeseries[_timeseries.dtype.names[0]]
-                self.set_times(
-                    self.datetime_to_sec(
+                self.io.set_times(
+                    self.io.datetime_to_sec(
                         self.__timeseries_times,
-                        self.__timeseries_times[self.get_forecast_index()]
+                        self.__timeseries_times[self.io.get_forecast_index()]
                     )
                 )
                 for key in _timeseries.dtype.names[1:]:
-                    self.set_timeseries_values(
+                    self.io.set_timeseries_values(
                         key,
                         np.asarray(_timeseries[key], dtype=np.float64),
                         ensemble_member_index
@@ -107,7 +107,7 @@ class CSVMixin(IOMixin):
                     _parameters = csv.load(os.path.join(
                         self._input_folder, ensemble_member_name, 'parameters.csv'), delimiter=self.csv_delimiter)
                     for key in _parameters.dtype.names:
-                        self.set_parameter(key, float(_parameters[key]), ensemble_member_index)
+                        self.io.set_parameter(key, float(_parameters[key]), ensemble_member_index)
                 except IOError:
                     pass
             logger.debug("CSVMixin: Read parameters.")
@@ -131,14 +131,14 @@ class CSVMixin(IOMixin):
                 with_time=True,
             )
             self.__timeseries_times = _timeseries[_timeseries.dtype.names[0]]
-            self.set_times(
-                self.datetime_to_sec(
+            self.io.set_times(
+                self.io.datetime_to_sec(
                     self.__timeseries_times,
-                    self.__timeseries_times[self.get_forecast_index()]
+                    self.__timeseries_times[self.io.get_forecast_index()]
                 )
             )
             for key in _timeseries.dtype.names[1:]:
-                self.set_timeseries_values(key, np.asarray(_timeseries[key], dtype=np.float64))
+                self.io.set_timeseries_values(key, np.asarray(_timeseries[key], dtype=np.float64))
             logger.debug("CSVMixin: Read timeseries.")
 
             try:
@@ -146,7 +146,7 @@ class CSVMixin(IOMixin):
                     self._input_folder, 'parameters.csv'), delimiter=self.csv_delimiter)
                 logger.debug("CSVMixin: Read parameters.")
                 for key in _parameters.dtype.names:
-                    self.set_parameter(key, float(_parameters[key]))
+                    self.io.set_parameter(key, float(_parameters[key]))
             except IOError:
                 pass
 
@@ -160,7 +160,7 @@ class CSVMixin(IOMixin):
                 _initial_state = {}
             self.__initial_state.append(AliasDict(self.alias_relation, _initial_state))
 
-        timeseries_times_sec = self.get_times()
+        timeseries_times_sec = self.io.get_times()
 
         # Timestamp check
         if self.csv_validate_timeseries:
@@ -206,7 +206,7 @@ class CSVMixin(IOMixin):
         for parameter in self.dae_variables['parameters']:
             parameter = parameter.name()
             try:
-                parameters[parameter] = self.get_parameter(parameter, ensemble_member)
+                parameters[parameter] = self.io.get_parameter(parameter, ensemble_member)
             except KeyError:
                 pass
             else:
@@ -244,7 +244,7 @@ class CSVMixin(IOMixin):
             formats = ['O'] + (len(names) - 1) * ['f8']
             dtype = {'names': names, 'formats': formats}
             data = np.zeros(len(times), dtype=dtype)
-            data['time'] = [self.__timeseries_times[self.get_forecast_index()] + timedelta(seconds=s) for s in times]
+            data['time'] = [self.__timeseries_times[self.io.get_forecast_index()] + timedelta(seconds=s) for s in times]
             for output_variable in self.output_variables:
                 output_variable = output_variable.name()
                 try:

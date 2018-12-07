@@ -60,10 +60,10 @@ class IOMixin(OptimizationProblem, metaclass=ABCMeta):
 
         :param variable:
         """
-        return self.get_times()[self.get_forecast_index():]
+        return self.io.get_times()[self.io.get_forecast_index():]
 
     def get_timeseries(self, variable: str, ensemble_member: int = 0) -> Timeseries:
-        return Timeseries(self.get_times(), self.get_timeseries_values(variable, ensemble_member))
+        return Timeseries(self.io.get_times(), self.io.get_timeseries_values(variable, ensemble_member))
 
     def set_timeseries(
             self,
@@ -75,7 +75,7 @@ class IOMixin(OptimizationProblem, metaclass=ABCMeta):
 
         def stretch_values(values, t_pos):
             # Construct a values range with preceding and possibly following nans
-            new_values = np.full_like(self.__timeseries_times_sec, np.nan)
+            new_values = np.full_like(self.io.__timeseries_times_sec, np.nan)
             new_values[t_pos:] = values
             return new_values
 
@@ -88,7 +88,9 @@ class IOMixin(OptimizationProblem, metaclass=ABCMeta):
                                  'different length (lengths of {} and {}, respectively).'
                                  .format(variable, len(timeseries.times), len(timeseries.values)))
 
-            if not np.array_equal(self.__timeseries_times_sec, timeseries.times):
+            timeseries_times_sec = self.io.get_times()
+
+            if not np.array_equal(timeseries_times_sec, timeseries.times):
                 if check_consistency:
                     raise ValueError(
                         'IOMixin: Trying to set timeseries {} with different times '
@@ -101,7 +103,7 @@ class IOMixin(OptimizationProblem, metaclass=ABCMeta):
                 # import times. For this we assume that both time ranges are ordered,
                 # and that the times of the added series is a subset of the import
                 # times.
-                t_pos = bisect.bisect_left(self.__timeseries_times_sec, timeseries.times[0])
+                t_pos = bisect.bisect_left(timeseries_times_sec, timeseries.times[0])
 
                 # Construct a new values range with length of self.__timeseries_times_sec
                 values = stretch_values(timeseries.values, t_pos)
@@ -121,12 +123,12 @@ class IOMixin(OptimizationProblem, metaclass=ABCMeta):
                 # If times is not supplied with the timeseries, we add the
                 # forecast times range to a new Timeseries object. Hereby
                 # we assume that the supplied values stretch from T0 to end.
-                t_pos = self.get_forecast_index()
+                t_pos = self.io.get_forecast_index()
 
                 # Construct a new values range with length of self.__timeseries_times_sec
                 values = stretch_values(timeseries, t_pos)
 
-        self.set_timeseries_values(variable, values, ensemble_member)
+        self.io.set_timeseries_values(variable, values, ensemble_member)
 
     def min_timeseries_id(self, variable: str) -> str:
         """
@@ -149,7 +151,7 @@ class IOMixin(OptimizationProblem, metaclass=ABCMeta):
         # Call parent class first for default values.
         bounds = super().bounds()
 
-        forecast_index = self.get_forecast_index()
+        forecast_index = self.io.get_forecast_index()
 
         # Load bounds from timeseries
         for variable in self.dae_variables['free_variables']:
@@ -159,7 +161,7 @@ class IOMixin(OptimizationProblem, metaclass=ABCMeta):
 
             timeseries_id = self.min_timeseries_id(variable_name)
             try:
-                m = self.get_timeseries_values(timeseries_id, 0)[forecast_index:]
+                m = self.io.get_timeseries_values(timeseries_id, 0)[forecast_index:]
             except KeyError:
                 pass
             else:
@@ -168,7 +170,7 @@ class IOMixin(OptimizationProblem, metaclass=ABCMeta):
 
             timeseries_id = self.max_timeseries_id(variable_name)
             try:
-                M = self.get_timeseries_values(timeseries_id, 0)[forecast_index:]
+                M = self.io.get_timeseries_values(timeseries_id, 0)[forecast_index:]
             except KeyError:
                 pass
             else:
@@ -178,10 +180,10 @@ class IOMixin(OptimizationProblem, metaclass=ABCMeta):
             # Replace NaN with +/- inf, and create Timeseries objects
             if m is not None:
                 m[np.isnan(m)] = np.finfo(m.dtype).min
-                m = Timeseries(self.get_times()[forecast_index:], m)
+                m = Timeseries(self.io.get_times()[forecast_index:], m)
             if M is not None:
                 M[np.isnan(M)] = np.finfo(M.dtype).max
-                M = Timeseries(self.get_times()[forecast_index:], M)
+                M = Timeseries(self.io.get_times()[forecast_index:], M)
 
             # Store
             if m is not None or M is not None:
@@ -193,7 +195,7 @@ class IOMixin(OptimizationProblem, metaclass=ABCMeta):
         # Load history
         history = AliasDict(self.alias_relation)
 
-        end_index = self.get_forecast_index() + 1
+        end_index = self.io.get_forecast_index() + 1
         variable_list = self.dae_variables['states'] + self.dae_variables['algebraics'] + \
             self.dae_variables['control_inputs'] + self.dae_variables['constant_inputs']
 
@@ -201,8 +203,8 @@ class IOMixin(OptimizationProblem, metaclass=ABCMeta):
             variable = variable.name()
             try:
                 history[variable] = Timeseries(
-                    self.get_times()[:end_index],
-                    self.get_timeseries_values(variable, ensemble_member)[:end_index])
+                    self.io.get_times()[:end_index],
+                    self.io.get_timeseries_values(variable, ensemble_member)[:end_index])
             except KeyError:
                 pass
             else:
@@ -220,8 +222,8 @@ class IOMixin(OptimizationProblem, metaclass=ABCMeta):
             variable = variable.name()
             try:
                 s = Timeseries(
-                    self.get_times(),
-                    self.get_timeseries_values(variable, ensemble_member)
+                    self.io.get_times(),
+                    self.io.get_timeseries_values(variable, ensemble_member)
                 )
             except KeyError:
                 pass
@@ -243,13 +245,13 @@ class IOMixin(OptimizationProblem, metaclass=ABCMeta):
             variable = variable.name()
             try:
                 timeseries = Timeseries(
-                    self.get_times(),
-                    self.get_timeseries_values(variable, ensemble_member)
+                    self.io.get_times(),
+                    self.io.get_timeseries_values(variable, ensemble_member)
                 )
             except KeyError:
                 pass
             else:
-                if np.any(np.isnan(timeseries.values[self.get_forecast_index():])):
+                if np.any(np.isnan(timeseries.values[self.io.get_forecast_index():])):
                     raise Exception("IOMixin: Constant input {} contains NaN".format(variable))
                 constant_inputs[variable] = timeseries
                 if logger.getEffectiveLevel() == logging.DEBUG:
@@ -257,7 +259,7 @@ class IOMixin(OptimizationProblem, metaclass=ABCMeta):
         return constant_inputs
 
     def timeseries_at(self, variable, t, ensemble_member=0):
-        return self.interpolate(t, self.get_times(), self.get_timeseries_values(variable, ensemble_member))
+        return self.interpolate(t, self.io.get_times(), self.io.get_timeseries_values(variable, ensemble_member))
 
     @property
     def output_variables(self):

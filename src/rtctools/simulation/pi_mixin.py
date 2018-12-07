@@ -69,7 +69,7 @@ class PIMixin(IOMixin):
                     parameter = self.__data_config.parameter(parameter_id, location_id, model_id)
                 except KeyError:
                     parameter = parameter_id
-                self.set_parameter(parameter, value)
+                self.io.set_parameter(parameter, value)
 
         try:
             self.__timeseries_import = pi.Timeseries(
@@ -84,12 +84,12 @@ class PIMixin(IOMixin):
             binary=self.pi_binary_timeseries, pi_validate_times=False, make_new_file=True)
 
         # Convert timeseries timestamps to seconds since t0 for internal use
-        self.set_forecast_index(self.__timeseries_import.forecast_index)
-        timeseries_import_times = np.asarray(self.datetime_to_sec(
+        self.io.set_forecast_index(self.__timeseries_import.forecast_index)
+        timeseries_import_times = np.asarray(self.io.datetime_to_sec(
             self.__timeseries_import.times,
             self.__timeseries_import.forecast_datetime
         ))
-        self.set_times(timeseries_import_times)
+        self.io.set_times(timeseries_import_times)
 
         # Timestamp check
         if self.pi_validate_timeseries:
@@ -112,7 +112,7 @@ class PIMixin(IOMixin):
         # Stick timeseries into an AliasDict
         debug = logger.getEffectiveLevel() == logging.DEBUG
         for variable, values in self.__timeseries_import.items():
-            self.set_timeseries_values(variable, values, check_duplicates=False)
+            self.io.set_timeseries_values(variable, values, check_duplicates=False)
             if debug and variable in self.get_variables():
                 logger.debug('PIMixin: Timeseries {} replaced another aliased timeseries.'.format(variable))
 
@@ -122,7 +122,7 @@ class PIMixin(IOMixin):
 
         # Start of write output
         # Write the time range for the export file.
-        self.__timeseries_export.times = self.__timeseries_import.times[self.get_forecast_index():]
+        self.__timeseries_export.times = self.__timeseries_import.times[self.io.get_forecast_index():]
 
         # Write other time settings
         self.__timeseries_export.forecast_datetime = self.__timeseries_import.forecast_datetime
@@ -166,7 +166,7 @@ class PIMixin(IOMixin):
 
         The time stamps are in seconds since t0, and may be negative.
         """
-        return self.get_times()
+        return self.io.get_times()
 
     @property
     def timeseries_export(self):
@@ -198,10 +198,10 @@ class PIMixin(IOMixin):
                 self.__timeseries_export.set(variable, values, unit=unit)
 
         self.__timeseries_import.set(variable, values, unit=unit)
-        self.set_timeseries_values(variable, values)
+        self.io.set_timeseries_values(variable, values)
 
     def get_timeseries(self, variable):
-        return self.get_timeseries_values(variable)
+        return self.io.get_timeseries_values(variable)
 
     def extract_results(self):
         """

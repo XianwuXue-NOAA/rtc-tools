@@ -7,14 +7,14 @@ import casadi as ca
 import numpy as np
 
 from rtctools._internal.alias_tools import AliasDict
-from rtctools.data.storage import DataStore
+from rtctools.data.storage import DataStoreAccessor
 
 from .timeseries import Timeseries
 
 logger = logging.getLogger("rtctools")
 
 
-class OptimizationProblem(DataStore, metaclass=ABCMeta):
+class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
     """
     Base class for all optimization problems.
     """

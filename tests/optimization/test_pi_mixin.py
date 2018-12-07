@@ -92,24 +92,24 @@ class TestPIMixin(TestCase):
     def test_interpolation(self):
         t = (
             self.problem.get_timeseries("x", 0).times[
-                self.problem.get_forecast_index() + 1
+                self.problem.io.get_forecast_index() + 1
             ]
             + (
                 self.problem.get_timeseries("x", 0).times[
-                    self.problem.get_forecast_index() + 2
+                    self.problem.io.get_forecast_index() + 2
                 ]
                 - self.problem.get_timeseries("x", 0).times[
-                    self.problem.get_forecast_index() + 1
+                    self.problem.io.get_forecast_index() + 1
                 ]
             )
             / 2
         )
         x_ref = (
             self.problem.get_timeseries("x", 0).values[
-                self.problem.get_forecast_index() + 1
+                self.problem.io.get_forecast_index() + 1
             ]
             + self.problem.get_timeseries("x", 0).values[
-                self.problem.get_forecast_index() + 2
+                self.problem.io.get_forecast_index() + 2
             ]
         ) / 2
         self.assertAlmostEqual(

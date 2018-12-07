@@ -10,10 +10,11 @@ from rtctools._internal.alias_tools import AliasDict, AliasRelation
 logger = logging.getLogger("rtctools")
 
 
-class DataStore(metaclass=ABCMeta):
+class DataStoreAccessor(metaclass=ABCMeta):
     """
     Base class for all problems.
-    Adds an internal data store where which timeseries, parameters and initial states can be stored and read from.
+    Adds an internal data store where timeseries and parameters can be stored.
+    Access to the internal data store is always done through the io accessor.
 
     :cvar timeseries_import_basename:
         Import file basename. Default is ``timeseries_import``.
@@ -34,6 +35,33 @@ class DataStore(metaclass=ABCMeta):
         if logger.getEffectiveLevel() == logging.DEBUG:
             logger.debug("Expecting input files to be located in '" + self._input_folder + "'.")
             logger.debug("Writing output files to '" + self._output_folder + "'.")
+
+        self.io = DataStore(self)
+
+    @property
+    @abstractmethod
+    def alias_relation(self) -> AliasRelation:
+        raise NotImplementedError
+
+    @property
+    def initial_time(self) -> float:
+        """
+        The initial time in seconds.
+        """
+        times = self.io.get_times()
+        if times is None:
+            raise RuntimeError("Attempting to access initial_time before setting times")
+        return times[self.io.get_forecast_index()]
+
+
+class DataStore(metaclass=ABCMeta):
+    """
+    DataStore class used by the DataStoreAccessor.
+    Contains all methods needed to access the internal data store.
+    """
+
+    def __init__(self, accessor):
+        self.__accessor = accessor
 
         # Should all be set by subclass via setters
         self.__forecast_index = 0
@@ -86,7 +114,7 @@ class DataStore(metaclass=ABCMeta):
                              .format(len(values), len(self.__timeseries_times_sec)))
 
         while ensemble_member >= len(self.__timeseries_values):
-            self.__timeseries_values.append(AliasDict(self.alias_relation))
+            self.__timeseries_values.append(AliasDict(self.__accessor.alias_relation))
 
         if check_duplicates and variable in self.__timeseries_values[ensemble_member].keys():
             logger.warning("Attempting to set time series values for ensemble member {} and variable {} twice. "
@@ -151,7 +179,7 @@ class DataStore(metaclass=ABCMeta):
                                  If False, existing values can be silently overwritten with new values.
         """
         while ensemble_member >= len(self.__parameters):
-            self.__parameters.append(AliasDict(self.alias_relation))
+            self.__parameters.append(AliasDict(self.__accessor.alias_relation))
 
         if check_duplicates and parameter_name in self.__parameters[ensemble_member].keys():
             logger.warning("Attempting to set parameter value for ensemble member {} and name {} twice. "
@@ -178,15 +206,6 @@ class DataStore(metaclass=ABCMeta):
             return set()
         return self.__parameters[ensemble_member].keys()
 
-    @property
-    def initial_time(self) -> float:
-        """
-        The initial time in seconds.
-        """
-        if self.__timeseries_times_sec is None:
-            raise RuntimeError("Attempting to access initial_time before setting times")
-        return self.__timeseries_times_sec[self.__forecast_index]
-
     @staticmethod
     def datetime_to_sec(d: Union[Iterable[datetime], datetime], t0: datetime) -> Union[Iterable[float], float]:
         """
@@ -212,8 +231,3 @@ class DataStore(metaclass=ABCMeta):
             return [t0 + timedelta(seconds=t) for t in s]
         else:
             return t0 + timedelta(seconds=s)
-
-    @property
-    @abstractmethod
-    def alias_relation(self) -> AliasRelation:
-        raise NotImplementedError

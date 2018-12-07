@@ -1,4 +1,5 @@
 import logging
+import warnings
 from datetime import timedelta
 
 import numpy as np
@@ -86,13 +87,13 @@ class PIMixin(IOMixin):
                     parameter = parameter_id
 
                 if self.pi_check_for_duplicate_parameters:
-                    if parameter in self.get_parameter_names():
+                    if parameter in self.io.get_parameter_names():
                         logger.warning(
                             'PIMixin: parameter {} defined in file {} was already '
                             'present in another or this parameterConfig file. Using value {}.'.format(
                                 parameter, parameter_config.path, value))
 
-                self.set_parameter(parameter, value)
+                self.io.set_parameter(parameter, value)
 
         try:
             self.__timeseries_import = pi.Timeseries(
@@ -107,11 +108,11 @@ class PIMixin(IOMixin):
             binary=self.pi_binary_timeseries, pi_validate_times=False, make_new_file=True)
 
         # Convert timeseries timestamps to seconds since t0 for internal use
-        timeseries_import_times = np.asarray(self.datetime_to_sec(
+        timeseries_import_times = np.asarray(self.io.datetime_to_sec(
             self.__timeseries_import.times,
             self.__timeseries_import.forecast_datetime
         ))
-        self.set_times(timeseries_import_times)
+        self.io.set_times(timeseries_import_times)
 
         # Timestamp check
         if self.pi_validate_timeseries:
@@ -135,10 +136,10 @@ class PIMixin(IOMixin):
         # Offer input timeseries to IOMixin
         for ensemble_member in range(self.ensemble_size):
             for variable, values in self.__timeseries_import.items(ensemble_member):
-                self.set_timeseries_values(variable, values, ensemble_member)
+                self.io.set_timeseries_values(variable, values, ensemble_member)
 
         # Set the forecast index to the read index
-        self.set_forecast_index(self.__timeseries_import.forecast_index)
+        self.io.set_forecast_index(self.__timeseries_import.forecast_index)
 
     @property
     def equidistant(self):
@@ -167,8 +168,8 @@ class PIMixin(IOMixin):
         # Call parent class first for default values.
         parameters = super().parameters(ensemble_member)
 
-        for parameter in self.get_parameter_names():
-            parameters[parameter] = self.get_parameter(parameter)
+        for parameter in self.io.get_parameter_names():
+            parameters[parameter] = self.io.get_parameter(parameter)
 
         # Done
         return parameters
@@ -269,7 +270,7 @@ class PIMixin(IOMixin):
         The time stamps are in seconds since t0, and may be negative.
         """
         # todo replace usage of this property with calls to get_times()?
-        return self.get_times()
+        return self.io.get_times()
 
     @property
     def timeseries_export(self):
@@ -277,3 +278,11 @@ class PIMixin(IOMixin):
         :class:`pi.Timeseries` object for holding the output data.
         """
         return self.__timeseries_export
+
+    def get_forecast_index(self):
+        """
+        Deprecated, use io.get_forecast_index instead.
+        """
+        warnings.warn('get_forecast_index() is deprecated and will be removed in the future, '
+                      'use io.get_forecast_index() instead.', FutureWarning)
+        return self.io.get_forecast_index()

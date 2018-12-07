@@ -72,13 +72,17 @@ class TestDummyDataStore(TestCase):
         with self.assertLogs(logger, level='WARN') as cm:
             self.datastore.io.set_timeseries_values('myNewVariable', new_values)
             self.assertEqual(cm.output,
-                             ['WARNING:rtctools:Attempting to set time series values for ensemble member 0 '
-                              'and variable myNewVariable twice. Ignoring second set of values.'])
-        self.assertFalse(np.array_equal(self.datastore.io.get_timeseries_values('myNewVariable'), new_values))
+                             ['WARNING:rtctools:Time series values for ensemble member 0 and variable '
+                              'myNewVariable set twice. Overwriting old values.'])
+        self.assertTrue(np.array_equal(self.datastore.io.get_timeseries_values('myNewVariable'), new_values))
 
         # disable check to allow overwriting old values
-        self.datastore.io.set_timeseries_values('myNewVariable', new_values, check_duplicates=False)
-        self.assertTrue(np.array_equal(self.datastore.io.get_timeseries_values('myNewVariable'), new_values))
+        newest_values = np.array([-0.4, 2.14, 29.1])
+        with self.assertLogs(logger, level='WARN') as cm:
+            self.datastore.io.set_timeseries_values('myNewVariable', newest_values, check_duplicates=False)
+            self.assertEqual(cm.output, [])
+            logger.warning('All is well')  # if no log message occurs, assertLogs will throw an AssertionError
+        self.assertTrue(np.array_equal(self.datastore.io.get_timeseries_values('myNewVariable'), newest_values))
 
     def test_parameters(self):
         # expect a KeyError when getting a parameter that has not been set
@@ -102,11 +106,14 @@ class TestDummyDataStore(TestCase):
             self.datastore.io.set_parameter('myNewParameter', 2.5)
             self.assertEqual(cm.output,
                              ['WARNING:rtctools:Attempting to set parameter value for ensemble member 0 '
-                              'and name myNewParameter twice. Ignoring second set of values.'])
-        self.assertEqual(self.datastore.io.get_parameter('myNewParameter'), 1.4)
+                              'and name myNewParameter twice. Using new value of 2.5.'])
+        self.assertEqual(self.datastore.io.get_parameter('myNewParameter'), 2.5)
 
         # disable check to allow overwriting old values
-        self.datastore.io.set_parameter('myNewParameter', 2.2, check_duplicates=False)
+        with self.assertLogs(logger, level='WARN') as cm:
+            self.datastore.io.set_parameter('myNewParameter', 2.2, check_duplicates=False)
+            self.assertEqual(cm.output, [])
+            logger.warning('All is well')  # if no log message occurs, assertLogs will throw an AssertionError
         self.assertEqual(self.datastore.io.get_parameter('myNewParameter'), 2.2)
 
     # todo add tests that use newly added methods: get_variables, get_ensemble_size and get_parameter_names()

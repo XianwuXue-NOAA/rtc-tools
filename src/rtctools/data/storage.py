@@ -103,7 +103,7 @@ class DataStore(metaclass=ABCMeta):
         :param variable:         Variable name.
         :param values:           The values to be stored.
         :param ensemble_member:  The ensemble member index.
-        :param check_duplicates: If True, a warning will be given when attempting to overwrite values.
+        :param check_duplicates: If True, a warning will be given when overwriting values.
                                  If False, existing values can be silently overwritten with new values.
         """
         if self.__timeseries_times_sec is None:
@@ -117,9 +117,8 @@ class DataStore(metaclass=ABCMeta):
             self.__timeseries_values.append(AliasDict(self.__accessor.alias_relation))
 
         if check_duplicates and variable in self.__timeseries_values[ensemble_member].keys():
-            logger.warning("Attempting to set time series values for ensemble member {} and variable {} twice. "
-                           "Ignoring second set of values.".format(ensemble_member, variable))
-            return
+            logger.warning("Time series values for ensemble member {} and variable {} set twice. "
+                           "Overwriting old values.".format(ensemble_member, variable))
 
         self.__timeseries_values[ensemble_member][variable] = values
 
@@ -175,7 +174,7 @@ class DataStore(metaclass=ABCMeta):
         :param parameter_name:   Parameter name.
         :param value:            The values to be stored.
         :param ensemble_member:  The ensemble member index.
-        :param check_duplicates: If True, a warning will be given when attempting to overwrite values.
+        :param check_duplicates: If True, a warning will be given when overwriting values.
                                  If False, existing values can be silently overwritten with new values.
         """
         while ensemble_member >= len(self.__parameters):
@@ -183,8 +182,7 @@ class DataStore(metaclass=ABCMeta):
 
         if check_duplicates and parameter_name in self.__parameters[ensemble_member].keys():
             logger.warning("Attempting to set parameter value for ensemble member {} and name {} twice. "
-                           "Ignoring second set of values.".format(ensemble_member, parameter_name))
-            return
+                           "Using new value of {}.".format(ensemble_member, parameter_name, value))
 
         self.__parameters[ensemble_member][parameter_name] = value
 

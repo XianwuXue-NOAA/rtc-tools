@@ -86,14 +86,7 @@ class PIMixin(IOMixin):
                 except KeyError:
                     parameter = parameter_id
 
-                if self.pi_check_for_duplicate_parameters:
-                    if parameter in self.io.get_parameter_names():
-                        logger.warning(
-                            'PIMixin: parameter {} defined in file {} was already '
-                            'present in another or this parameterConfig file. Using value {}.'.format(
-                                parameter, parameter_config.path, value))
-
-                self.io.set_parameter(parameter, value)
+                self.io.set_parameter(parameter, value, check_duplicates=self.pi_check_for_duplicate_parameters)
 
         try:
             self.__timeseries_import = pi.Timeseries(

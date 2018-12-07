@@ -75,7 +75,7 @@ class IOMixin(OptimizationProblem, metaclass=ABCMeta):
 
         def stretch_values(values, t_pos):
             # Construct a values range with preceding and possibly following nans
-            new_values = np.full_like(self.io.__timeseries_times_sec, np.nan)
+            new_values = np.full(self.io.get_times().shape, np.nan)
             new_values[t_pos:] = values
             return new_values
 
@@ -105,28 +105,25 @@ class IOMixin(OptimizationProblem, metaclass=ABCMeta):
                 # times.
                 t_pos = bisect.bisect_left(timeseries_times_sec, timeseries.times[0])
 
-                # Construct a new values range with length of self.__timeseries_times_sec
+                # Construct a new values range with length of self.io.get_times()
                 values = stretch_values(timeseries.values, t_pos)
             else:
                 values = timeseries.values
 
         else:
-            if len(self.times()) == len(timeseries):
-                values = timeseries
-            else:
-                if check_consistency:
-                    raise ValueError('IOMixin: Trying to set values for {} with a different '
-                                     'length ({}) than the forecast length. Please make sure the '
-                                     'values covers all timesteps of the longest imported timeseries (length {}).'
-                                     .format(variable, len(timeseries), len(self.times())))
+            if check_consistency and len(self.times()) != len(timeseries):
+                raise ValueError('IOMixin: Trying to set values for {} with a different '
+                                 'length ({}) than the forecast length. Please make sure the '
+                                 'values covers all timesteps of the longest imported timeseries (length {}).'
+                                 .format(variable, len(timeseries), len(self.times())))
 
-                # If times is not supplied with the timeseries, we add the
-                # forecast times range to a new Timeseries object. Hereby
-                # we assume that the supplied values stretch from T0 to end.
-                t_pos = self.io.get_forecast_index()
+            # If times is not supplied with the timeseries, we add the
+            # forecast times range to a new Timeseries object. Hereby
+            # we assume that the supplied values stretch from T0 to end.
+            t_pos = self.io.get_forecast_index()
 
-                # Construct a new values range with length of self.__timeseries_times_sec
-                values = stretch_values(timeseries, t_pos)
+            # Construct a new values range with length of self.io.get_times()
+            values = stretch_values(timeseries, t_pos)
 
         self.io.set_timeseries_values(variable, values, ensemble_member)
 

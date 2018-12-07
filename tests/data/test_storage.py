@@ -116,4 +116,71 @@ class TestDummyDataStore(TestCase):
             logger.warning('All is well')  # if no log message occurs, assertLogs will throw an AssertionError
         self.assertEqual(self.datastore.io.get_parameter('myNewParameter'), 2.2)
 
-    # todo add tests that use newly added methods: get_variables, get_ensemble_size and get_parameter_names()
+    def test_variables(self):
+        self.assertEqual(len(self.datastore.io.get_variables()), 0)
+
+        self.datastore.io.set_times(np.array([0, 1, 2]))
+
+        self.datastore.io.set_timeseries_values('var1', np.array([1.0, 2.0, 3.0]))
+        self.datastore.io.set_timeseries_values('var2', np.array([2.0, 3.0, 4.0]))
+
+        variables = self.datastore.io.get_variables()
+        self.assertEqual(len(variables), 2)
+        self.assertTrue('var1' in variables)
+        self.assertTrue('var2' in variables)
+
+        self.assertEqual(len(self.datastore.io.get_variables(ensemble_member=1)), 0)
+
+        self.datastore.io.set_timeseries_values('var3', np.array([0.1, 0.2, 0.3]), ensemble_member=1)
+
+        variables = self.datastore.io.get_variables(ensemble_member=1)
+        self.assertEqual(len(variables), 1)
+        self.assertTrue('var3' in variables)
+
+    def test_ensemble_size(self):
+        self.assertEqual(self.datastore.io.get_ensemble_size(), 0)
+
+        self.datastore.io.set_times(np.array([0, 1, 2]))
+        self.datastore.io.set_timeseries_values('var1', np.array([1.0, 2.0, 3.0]))
+        self.datastore.io.set_timeseries_values('var2', np.array([2.0, 3.0, 4.0]))
+
+        self.assertEqual(self.datastore.io.get_ensemble_size(), 1)
+
+        self.datastore.io.set_timeseries_values('var3', np.array([0.1, 0.2, 0.3]), ensemble_member=1)
+        self.assertEqual(self.datastore.io.get_ensemble_size(), 2)
+
+        self.datastore.io.set_timeseries_values('var4', np.array([1.1, 2.2, 3.3]), ensemble_member=100)
+        self.assertEqual(self.datastore.io.get_ensemble_size(), 101)
+
+    def test_parameter_names(self):
+        self.assertEqual(len(self.datastore.io.get_parameter_names()), 0)
+
+        self.datastore.io.set_parameter('par1', 1.0)
+        self.datastore.io.set_parameter('par2', 2.3)
+
+        names = self.datastore.io.get_parameter_names()
+        self.assertEqual(len(names), 2)
+        self.assertTrue('par1' in names)
+        self.assertTrue('par2' in names)
+
+        self.assertEqual(len(self.datastore.io.get_parameter_names(ensemble_member=1)), 0)
+
+        self.datastore.io.set_parameter('par3', 3.1, ensemble_member=1)
+
+        names = self.datastore.io.get_parameter_names(ensemble_member=1)
+        self.assertEqual(len(names), 1)
+        self.assertTrue('par3' in names)
+
+    def test_parameter_ensemble_size(self):
+        self.assertEqual(self.datastore.io.get_parameter_ensemble_size(), 0)
+
+        self.datastore.io.set_parameter('par1', 1.0)
+        self.datastore.io.set_parameter('par2', 2.3)
+
+        self.assertEqual(self.datastore.io.get_parameter_ensemble_size(), 1)
+
+        self.datastore.io.set_parameter('par3', 3.1, ensemble_member=1)
+        self.assertEqual(self.datastore.io.get_parameter_ensemble_size(), 2)
+
+        self.datastore.io.set_parameter('par4', 4.5, ensemble_member=100)
+        self.assertEqual(self.datastore.io.get_parameter_ensemble_size(), 101)

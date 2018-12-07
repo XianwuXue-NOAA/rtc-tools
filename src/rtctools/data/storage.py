@@ -204,6 +204,12 @@ class DataStore(metaclass=ABCMeta):
             return set()
         return self.__parameters[ensemble_member].keys()
 
+    def get_parameter_ensemble_size(self):
+        """
+        Returns the number of ensemble members for which parameters are stored in the internal data store
+        """
+        return len(self.__parameters)
+
     @staticmethod
     def datetime_to_sec(d: Union[Iterable[datetime], datetime], t0: datetime) -> Union[Iterable[float], float]:
         """

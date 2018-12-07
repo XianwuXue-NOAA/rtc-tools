@@ -2094,7 +2094,7 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
             values = self.state_vector(state, ensemble_member)
             if len(times) != n_collocation_times:
                 accumulation_states[i] = interpolate(
-                    times, values, collocation_times, interpolation_method)
+                    times, values, collocation_times, self.equidistant, interpolation_method)
             else:
                 accumulation_states[i] = values
             nominal = self.variable_nominal(state)

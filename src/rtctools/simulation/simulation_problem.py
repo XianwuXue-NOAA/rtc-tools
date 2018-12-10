@@ -236,12 +236,29 @@ class SimulationProblem:
                     logger.debug('SimulationProblem: Setting parameter {} = {}'.format(var.symbol.name(), val))
                     self.set_var(var.symbol.name(), val)
 
+        # Nominals can be symbolic, written in terms of parameters. After all
+        # parameter values are known, we evaluate the numeric values of the
+        # nominals.
+        nominal_vars = self.__pymoca_model.states + self.__pymoca_model.alg_states + self.__pymoca_model.der_states
+        symbolic_nominals = ca.vertcat(*[self.get_variable_nominal(v.symbol.name()) for v in nominal_vars])
+        nominal_evaluator = ca.Function('nominal_evaluator', self.__mx['parameters'], [symbolic_nominals])
+
+        n_parameters = len(self.__mx['parameters'])
+        if n_parameters > 0:
+            [evaluated_nominals] = nominal_evaluator.call(self.__state_vector[-n_parameters:])
+        else:
+            [evaluated_nominals] = nominal_evaluator.call([])
+
+        evaluated_nominals = np.array(evaluated_nominals).ravel()
+
+        nominal_dict = {v.symbol.name(): n for v, n in zip(nominal_vars, evaluated_nominals)}
+
         # Assemble initial residuals and set values from start attributes into the state vector
         constrained_residuals = []
         minimized_residuals = []
         for var in itertools.chain(self.__pymoca_model.states, self.__pymoca_model.alg_states):
             var_name = var.symbol.name()
-            var_nominal = self.get_variable_nominal(var_name)
+            var_nominal = nominal_dict[var_name]
 
             # Attempt to cast var.start to python type
             mx_start = ca.MX(var.start)
@@ -310,7 +327,11 @@ class SimulationProblem:
         # Make a list of unscaled symbols and a list of their scaled equivalent
         unscaled_symbols = []
         scaled_symbols = []
-        for sym_name, nominal in self.__nominals.items():
+        for sym_name, nominal in nominal_dict.items():
+            if nominal == 1.0:
+                # Nothing to scale
+                continue
+
             # Add the symbol to the lists
             symbol = self.__sym_dict[sym_name]
             unscaled_symbols.append(symbol)

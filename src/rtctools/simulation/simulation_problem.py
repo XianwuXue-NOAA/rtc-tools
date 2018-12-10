@@ -383,12 +383,23 @@ class SimulationProblem:
         else:
             [evaluated_bounds] = bound_evaluator.call([])
 
+        evaluated_bounds = np.array(evaluated_bounds)
+
         # Scale the bounds with the nominals
         nominals = []
-        for var in bound_vars:
-            nominals.append(self.get_variable_nominal(var.symbol.name()))
+        for i, var in enumerate(bound_vars):
+            sym_name = var.symbol.name()
+            nominal = self.get_variable_nominal(sym_name)
 
-        evaluated_bounds = np.array(evaluated_bounds) / np.array(nominals)[:, None]
+            # Check that the specified nominal is in the feasible range
+            lb, ub = evaluated_bounds[i, :]
+            if nominal > max(abs(lb), abs(ub)):
+                logger.warning("Nominal {} for '{}' outside bounds ({}, {})".format(
+                    nominal, sym_name, lb, ub))
+
+            nominals.append(nominal)
+
+        evaluated_bounds = evaluated_bounds / np.array(nominals)[:, None]
 
         # Update with the bounds of delayed states
         n_delay = len(self.__pymoca_model.delay_states)

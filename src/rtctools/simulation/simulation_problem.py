@@ -350,8 +350,8 @@ class SimulationProblem:
 
         # State bounds can be symbolic, written in terms of parameters. After all
         # parameter values are known, we evaluate the numeric values of bounds.
-        symbolic_bounds = ca.vertcat(*[ca.horzcat(v.min, v.max) for v in itertools.chain(
-            self.__pymoca_model.states, self.__pymoca_model.alg_states, self.__pymoca_model.der_states)])
+        bound_vars = self.__pymoca_model.states + self.__pymoca_model.alg_states + self.__pymoca_model.der_states
+        symbolic_bounds = ca.vertcat(*[ca.horzcat(v.min, v.max) for v in bound_vars])
         bound_evaluator = ca.Function('bound_evaluator', self.__mx['parameters'], [symbolic_bounds])
 
         # Evaluate bounds using values of parameters
@@ -360,6 +360,13 @@ class SimulationProblem:
             [evaluated_bounds] = bound_evaluator.call(self.__state_vector[-n_parameters:])
         else:
             [evaluated_bounds] = bound_evaluator.call([])
+
+        # Scale the bounds with the nominals
+        nominals = []
+        for var in bound_vars:
+            nominals.append(nominal_dict[var.symbol.name()])
+
+        evaluated_bounds = np.array(evaluated_bounds) / np.array(nominals)[:, None]
 
         # Update with the bounds of delayed states
         n_delay = len(self.__pymoca_model.delay_states)

@@ -216,6 +216,9 @@ class OptimizationProblem(metaclass=ABCMeta):
                 and solver_stats['return_status'] in ['Not_Enough_Degrees_Of_Freedom']):
             log_level = logging.WARNING
 
+        if log_level == logging.ERROR and not log_solver_failure_as_error:
+            log_level = logging.INFO
+
         return success, log_level
 
     @abstractproperty

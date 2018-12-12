@@ -1857,6 +1857,7 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                 constant_inputs = self.constant_inputs(ensemble_member)
                 try:
                     constant_input = constant_inputs[variable]
+                    found = True
                 except KeyError:
                     pass
                 else:

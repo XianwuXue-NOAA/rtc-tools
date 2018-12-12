@@ -342,6 +342,8 @@ class PIMixin(OptimizationProblem):
         self.__timeseries_export.timezone = self.__timeseries_import.timezone
 
         # Write the ensemble properties for the export file.
+        if self.ensemble_size > 1:
+            self.__timeseries_export.contains_ensemble = True
         self.__timeseries_export.ensemble_size = self.ensemble_size
         self.__timeseries_export.contains_ensemble = self.__timeseries_import.contains_ensemble
 

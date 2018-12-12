@@ -918,11 +918,14 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                 else:
                     sym = self.state_vector(
                         variable, ensemble_member=ensemble_member)[0]
-                    initial_state_constraint_states.append(sym)
+
                     val = self.interpolate(
                         t0, history_timeseries.times, history_timeseries.values, np.nan, np.nan)
                     val /= self.variable_nominal(variable)
-                    initial_state_constraint_values.append(val)
+
+                    if not np.isnan(val):
+                        initial_state_constraint_states.append(sym)
+                        initial_state_constraint_values.append(val)
 
             # Call the external metadata function in one go, rather than two
             if len(initial_state_constraint_states) > 0:

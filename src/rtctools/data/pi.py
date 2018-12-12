@@ -1043,4 +1043,4 @@ class Timeseries:
         ensemble member.
         """
         for key in self.__values[ensemble_member].keys():
-            yield key, self.get(key)
+            yield key, self.get(key, ensemble_member)

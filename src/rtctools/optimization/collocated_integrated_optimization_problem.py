@@ -976,6 +976,10 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                     initial_state_constraint_states.append(sym)
                     val = self.interpolate(
                         t0, history_timeseries.times, history_timeseries.values, np.nan, np.nan)
+                    if val < self.bounds()[variable][0] or val > self.bounds()[variable][1]:
+                        raise Exception(
+                            "Variable {} has an initial state {} which is not within the bounds [{},{}]"
+                            .format(variable, val, self.bounds()[variable][0], self.bounds()[variable][1]))
                     val /= self.variable_nominal(variable)
                     initial_state_constraint_values.append(val)
 

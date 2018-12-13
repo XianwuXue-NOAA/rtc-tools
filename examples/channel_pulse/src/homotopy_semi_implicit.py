@@ -41,19 +41,24 @@ times = list(
 # Generate Plot
 n_subplots = 2
 fig, axarr = plt.subplots(n_subplots, sharex=True, figsize=(10, 3 * n_subplots))
-axarr[0].set_title("Homotopy Deformation of Semi-Implicit Inertial Wave Equations")
+# axarr[0].set_title("Homotopy Deformation of Semi-Implicit Inertial Wave Equations")
+
+start_idx = 70
+end_idx = -50
 
 # Upper subplot
 axarr[0].set_ylabel("Flow Rate [m³/s]")
 for theta in thetas:
     axarr[0].plot(
-        times,
-        outputs["inertial_wave_semi_implicit"][theta]["channel_q_dn"],
+        times[start_idx:end_idx],
+        outputs["inertial_wave_semi_implicit"][theta]["channel_q_dn"][
+            start_idx:end_idx
+        ],
         label=f"Downstream, theta={theta}",
     )
 axarr[0].plot(
-    times,
-    outputs["inertial_wave"][1.0]["channel_q_up"],
+    times[start_idx:end_idx],
+    outputs["inertial_wave"][1.0]["channel_q_up"][start_idx:end_idx],
     label="Upstream",
     linestyle="--",
     color="grey",
@@ -63,13 +68,15 @@ axarr[0].plot(
 axarr[1].set_ylabel("Water Level [m]")
 for theta in thetas:
     axarr[1].plot(
-        times,
-        outputs["inertial_wave_semi_implicit"][theta]["channel_h_up"],
+        times[start_idx:end_idx],
+        outputs["inertial_wave_semi_implicit"][theta]["channel_h_up"][
+            start_idx:end_idx
+        ],
         label=f"Upstream, theta={theta}",
     )
 axarr[1].plot(
-    times,
-    outputs["inertial_wave"][1.0]["channel_h_dn"],
+    times[start_idx:end_idx],
+    outputs["inertial_wave"][1.0]["channel_h_dn"][start_idx:end_idx],
     label="Downstream",
     linestyle="--",
     color="grey",
@@ -83,7 +90,7 @@ fig.tight_layout()
 # Shrink each axis and put a legend to the right of the axis
 for i in range(n_subplots):
     box = axarr[i].get_position()
-    axarr[i].set_position([box.x0, box.y0, box.width * 0.75, box.height])
+    axarr[i].set_position([box.x0, box.y0, box.width * 0.8, box.height])
     axarr[i].legend(
         loc="center left", bbox_to_anchor=(1, 0.5), frameon=False, prop={"size": 8}
     )
@@ -91,4 +98,4 @@ for i in range(n_subplots):
 plt.autoscale(enable=True, axis="x", tight=True)
 
 # Output Plot
-plt.savefig(Path(__file__).with_suffix(".svg"))
+plt.savefig(Path(__file__).with_suffix(".png"))

@@ -38,25 +38,28 @@ times = list(
 # Generate Plot
 n_subplots = 2
 fig, axarr = plt.subplots(n_subplots, sharex=True, figsize=(10, 3 * n_subplots))
-axarr[0].set_title(
-    "Comparison of semi-implicit inertial wave equations with full, upwind saint-venant"
-)
+# axarr[0].set_title(
+#     "Comparison of semi-implicit inertial wave equations with full, upwind saint-venant"
+# )
+
+start_idx = 70
+end_idx = -50
 
 # Upper subplot
 axarr[0].set_ylabel("Flow Rate [m³/s]")
 axarr[0].plot(
-    times,
-    outputs["inertial_wave_semi_implicit"][1.0]["channel_q_dn"],
-    label="Downstream\n(semi-implicit inertial wave)",
+    times[start_idx:end_idx],
+    outputs["inertial_wave_semi_implicit"][1.0]["channel_q_dn"][start_idx:end_idx],
+    label="Downstream\n(Semi-implicit inertial wave)",
 )
 axarr[0].plot(
-    times,
-    outputs["saint_venant_upwind"][1.0]["channel_q_dn"],
-    label="Downstream\n(full, upwind saint-venant)",
+    times[start_idx:end_idx],
+    outputs["saint_venant_upwind"][1.0]["channel_q_dn"][start_idx:end_idx],
+    label="Downstream\n(Full, upwind Saint-Venant)",
 )
 axarr[0].plot(
-    times,
-    outputs["inertial_wave"][1.0]["channel_q_up"],
+    times[start_idx:end_idx],
+    outputs["inertial_wave"][1.0]["channel_q_up"][start_idx:end_idx],
     label="Upstream",
     linestyle="--",
     color="grey",
@@ -65,18 +68,18 @@ axarr[0].plot(
 # Lower subplot
 axarr[1].set_ylabel("Water Level [m]")
 axarr[1].plot(
-    times,
-    outputs["inertial_wave_semi_implicit"][1.0]["channel_h_up"],
-    label="Upstream\n(semi-implicit inertial wave)",
+    times[start_idx:end_idx],
+    outputs["inertial_wave_semi_implicit"][1.0]["channel_h_up"][start_idx:end_idx],
+    label="Upstream\n(Semi-implicit inertial wave)",
 )
 axarr[1].plot(
-    times,
-    outputs["saint_venant_upwind"][1.0]["channel_h_up"],
-    label="Upstream\n(full, upwind saint-venant)",
+    times[start_idx:end_idx],
+    outputs["saint_venant_upwind"][1.0]["channel_h_up"][start_idx:end_idx],
+    label="Upstream\n(Full, upwind Saint-Venant)",
 )
 axarr[1].plot(
-    times,
-    outputs["inertial_wave"][1.0]["channel_h_dn"],
+    times[start_idx:end_idx],
+    outputs["inertial_wave"][1.0]["channel_h_dn"][start_idx:end_idx],
     label="Downstream",
     linestyle="--",
     color="grey",
@@ -91,7 +94,7 @@ fig.tight_layout()
 # Shrink each axis and put a legend to the right of the axis
 for i in range(n_subplots):
     box = axarr[i].get_position()
-    axarr[i].set_position([box.x0, box.y0, box.width * 0.75, box.height])
+    axarr[i].set_position([box.x0, box.y0, box.width * 0.8, box.height])
     axarr[i].legend(
         loc="center left", bbox_to_anchor=(1, 0.5), frameon=False, prop={"size": 8}
     )
@@ -99,4 +102,4 @@ for i in range(n_subplots):
 plt.autoscale(enable=True, axis="x", tight=True)
 
 # Output Plot
-plt.savefig(Path(__file__).with_suffix(".svg"))
+plt.savefig(Path(__file__).with_suffix(".png"))

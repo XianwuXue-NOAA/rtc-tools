@@ -8,8 +8,12 @@ model Example
     H_b_down = -2.0,
     H_b_up = -1.5,
     friction_coefficient = 10.,
+<<<<<<< HEAD
     length = 2000.,
     theta = theta,
+=======
+    length = 2000., theta = theta,
+>>>>>>> set Q_nominal in all branches in examples
     uniform_nominal_depth = 1.75,
     width_down = 10.,
     width_up = 10.,

@@ -102,4 +102,4 @@ for i in range(n_subplots):
 plt.autoscale(enable=True, axis="x", tight=True)
 
 # Output Plot
-plt.savefig(Path(__file__).with_suffix(".png"))
+plt.savefig(Path(__file__).with_suffix(".pdf"))

@@ -37,12 +37,12 @@ times = list(
 )
 # Generate Plot
 n_subplots = 2
-fig, axarr = plt.subplots(n_subplots, sharex=True, figsize=(10, 3 * n_subplots))
+fig, axarr = plt.subplots(n_subplots, sharex=True, figsize=(5, 3 * n_subplots))
 # axarr[0].set_title(
 #     "Comparison of semi-implicit inertial wave equations with full, upwind saint-venant"
 # )
 
-start_idx = 70
+start_idx = 68
 end_idx = -50
 
 # Upper subplot
@@ -50,12 +50,12 @@ axarr[0].set_ylabel("Flow Rate [m³/s]")
 axarr[0].plot(
     times[start_idx:end_idx],
     outputs["inertial_wave_semi_implicit"][1.0]["channel_q_dn"][start_idx:end_idx],
-    label="Downstream\n(Semi-implicit inertial wave)",
+    label="Downstream\n(Inertial Wave)",
 )
 axarr[0].plot(
     times[start_idx:end_idx],
     outputs["saint_venant_upwind"][1.0]["channel_q_dn"][start_idx:end_idx],
-    label="Downstream\n(Full, upwind Saint-Venant)",
+    label="Downstream\n(Saint-Venant)",
 )
 axarr[0].plot(
     times[start_idx:end_idx],
@@ -70,12 +70,12 @@ axarr[1].set_ylabel("Water Level [m]")
 axarr[1].plot(
     times[start_idx:end_idx],
     outputs["inertial_wave_semi_implicit"][1.0]["channel_h_up"][start_idx:end_idx],
-    label="Upstream\n(Semi-implicit inertial wave)",
+    label="Upstream\n(Inertial Wave)",
 )
 axarr[1].plot(
     times[start_idx:end_idx],
     outputs["saint_venant_upwind"][1.0]["channel_h_up"][start_idx:end_idx],
-    label="Upstream\n(Full, upwind Saint-Venant)",
+    label="Upstream\n(Saint-Venant)",
 )
 axarr[1].plot(
     times[start_idx:end_idx],
@@ -87,6 +87,7 @@ axarr[1].plot(
 
 # Format bottom axis label
 axarr[-1].xaxis.set_major_formatter(mdates.DateFormatter("%H:%M"))
+axarr[-1].xaxis.set_major_locator(mdates.AutoDateLocator(maxticks=8))
 
 # Shrink margins
 fig.tight_layout()
@@ -94,7 +95,7 @@ fig.tight_layout()
 # Shrink each axis and put a legend to the right of the axis
 for i in range(n_subplots):
     box = axarr[i].get_position()
-    axarr[i].set_position([box.x0, box.y0, box.width * 0.8, box.height])
+    axarr[i].set_position([box.x0, box.y0, box.width * 0.74, box.height])
     axarr[i].legend(
         loc="center left", bbox_to_anchor=(1, 0.5), frameon=False, prop={"size": 8}
     )

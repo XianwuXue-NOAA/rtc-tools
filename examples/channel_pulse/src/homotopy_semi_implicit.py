@@ -40,10 +40,10 @@ times = list(
 
 # Generate Plot
 n_subplots = 2
-fig, axarr = plt.subplots(n_subplots, sharex=True, figsize=(10, 3 * n_subplots))
+fig, axarr = plt.subplots(n_subplots, sharex=True, figsize=(5, 3 * n_subplots))
 # axarr[0].set_title("Homotopy Deformation of Semi-Implicit Inertial Wave Equations")
 
-start_idx = 70
+start_idx = 68
 end_idx = -50
 
 # Upper subplot
@@ -54,7 +54,7 @@ for theta in thetas:
         outputs["inertial_wave_semi_implicit"][theta]["channel_q_dn"][
             start_idx:end_idx
         ],
-        label=f"Downstream, theta={theta}",
+        label=f"Downstream\ntheta={theta}",
     )
 axarr[0].plot(
     times[start_idx:end_idx],
@@ -72,7 +72,7 @@ for theta in thetas:
         outputs["inertial_wave_semi_implicit"][theta]["channel_h_up"][
             start_idx:end_idx
         ],
-        label=f"Upstream, theta={theta}",
+        label=f"Upstream\ntheta={theta}",
     )
 axarr[1].plot(
     times[start_idx:end_idx],
@@ -83,6 +83,7 @@ axarr[1].plot(
 )
 # Format bottom axis label
 axarr[-1].xaxis.set_major_formatter(mdates.DateFormatter("%H:%M"))
+axarr[-1].xaxis.set_major_locator(mdates.AutoDateLocator(maxticks=8))
 
 # Shrink margins
 fig.tight_layout()
@@ -90,7 +91,7 @@ fig.tight_layout()
 # Shrink each axis and put a legend to the right of the axis
 for i in range(n_subplots):
     box = axarr[i].get_position()
-    axarr[i].set_position([box.x0, box.y0, box.width * 0.8, box.height])
+    axarr[i].set_position([box.x0, box.y0, box.width * 0.74, box.height])
     axarr[i].legend(
         loc="center left", bbox_to_anchor=(1, 0.5), frameon=False, prop={"size": 8}
     )

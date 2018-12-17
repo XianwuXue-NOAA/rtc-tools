@@ -37,7 +37,7 @@ times = list(
 )
 # Generate Plot
 n_subplots = 2
-fig, axarr = plt.subplots(n_subplots, sharex=True, figsize=(5, 3 * n_subplots))
+fig, axarr = plt.subplots(n_subplots, sharex=True, figsize=(5, 1.5 * n_subplots))
 # axarr[0].set_title(
 #     "Comparison of semi-implicit inertial wave equations with full, upwind saint-venant"
 # )

@@ -1,0 +1,323 @@
+import os
+from collections import OrderedDict
+from datetime import datetime, timedelta
+from typing import Iterable, List, Set, Union
+
+from netCDF4 import Dataset, Variable, chartostring, num2date
+
+import numpy as np
+
+
+class Stations:
+
+    def __init__(self, dataset: Dataset, station_variable: Variable):
+        self.__station_variable = station_variable
+
+        station_dimension = station_variable.dimensions[0]
+
+        # todo make this a bit smarter, right now variables like station_name would be forgotten
+        self.__attribute_variables = {}
+        for variable_name in dataset.variables:
+            variable = dataset.variables[variable_name]
+            if variable != station_variable and variable.dimensions == (station_dimension,):
+                self.__attribute_variables[variable_name] = variable
+
+        self.__attributes = OrderedDict()
+        for i in range(station_variable.shape[0]):
+            id = str(chartostring(station_variable[i]))
+
+            values = {}
+            for variable_name in self.__attribute_variables.keys():
+                values[variable_name] = dataset.variables[variable_name][i]
+
+            self.__attributes[id] = values
+
+    @property
+    def station_ids(self) -> Iterable:
+        """
+        :return: An ordered iterable of the station ids (location ids) for which station data is available.
+        """
+        return self.__attributes.keys()
+
+    @property
+    def attributes(self) -> OrderedDict:
+        """
+        :return: An OrderedDict containing dicts containing the values for all station attributes of the input dataset.
+        """
+        return self.__attributes
+
+    @property
+    def attribute_variables(self) -> dict:
+        """
+        :return: A dict containing the station attribute variables of the input dataset.
+        """
+        return self.__attribute_variables
+
+
+class ImportDataset:
+    """
+    A class used to open and import the data from a NetCDF file.
+    Uses the NetCDF4 library. Contains various methods for reading the data in the file.
+    """
+
+    def __init__(self, folder: str, basename: str):
+        """
+        :param folder:    Folder the file is located in.
+        :param basename:  Basename of the file, extension ".nc" will be appended to this
+        """
+
+        # Load the content of a NetCDF file into a Dataset.
+        self.__filename = os.path.join(
+            folder,
+            basename + ".nc"
+        )
+        self.__dataset = Dataset(self.__filename)
+
+        # Find the time and station id variables
+        self.__time_variable = self.__find_time_variable()
+        if self.__time_variable is None:
+            raise Exception('No time variable found in file ' + self.__filename + '. '
+                            'Please ensure the file contains a time variable with standard_name "time" and axis "T".')
+
+        self.__station_variable = self.__find_station_variable()
+        if self.__station_variable is None:
+            raise Exception('No station variable found in file ' + self.__filename + '. '
+                            'Please ensure the file contains a variable with cf_role "timeseries_id".')
+
+    def __str__(self):
+        return self.__filename
+
+    def __find_time_variable(self) -> Union[Variable, None]:
+        """
+        Find the variable containing the times in the given Dataset.
+
+        :param dataset: The Dataset to be searched.
+        :return: a netCDF4.Variable object of the time variable (or None if none found)
+        """
+        for variable in self.__dataset.variables.values():
+            if ('standard_name' in variable.ncattrs() and 'axis' in variable.ncattrs()
+                    and variable.standard_name == 'time' and variable.axis == 'T'):
+                return variable
+
+        return None
+
+    def __find_station_variable(self) -> Union[Variable, None]:
+        """
+        Find the variable containing station id's  (location id's) in the given Dataset.
+
+        :param dataset: The Dataset to be searched.
+        :return: a netCDF4.Variable object of the station id variable (or None if none found)
+        """
+        for variable in self.__dataset.variables.values():
+            if 'cf_role' in variable.ncattrs() and variable.cf_role == 'timeseries_id':
+                return variable
+
+        return None
+
+    def read_import_times(self) -> np.ndarray:
+        """
+        Reads the import times in the time variable of the dataset.
+
+        :param time_variable: The time variable containing input times
+        :return: an array containing the input times as datetime objects
+        """
+        time_values = self.__time_variable[:]
+        time_unit = self.__time_variable.units
+        try:
+            time_calendar = self.__time_variable.calendar
+        except AttributeError:
+            time_calendar = u'gregorian'
+
+        return num2date(time_values, units=time_unit, calendar=time_calendar)
+
+    def read_station_data(self) -> Stations:
+        return Stations(self.__dataset, self.__station_variable)
+
+    def find_timeseries_variables(self) -> List[str]:
+        """
+        Find the keys of all 2d variables with dimensions (station, time) or (time, station),
+        where station is the dimension of the station_variable and time the dimension of the time_variable.
+
+        :param dataset:           The Dataset to be searched.
+        :param station_variable:  The station id variable.
+        :param time_variable:     The time variable.
+        :return: a list of strings containing all keys found.
+        """
+        station_dim = self.__station_variable.dimensions[0]
+        time_dim = self.__time_variable.dimensions[0]
+        expected_dims = [(station_dim, time_dim), (time_dim, station_dim)]
+
+        timeseries_variables = []
+        for var_key, variable in self.__dataset.variables.items():
+            if variable.dimensions in expected_dims:
+                timeseries_variables.append(var_key)
+
+        return timeseries_variables
+
+    def read_timeseries_values(self, station_index: int, variable_name: str) -> np.ndarray:
+        """
+        Reads the specified timeseries from the input file.
+
+        :param station_index: The index of the station for which the values should be read
+        :param variable_name: The name of the variable for which the values should be read
+        :return: an array of values
+        """
+
+        station_dim = self.__station_variable.dimensions[0]
+        timeseries_variable = self.__dataset.variables[variable_name]
+        assert timeseries_variable.dimensions[0] == station_dim or timeseries_variable.dimensions[1] == station_dim
+
+        if timeseries_variable.dimensions[0] == station_dim:
+            values = timeseries_variable[station_index, :]
+        else:
+            values = timeseries_variable[:, station_index]
+
+        # NetCDF4 reads the values as a numpy masked array,
+        # convert to a normal array with nan where mask == True
+        return np.ma.filled(values, np.nan)
+
+    @property
+    def time_variable(self):
+        return self.__time_variable
+
+    @property
+    def station_variable(self):
+        return self.__station_variable
+
+
+class ExportDataset:
+    """
+    A class used to write data to a NetCDF file.
+    Creates a new file or overwrites an old file. The file metadata will be written upon initialization. Data such
+    as times, station data and timeseries data should be presented to the ExportDataset through the various methods.
+    When all data has been written, the close method must be called to flush the changes from local memory to the
+    actual file on disk.
+    """
+
+    def __init__(self, folder: str, basename: str):
+        """
+        :param folder:   Folder the file will be located in.
+        :param basename: Basename of the file, extension ".nc" will be appended to this
+        """
+        # Create the file and open a Dataset to access it
+        self.__filename = os.path.join(
+            folder,
+            basename + ".nc"
+        )
+        # use same write format as FEWS
+        self.__dataset = Dataset(self.__filename, mode='w', format='NETCDF3_CLASSIC')
+
+        # write metadata to the file
+        self.__dataset.title = 'RTC-Tools Output Data'
+        self.__dataset.institution = 'Deltares'
+        self.__dataset.source = 'RTC-Tools'
+        self.__dataset.history = 'Generated on {}'.format(datetime.now())
+        self.__dataset.Conventions = 'CF-1.6'
+        self.__dataset.featureType = 'timeseries'
+
+        # dimensions are created when writing times and station data, must be created before writing variables
+        self.__time_dim = None
+        self.__station_dim = None
+        self.__station_id_to_index_mapping = None
+
+        self.__timeseries_variables = {}
+
+    def __str__(self):
+        return self.__filename
+
+    def write_times(self, times: np.ndarray, forecast_time: float, forecast_date: datetime) -> None:
+        """
+        Writes a time variable to the given dataset.
+
+        :param dataset:        The NetCDF4.Dataset object that the times will be written to (must have write permission)
+        :param times:          The times that are to be written in seconds.
+        :param forecast_time:  The forecast time in seconds corresponding to the forecast date
+        :param forecast_date:  The datetime corresponding with time in seconds at the forecast index.
+        """
+
+        # in a NetCDF file times are written with respect to a reference date
+        # the written values for the times may never be negative, so use the earliest time as the reference date
+        reference_date = forecast_date
+        minimum_time = np.min(times)
+        if minimum_time < 0:
+            times = times - minimum_time
+            reference_date = reference_date - timedelta(seconds=forecast_time - minimum_time)
+
+        self.__time_dim = self.__dataset.createDimension('time', None)
+
+        time_var = self.__dataset.createVariable('time', 'f8', ('time',))
+        time_var.standard_name = 'time'
+        time_var.units = 'seconds since {}'.format(reference_date)
+        time_var.axis = 'T'
+        time_var[:] = times
+
+    def write_station_data(self, stations: Stations, output_station_ids: Set[str]) -> None:
+        """
+        Writes the station ids and additional station information to the given dataset.
+
+        :param stations:           The stations data read from the input file.
+        :param output_station_ids: The set of station ids for which output will be written.
+        """
+        self.__station_dim = self.__dataset.createDimension('station', len(output_station_ids))
+
+        # first write the ids
+        max_id_length = max(len(id) for id in output_station_ids)
+        self.__dataset.createDimension('char_leng_id', max_id_length)
+        station_id_var = self.__dataset.createVariable('station_id', 'c', ('station', 'char_leng_id'))
+        station_id_var.long_name = 'station identification code'
+        station_id_var.cf_role = 'timeseries_id'
+
+        # we must store the index we use for each station id, to be able to write the data at the correct index later
+        self.__station_id_to_index_mapping = {}
+        for i, id in enumerate(output_station_ids):
+            station_id_var[i, :] = list(id)
+            self.__station_id_to_index_mapping[id] = i
+
+        # now write the stored attributes
+        for var_name, attr_var in stations.attribute_variables.items():
+            variable = self.__dataset.createVariable(var_name, attr_var.datatype, ('station',))
+            # copy all attributes from the original input variable
+            variable.setncatts(attr_var.__dict__)
+
+            for station_id in output_station_ids:
+                if station_id in stations.attributes:
+                    station_index = self.__station_id_to_index_mapping[station_id]
+                    variable[station_index] = stations.attributes[station_id][var_name]
+
+    def create_variables(self, variable_names: Set[str]) -> None:
+        """
+        Creates variables in the dataset for each of the provided parameter ids.
+        The write_times and write_station_data methods must be called first, to ensure the necessary dimensions have
+        already been created in the output NetCDF file.
+
+        :param variable_names: The parameter ids for which variables must be created.
+        """
+        assert self.__time_dim is not None, 'First call write_times to ensure the time dimension has been created.'
+        assert self.__station_dim is not None, 'First call write_station_data to ensure ' \
+                                               'the station dimension has been created'
+        assert self.__station_id_to_index_mapping is not None  # should also be created in write_station_data
+
+        for variable_name in variable_names:
+            self.__dataset.createVariable(variable_name, 'f8', ('time', 'station'), fill_value=np.nan)
+
+    def write_output_values(self, station_id: str, variable_name: str, values: np.ndarray) -> None:
+        """
+        Writes the given data to the dataset. The variable must have already been created through the
+        create_variables method. After all calls to write_output_values, the close method must be called to flush all
+        changes.
+
+        :param station_id: The id of the station the data is written for.
+        :param variable_name: The name of the variable the data is written to (must have already been created).
+        :param values:        The values that are to be written to the file
+        """
+        assert self.__station_id_to_index_mapping is not None, 'First call write_station_data and create_variables.'
+
+        station_index = self.__station_id_to_index_mapping[station_id]
+        self.__dataset.variables[variable_name][:, station_index] = values
+
+    def close(self) -> None:
+        """
+        Closes the NetCDF4 Dataset to ensure all changes made are written to the file.
+        This method must be called after writing all data through the various write method.
+        """
+        self.__dataset.close()

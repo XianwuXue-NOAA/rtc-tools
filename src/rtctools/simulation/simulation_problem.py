@@ -2,6 +2,7 @@ import copy
 import itertools
 import logging
 from collections import OrderedDict
+from typing import Union
 
 import casadi as ca
 
@@ -239,8 +240,8 @@ class SimulationProblem:
         # Nominals can be symbolic, written in terms of parameters. After all
         # parameter values are known, we evaluate the numeric values of the
         # nominals.
-        nominal_vars = self.__pymoca_model.states + self.__pymoca_model.alg_states + self.__pymoca_model.der_states
-        symbolic_nominals = ca.vertcat(*[self.get_variable_nominal(v.symbol.name()) for v in nominal_vars])
+        nominal_vars = list(self.__nominals.keys())
+        symbolic_nominals = ca.vertcat(*[self.get_variable_nominal(v) for v in nominal_vars])
         nominal_evaluator = ca.Function('nominal_evaluator', self.__mx['parameters'], [symbolic_nominals])
 
         n_parameters = len(self.__mx['parameters'])
@@ -251,14 +252,16 @@ class SimulationProblem:
 
         evaluated_nominals = np.array(evaluated_nominals).ravel()
 
-        nominal_dict = {v.symbol.name(): n for v, n in zip(nominal_vars, evaluated_nominals)}
+        nominal_dict = dict(zip(nominal_vars, evaluated_nominals))
+
+        self.__nominals.update(nominal_dict)
 
         # Assemble initial residuals and set values from start attributes into the state vector
         constrained_residuals = []
         minimized_residuals = []
         for var in itertools.chain(self.__pymoca_model.states, self.__pymoca_model.alg_states):
             var_name = var.symbol.name()
-            var_nominal = nominal_dict[var_name]
+            var_nominal = self.get_variable_nominal(var_name)
 
             # Attempt to cast var.start to python type
             mx_start = ca.MX(var.start)
@@ -327,7 +330,7 @@ class SimulationProblem:
         # Make a list of unscaled symbols and a list of their scaled equivalent
         unscaled_symbols = []
         scaled_symbols = []
-        for sym_name, nominal in nominal_dict.items():
+        for sym_name, nominal in self.__nominals.items():
             if nominal == 1.0:
                 # Nothing to scale
                 continue
@@ -364,7 +367,7 @@ class SimulationProblem:
         # Scale the bounds with the nominals
         nominals = []
         for var in bound_vars:
-            nominals.append(nominal_dict[var.symbol.name()])
+            nominals.append(self.get_variable_nominal(var.symbol.name()))
 
         evaluated_bounds = np.array(evaluated_bounds) / np.array(nominals)[:, None]
 
@@ -567,8 +570,7 @@ class SimulationProblem:
 
         # Adjust for nominal value if not default
         nominal = self.get_variable_nominal(name)
-        if nominal != 1.0:
-            value *= nominal
+        value *= nominal
 
         return value
 
@@ -678,8 +680,7 @@ class SimulationProblem:
 
         # Adjust for nominal value if not default
         nominal = self.get_variable_nominal(name)
-        if nominal != 1.0:
-            value /= nominal
+        value /= nominal
 
         # Store value in state vector
         index = self.__get_state_vector_index(name)
@@ -717,9 +718,15 @@ class SimulationProblem:
         """
         return {'ipopt.print_level': 0, 'print_time': False}
 
-    def get_variable_nominal(self, variable):
+    def get_variable_nominal(self, variable) -> Union[float, ca.MX]:
         """
         Get the value of the nominal attribute of a variable
+
+        NOTE: Due to backwards compatibility for allowing parameters to be set
+        with set_var() instead of overriding parameters(), this method can
+        return a symbolic value for nominals defined in the Modelica file. It
+        can only do so until the initializion() method in this class is
+        called/completed, after which it will return numeric values only.
         """
         return self.__nominals.get(variable, 1.0)
 

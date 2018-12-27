@@ -136,6 +136,12 @@ class SimulationProblem:
         self.__states_end_index = len(self.__mx['states']) + \
             len(self.__mx['algebraics']) + len(self.__mx['derivatives'])
 
+        # NOTE: Backwards compatibility allowing set_var() for parameters. These
+        # variables check that this is only done before calling initialize().
+        self.__parameters = AliasDict(self.alias_relation)
+        self.__parameters.update({v.name(): v for v in self.__mx['parameters']})
+        self.__parameters_set_var = True
+
         # Construct a dict to look up symbols by name (or iterate over)
         self.__sym_dict = OrderedDict(((sym.name(), sym) for sym in self.__sym_list))
 
@@ -418,6 +424,10 @@ class SimulationProblem:
         # Warn for nans in state vector after initialization
         self.__warn_for_nans()
 
+        # No longer allow setting parameters with set_var(), as we want to be
+        # clear that that does not work
+        self.__parameters_set_var = False
+
     def pre(self):
         """
         Any preprocessing takes place here.
@@ -677,6 +687,11 @@ class SimulationProblem:
         name, sign = self.alias_relation.canonical_signed(name)
         if sign < 0:
             value *= sign
+
+        # Check if it is a parameter, and if it is allowed to be set
+        if not self.__parameters_set_var:
+            if name in self.__parameters:
+                raise Exception("Cannot set parameters after initialize() has been called.")
 
         # Adjust for nominal value if not default
         nominal = self.get_variable_nominal(name)

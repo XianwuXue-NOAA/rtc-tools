@@ -169,7 +169,8 @@ class Goal(metaclass=ABCMeta):
     weight = 1.0
 
     #: The goal violation value is taken to the order'th power in the objective
-    #: function.
+    #: function. Minimization of the absolute function value is allowed by
+    #: specifying "abs" for the order.
     order = 2
 
     #: The size of the goal if it's a vector goal.
@@ -418,19 +419,29 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
         self.__problem_path_timeseries = []
         self.__problem_parameters = []
 
+        # List for any absolute minimization goals
+        self.__problem_abs_constraints = _EmptyEnsembleList()
+        self.__problem_abs_vars = []
+        self.__problem_path_abs_constraints = _EmptyEnsembleList()
+        self.__problem_path_abs_vars = []
+
     @property
     def extra_variables(self):
-        return self.__problem_epsilons + self.__subproblem_epsilons
+        return self.__problem_epsilons + self.__subproblem_epsilons + self.__problem_abs_vars
 
     @property
     def path_variables(self):
-        return self.__problem_path_epsilons + self.__subproblem_path_epsilons
+        return self.__problem_path_epsilons + self.__subproblem_path_epsilons + self.__problem_path_abs_vars
 
     def bounds(self):
         bounds = super().bounds()
         for epsilon in (self.__subproblem_epsilons + self.__subproblem_path_epsilons +
                         self.__problem_epsilons + self.__problem_path_epsilons):
             bounds[epsilon.name()] = (0.0, 1.0)
+
+        for abs_var in (self.__problem_abs_vars + self.__problem_path_abs_vars):
+            bounds[abs_var.name()] = (-np.inf, np.inf)
+
         return bounds
 
     def constant_inputs(self, ensemble_member):
@@ -549,7 +560,8 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
         additional_constraints = itertools.chain(
             self.__constraint_store[ensemble_member].values(),
             self.__problem_constraints[ensemble_member],
-            self.__subproblem_soft_constraints[ensemble_member])
+            self.__subproblem_soft_constraints[ensemble_member],
+            self.__problem_abs_constraints[ensemble_member])
 
         for constraint in additional_constraints:
             constraints.append((constraint.function(self), constraint.min, constraint.max))
@@ -562,7 +574,8 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
         additional_path_constraints = itertools.chain(
             self.__path_constraint_store[ensemble_member].values(),
             self.__problem_path_constraints[ensemble_member],
-            self.__subproblem_path_soft_constraints[ensemble_member])
+            self.__subproblem_path_soft_constraints[ensemble_member],
+            self.__problem_path_abs_constraints[ensemble_member])
 
         for constraint in additional_path_constraints:
             path_constraints.append((constraint.function(self), constraint.min, constraint.max))
@@ -819,6 +832,13 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
             else:
                 if goal.size > 1:
                     raise Exception("Option `keep_soft_constraints` needs to be set for vector goal {}".format(goal))
+
+            if isinstance(goal.order, str):
+                if goal.order not in {"abs", "absolute"}:
+                    raise Exception("Invalid string order specified for goal {}".format(goal.order))
+
+                if goal.function_range != (np.nan, np.nan):
+                    raise Exception("Absolute goal order is only allowed for minimization for goal {}".format(goals))
 
         if is_path_goal:
             target_shape = len(self.times())
@@ -1282,6 +1302,72 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
         # one as that one is always present.
         self.__problem_constraints[0].append(constraint)
 
+    @staticmethod
+    def __split_absolute_minimization_goals(goals, sym_index, ensemble_size, is_path_goal):
+        # TODO: Can we figure out good bounds? What about a good initial seed value?
+
+        class _AbsoluteMinimizationGoal(Goal):
+            def __init__(self, abs_variable, is_path_goal, orig_goal):
+                self.abs_variable = abs_variable
+                self.is_path_goal = is_path_goal
+                self.orig_goal = orig_goal
+
+                # Copy relevant properties
+                self.size = orig_goal.size
+                self.weight = orig_goal.weight
+                self.relaxation = orig_goal.relaxation / orig_goal.function_nominal
+
+            def function(self, optimization_problem, ensemble_member):
+                if self.is_path_goal:
+                    return optimization_problem.variable(self.abs_variable.name())
+                else:
+                    return optimization_problem.extra_variable(self.abs_variable.name(), ensemble_member)
+
+        # Replace absolute minimization goals with a new goal, and some
+        # additional hard constraints.
+        constraints = [[] for ensemble_member in range(ensemble_size)]
+        variables = []
+
+        # Make a copy, because we will be modifying an absolute goal in place
+        goals = goals.copy()
+
+        for j, goal in enumerate(goals):
+            if not isinstance(goal.order, str):
+                continue
+
+            abs_variable_name = "_abs_{}_{}".format(sym_index, j)
+            if is_path_goal:
+                abs_variable_name = "path_" + abs_variable_name
+
+            abs_variable = ca.MX.sym(abs_variable_name, goal.size)
+            variables.append(abs_variable)
+
+            # Set constraints on how the additional variable relates to the
+            # original goal function, such that it corresponds to its absolute
+            # value when minimizing.
+            for ensemble_member in range(ensemble_size):
+                def _constraint_func(problem, sign, abs_variable=abs_variable,
+                                     ensemble_member=ensemble_member, goal=goal,
+                                     is_path_goal=is_path_goal):
+                    if is_path_goal:
+                        abs_variable = problem.variable(abs_variable.name())
+                    else:
+                        abs_variable = problem.extra_variable(abs_variable.name(), ensemble_member)
+
+                    return abs_variable + sign * goal.function(problem, ensemble_member) / goal.function_nominal
+
+                _pos = functools.partial(_constraint_func, sign=1)
+                _neg = functools.partial(_constraint_func, sign=-1)
+
+                constraints[ensemble_member].append(_GoalConstraint(None, _pos, 0.0, np.inf, False))
+                constraints[ensemble_member].append(_GoalConstraint(None, _neg, 0.0, np.inf, False))
+
+            # Overwrite the original goal, such that it is just a minimization
+            # of the additional variable.
+            goals[j] = _AbsoluteMinimizationGoal(abs_variable, is_path_goal, goal)
+
+        return goals, constraints, variables
+
     def optimize(self, preprocessing=True, postprocessing=True, log_solver_failure_as_error=True):
         # Do pre-processing
         if preprocessing:
@@ -1326,6 +1412,12 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
         self.__problem_path_epsilons = []
         self.__problem_path_timeseries = []
 
+        # List for absolute minimization goals
+        self.__problem_abs_constraints = [[] for ensemble_member in range(self.ensemble_size)]
+        self.__problem_abs_vars = []
+        self.__problem_path_abs_constraints = [[] for ensemble_member in range(self.ensemble_size)]
+        self.__problem_path_abs_vars = []
+
         self.__first_run = True
         self.__results_are_current = False
         self.__original_constant_input_keys = {}
@@ -1335,6 +1427,21 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
 
             # Call the pre priority hook
             self.priority_started(priority)
+
+            # Rewrite absolute minimization goals. This is needed for easy and
+            # correct handling with and without 'keep_soft_constraints' and
+            # with and without 'fix_minimized_values' throughout this loop.
+            goals, abs_constraints, abs_vars = \
+                self.__split_absolute_minimization_goals(goals, i, self.ensemble_size, is_path_goal=False)
+            for a, b in zip(self.__problem_abs_constraints, abs_constraints):
+                a.extend(b)
+            self.__problem_abs_vars.extend(abs_vars)
+
+            path_goals, path_abs_constraints, path_abs_vars = \
+                self.__split_absolute_minimization_goals(path_goals, i, self.ensemble_size, is_path_goal=True)
+            for a, b in zip(self.__problem_path_abs_constraints, path_abs_constraints):
+                a.extend(b)
+            self.__problem_path_abs_vars.extend(path_abs_vars)
 
             (self.__subproblem_epsilons, self.__subproblem_objectives,
              self.__subproblem_soft_constraints, hard_constraints,

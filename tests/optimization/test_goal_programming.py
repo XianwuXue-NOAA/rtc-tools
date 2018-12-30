@@ -893,3 +893,67 @@ class TestGoalProgrammingSeed(TestCase):
     def test_seed(self):
         self.assertTrue(np.array_equal(self.problem._results[0], self.problem._x0[1]))
         self.assertTrue(np.array_equal(self.problem._results[1], self.problem._x0[2]))
+
+
+class TestGoalMinimizeSqU(TestGoalMinimizeU):
+    order = 2
+
+
+class TestGoalMinimizeAbsU(TestGoalMinimizeU):
+    order = "abs"
+
+
+class TestInvalidGoalTargetAbsU(TestGoalMinimizeAbsU):
+    target_min = 0.0
+    function_range = (0.0, 10.0)
+
+
+class ModelInvalidAbsoluteGoal(ModelMinimizeU):
+
+    def goals(self):
+        return [TestInvalidGoalTargetAbsU()]
+
+
+class ModelMinimizeSqU(ModelMinimizeU):
+
+    def goals(self):
+        return [TestGoalMinimizeSqU()]
+
+
+class ModelMinimizeAbsU(ModelMinimizeU):
+
+    def goals(self):
+        return [TestGoalMinimizeAbsU()]
+
+
+class TestAbsoluteMinimization(TestCase):
+
+    def setUp(self):
+        self.tolerance = 1e-6
+
+    def test_exception_absolute_target(self):
+        self.problem = ModelInvalidAbsoluteGoal()
+
+        with self.assertRaisesRegex(Exception, "only allowed for minimization"):
+            self.problem.optimize()
+
+    def test_negative_variable_different(self):
+        self.problem1 = ModelMinimizeU()
+        self.problem2 = ModelMinimizeAbsU()
+
+        self.problem1.optimize()
+        self.problem2.optimize()
+
+        self.assertAlmostEqual(self.problem1.objective_value, -2.0, self.tolerance)
+        self.assertGreaterEqual(self.problem2.objective_value, 0.0 - self.tolerance)
+
+    def test_squared_versus_absolute(self):
+        self.problem1 = ModelMinimizeSqU()
+        self.problem2 = ModelMinimizeAbsU()
+
+        self.problem1.optimize()
+        self.problem2.optimize()
+
+        self.assertAlmostEqual(self.problem1.objective_value,
+                               self.problem2.objective_value**2,
+                               self.tolerance)

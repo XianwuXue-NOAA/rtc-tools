@@ -440,7 +440,7 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
             bounds[epsilon.name()] = (0.0, 1.0)
 
         for abs_var in (self.__problem_abs_vars + self.__problem_path_abs_vars):
-            bounds[abs_var.name()] = (-np.inf, np.inf)
+            bounds[abs_var.name()] = (0.0, np.inf)
 
         return bounds
 
@@ -1307,6 +1307,9 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
         # TODO: Can we figure out good bounds? What about a good initial seed value?
 
         class _AbsoluteMinimizationGoal(Goal):
+
+            order = 1
+
             def __init__(self, abs_variable, is_path_goal, orig_goal):
                 self.abs_variable = abs_variable
                 self.is_path_goal = is_path_goal
@@ -1328,14 +1331,16 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
         constraints = [[] for ensemble_member in range(ensemble_size)]
         variables = []
 
-        # Make a copy, because we will be modifying an absolute goal in place
+        # It is easier to modify goals in place, but we do not want to modify
+        # the original input list of goals. Make a copy to work with and
+        # return when we are done.
         goals = goals.copy()
 
         for j, goal in enumerate(goals):
             if not isinstance(goal.order, str):
                 continue
 
-            abs_variable_name = "_abs_{}_{}".format(sym_index, j)
+            abs_variable_name = "abs_{}_{}".format(sym_index, j)
             if is_path_goal:
                 abs_variable_name = "path_" + abs_variable_name
 

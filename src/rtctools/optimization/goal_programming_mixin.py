@@ -170,7 +170,8 @@ class Goal(metaclass=ABCMeta):
 
     #: The goal violation value is taken to the order'th power in the objective
     #: function. Minimization of the absolute function value is allowed by
-    #: specifying "abs" for the order.
+    #: specifying "abs" for the order. Note that this will only be convex if
+    #: the goal function is linear.
     order = 2
 
     #: The size of the goal if it's a vector goal.

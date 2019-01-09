@@ -519,6 +519,14 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
             else:
                 seed[epsilon.name()] = Timeseries(times, np.ones(len(times)))
 
+        # Seed minimization variables of current priority
+        for abs_var, val in self.__abs_seeds[ensemble_member].items():
+            seed[abs_var] = val
+
+        times = self.times()
+        for abs_var, val in self.__path_abs_seeds[ensemble_member].items():
+            seed[abs_var] = Timeseries(times, val)
+
         return seed
 
     def __n_objectives(self, ensemble_member):
@@ -1303,9 +1311,7 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
         # one as that one is always present.
         self.__problem_constraints[0].append(constraint)
 
-    @staticmethod
-    def __split_absolute_minimization_goals(goals, sym_index, ensemble_size, is_path_goal):
-        # TODO: Can we figure out good bounds? What about a good initial seed value?
+    def __split_absolute_minimization_goals(self, goals, sym_index, is_path_goal):
 
         class _AbsoluteMinimizationGoal(Goal):
 
@@ -1329,8 +1335,9 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
 
         # Replace absolute minimization goals with a new goal, and some
         # additional hard constraints.
-        constraints = [[] for ensemble_member in range(ensemble_size)]
+        constraints = [[] for ensemble_member in range(self.ensemble_size)]
         variables = []
+        seed = [{} for ensemble_member in range(self.ensemble_size)]
 
         # It is easier to modify goals in place, but we do not want to modify
         # the original input list of goals. Make a copy to work with and
@@ -1348,10 +1355,32 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
             abs_variable = ca.MX.sym(abs_variable_name, goal.size)
             variables.append(abs_variable)
 
+            # If this is not the first priority, we want to provide a seed
+            # value that makes the problem feasible right at the start.
+            if sym_index > 0:
+                for ensemble_member in range(self.ensemble_size):
+                    if is_path_goal:
+                        expr = self.map_path_expression(goal.function(self, ensemble_member), ensemble_member)
+                    else:
+                        expr = goal.function(self, ensemble_member)
+
+                    function = ca.Function('f', [self.solver_input], [expr])
+                    value = np.array(function(self.solver_output))
+
+                    assert value.ndim == 2
+
+                    if goal.size == 1:
+                        if is_path_goal:
+                            value = value.ravel()
+                        else:
+                            value = value.item()
+
+                    seed[ensemble_member][abs_variable_name] = value
+
             # Set constraints on how the additional variable relates to the
             # original goal function, such that it corresponds to its absolute
             # value when minimizing.
-            for ensemble_member in range(ensemble_size):
+            for ensemble_member in range(self.ensemble_size):
                 def _constraint_func(problem, sign, abs_variable=abs_variable,
                                      ensemble_member=ensemble_member, goal=goal,
                                      is_path_goal=is_path_goal):
@@ -1372,7 +1401,7 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
             # of the additional variable.
             goals[j] = _AbsoluteMinimizationGoal(abs_variable, is_path_goal, goal)
 
-        return goals, constraints, variables
+        return goals, constraints, variables, seed
 
     def optimize(self, preprocessing=True, postprocessing=True, log_solver_failure_as_error=True):
         # Do pre-processing
@@ -1437,14 +1466,14 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
             # Rewrite absolute minimization goals. This is needed for easy and
             # correct handling with and without 'keep_soft_constraints' and
             # with and without 'fix_minimized_values' throughout this loop.
-            goals, abs_constraints, abs_vars = \
-                self.__split_absolute_minimization_goals(goals, i, self.ensemble_size, is_path_goal=False)
+            goals, abs_constraints, abs_vars, self.__abs_seeds = \
+                self.__split_absolute_minimization_goals(goals, i, is_path_goal=False)
             for a, b in zip(self.__problem_abs_constraints, abs_constraints):
                 a.extend(b)
             self.__problem_abs_vars.extend(abs_vars)
 
-            path_goals, path_abs_constraints, path_abs_vars = \
-                self.__split_absolute_minimization_goals(path_goals, i, self.ensemble_size, is_path_goal=True)
+            path_goals, path_abs_constraints, path_abs_vars, self.__path_abs_seeds = \
+                self.__split_absolute_minimization_goals(path_goals, i, is_path_goal=True)
             for a, b in zip(self.__problem_path_abs_constraints, path_abs_constraints):
                 a.extend(b)
             self.__problem_path_abs_vars.extend(path_abs_vars)

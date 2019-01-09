@@ -895,11 +895,15 @@ class TestGoalProgrammingSeed(TestCase):
         self.assertTrue(np.array_equal(self.problem._results[1], self.problem._x0[2]))
 
 
-class TestGoalMinimizeSqU(TestGoalMinimizeU):
+class TestGoalPrio2MinimizeU(TestGoalMinimizeU):
+    priority = 2
+
+
+class TestGoalMinimizeSqU(TestGoalPrio2MinimizeU):
     order = 2
 
 
-class TestGoalMinimizeAbsU(TestGoalMinimizeU):
+class TestGoalMinimizeAbsU(TestGoalPrio2MinimizeU):
     order = "abs"
 
 
@@ -908,19 +912,39 @@ class TestInvalidGoalTargetAbsU(TestGoalMinimizeAbsU):
     function_range = (0.0, 10.0)
 
 
-class ModelInvalidAbsoluteGoal(ModelMinimizeU):
+class TestGoalTargetU(StateGoal):
+    state = 'u'
+    target_min = -1.9
+    target_max = 1.9
+    priority = 1
+
+
+class ModelTargetMinimizeU(ModelMinimizeU):
+    """
+    Almost equal to the ModelMinimizeU class, but with a  dummy first priority
+    such that we can test the seeding logic for absolute minimization goals.
+    """
+
+    def goals(self):
+        return [TestGoalPrio2MinimizeU()]
+
+    def path_goals(self):
+        return [TestGoalTargetU(self)]
+
+
+class ModelInvalidAbsoluteGoal(ModelTargetMinimizeU):
 
     def goals(self):
         return [TestInvalidGoalTargetAbsU()]
 
 
-class ModelMinimizeSqU(ModelMinimizeU):
+class ModelMinimizeSqU(ModelTargetMinimizeU):
 
     def goals(self):
         return [TestGoalMinimizeSqU()]
 
 
-class ModelMinimizeAbsU(ModelMinimizeU):
+class ModelMinimizeAbsU(ModelTargetMinimizeU):
 
     def goals(self):
         return [TestGoalMinimizeAbsU()]
@@ -929,7 +953,7 @@ class ModelMinimizeAbsU(ModelMinimizeU):
 class TestAbsoluteMinimization(TestCase):
 
     def setUp(self):
-        self.tolerance = 1e-6
+        self.tolerance = 1e-5
 
     def test_exception_absolute_target(self):
         self.problem = ModelInvalidAbsoluteGoal()
@@ -938,13 +962,13 @@ class TestAbsoluteMinimization(TestCase):
             self.problem.optimize()
 
     def test_negative_variable_different(self):
-        self.problem1 = ModelMinimizeU()
+        self.problem1 = ModelTargetMinimizeU()
         self.problem2 = ModelMinimizeAbsU()
 
         self.problem1.optimize()
         self.problem2.optimize()
 
-        self.assertAlmostEqual(self.problem1.objective_value, -2.0, self.tolerance)
+        self.assertAlmostEqual(self.problem1.objective_value, -1.9, self.tolerance)
         self.assertGreaterEqual(self.problem2.objective_value, 0.0 - self.tolerance)
 
     def test_squared_versus_absolute(self):

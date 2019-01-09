@@ -1328,6 +1328,7 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
                 # Copy relevant properties
                 self.size = orig_goal.size
                 self.weight = orig_goal.weight
+                self.priority = orig_goal.priority
                 self.relaxation = orig_goal.relaxation / orig_goal.function_nominal
 
             def function(self, optimization_problem, ensemble_member):

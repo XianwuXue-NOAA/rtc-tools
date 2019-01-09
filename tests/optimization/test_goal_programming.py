@@ -904,7 +904,8 @@ class TestGoalMinimizeSqU(TestGoalPrio2MinimizeU):
 
 
 class TestGoalMinimizeAbsU(TestGoalPrio2MinimizeU):
-    order = "abs"
+    order = 1
+    minimize_absolute_value = True
 
 
 class TestInvalidGoalTargetAbsU(TestGoalMinimizeAbsU):

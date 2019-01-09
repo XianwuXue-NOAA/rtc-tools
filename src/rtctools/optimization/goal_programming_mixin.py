@@ -169,10 +169,12 @@ class Goal(metaclass=ABCMeta):
     weight = 1.0
 
     #: The goal violation value is taken to the order'th power in the objective
-    #: function. Minimization of the absolute function value is allowed by
-    #: specifying "abs" for the order. Note that this will only be convex if
-    #: the goal function is linear.
+    #: function.
     order = 2
+
+    #: Minimization of the absolute function value. Note that this will only
+    #: be convex if the goal function is linear.
+    minimize_absolute_value = False
 
     #: The size of the goal if it's a vector goal.
     size = 1
@@ -842,12 +844,11 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
                 if goal.size > 1:
                     raise Exception("Option `keep_soft_constraints` needs to be set for vector goal {}".format(goal))
 
-            if isinstance(goal.order, str):
-                if goal.order not in {"abs", "absolute"}:
-                    raise Exception("Invalid string order specified for goal {}".format(goal.order))
-
+            if goal.minimize_absolute_value:
                 if goal.function_range != (np.nan, np.nan):
-                    raise Exception("Absolute goal order is only allowed for minimization for goal {}".format(goals))
+                    raise Exception("Absolute goal function is only allowed for minimization for goal {}".format(goals))
+                if goal.order != 1:
+                    raise Exception("Absolute goal function is only allowed for order 1 for goal {}".format(goals))
 
         if is_path_goal:
             target_shape = len(self.times())
@@ -1345,7 +1346,7 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
         goals = goals.copy()
 
         for j, goal in enumerate(goals):
-            if not isinstance(goal.order, str):
+            if not goal.minimize_absolute_value:
                 continue
 
             abs_variable_name = "abs_{}_{}".format(sym_index, j)

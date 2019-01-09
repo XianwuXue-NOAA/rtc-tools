@@ -848,9 +848,9 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
 
             if goal.minimize_absolute_value:
                 if goal.function_range != (np.nan, np.nan):
-                    raise Exception("Absolute goal function is only allowed for minimization for goal {}".format(goals))
+                    raise Exception("Absolute goal function is only allowed for minimization for goal {}".format(goal))
                 if goal.order != 1:
-                    raise Exception("Absolute goal function is only allowed for order 1 for goal {}".format(goals))
+                    raise Exception("Absolute goal function is only allowed for order 1 for goal {}".format(goal))
 
         if is_path_goal:
             target_shape = len(self.times())

@@ -427,6 +427,8 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
         self.__problem_abs_vars = []
         self.__problem_path_abs_constraints = _EmptyEnsembleList()
         self.__problem_path_abs_vars = []
+        self.__abs_seeds = _EmptyEnsembleOrderedDict()
+        self.__abs_path_seeds = _EmptyEnsembleOrderedDict()
 
     @property
     def extra_variables(self):

@@ -371,14 +371,7 @@ class Timeseries:
 
         self.make_new_file = make_new_file
         if self.make_new_file:
-            self.__xml_root = ET.Element('{%s}' % (ns['pi'], ) + 'TimeSeries')
-            self.__tree = ET.ElementTree(self.__xml_root)
-
-            self.__xml_root.set('xmlns:xsi', 'http://www.w3.org/2001/XMLSchema-instance')
-            self.__xml_root.set('version', '1.2')
-            self.__xml_root.set(
-                'xsi:schemaLocation',
-                'http://www.wldelft.nl/fews/PI http://fews.wldelft.nl/schemas/version1.0/pi-schemas/pi_timeseries.xsd')
+            self.__reset_xml_tree()
         else:
             self.__tree = ET.parse(self.__path_xml)
             self.__xml_root = self.__tree.getroot()
@@ -631,6 +624,17 @@ class Timeseries:
             if f is not None and self.__binary:
                 f.close()
 
+    def __reset_xml_tree(self):
+        # Make a new empty XML tree
+        self.__xml_root = ET.Element('{%s}' % (ns['pi'], ) + 'TimeSeries')
+        self.__tree = ET.ElementTree(self.__xml_root)
+
+        self.__xml_root.set('xmlns:xsi', 'http://www.w3.org/2001/XMLSchema-instance')
+        self.__xml_root.set('version', '1.2')
+        self.__xml_root.set(
+            'xsi:schemaLocation',
+            'http://www.wldelft.nl/fews/PI http://fews.wldelft.nl/schemas/version1.0/pi-schemas/pi_timeseries.xsd')
+
     def __parse_date_time(self, el):
         # Parse a PI date time element.
         return datetime.datetime.strptime(el.get('date') + ' ' + el.get('time'), '%Y-%m-%d %H:%M:%S')
@@ -736,6 +740,9 @@ class Timeseries:
             timezone.text = str(self.timezone)
 
         if self.make_new_file:
+            # Force reinitialization in case write() is called more than once
+            self.__reset_xml_tree()
+
             for ensemble_member in range(len(self.__values)):
                 for variable in sorted(self.__values[ensemble_member].keys()):
                     location_parameter_id = self.__data_config.pi_variable_ids(variable)

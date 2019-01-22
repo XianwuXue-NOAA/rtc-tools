@@ -893,3 +893,98 @@ class TestGoalProgrammingSeed(TestCase):
     def test_seed(self):
         self.assertTrue(np.array_equal(self.problem._results[0], self.problem._x0[1]))
         self.assertTrue(np.array_equal(self.problem._results[1], self.problem._x0[2]))
+
+
+class RangeGoalX(Goal):
+    def function(self, optimization_problem, ensemble_member):
+        return optimization_problem.state("x")
+
+    function_range = (-10.0, 10.0)
+    priority = 1
+    order = 1
+    target_min = 1.0
+    target_max = 2.0
+
+
+class RangeGoalUOrder1(StateGoal):
+    state = 'u'
+    order = 1
+    target_min = 0.0
+    target_max = 0.0
+    priority = 2
+
+
+class RangeGoalUOrder2(RangeGoalUOrder1):
+    order = 2
+
+
+class ModelRangeUOrder1(Model):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._results = []
+
+    def priority_completed(self, priority):
+        super().priority_completed(priority)
+        self._results.append(dict(self.extract_results()))
+
+    def goals(self):
+        return []
+
+    def path_goals(self):
+        return [RangeGoalX(), RangeGoalUOrder1(self)]
+
+
+class ModelRangeUOrder2(ModelRangeUOrder1):
+
+    def path_goals(self):
+        return [RangeGoalX(), RangeGoalUOrder2(self)]
+
+
+class ModelLinearGoalOrder1(ModelRangeUOrder1):
+
+    def goal_programming_options(self):
+        options = super().goal_programming_options()
+        options['linearize_goal_order'] = True
+        return options
+
+
+class ModelLinearGoalOrder2(ModelRangeUOrder2):
+
+    def goal_programming_options(self):
+        options = super().goal_programming_options()
+        options['linearize_goal_order'] = True
+        return options
+
+
+class TestLinearGoalOrder(TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        cls.problem1 = ModelRangeUOrder1()
+        cls.problem1.optimize()
+        cls.problem1_linear = ModelLinearGoalOrder1()
+        cls.problem1_linear.optimize()
+
+        cls.problem2 = ModelRangeUOrder2()
+        cls.problem2.optimize()
+        cls.problem2_linear = ModelLinearGoalOrder2()
+        cls.problem2_linear.optimize()
+
+    def test_order_1_linear_equal(self):
+        self.assertEqual(self.problem1.objective_value, self.problem1_linear.objective_value)
+
+    def test_order_1_2_different(self):
+        o1 = self.problem1.objective_value
+        o2 = self.problem2.objective_value
+
+        self.assertGreater(abs(o1 - o2), 0.25 * abs(o2))
+
+    def test_order_2_linear_similar(self):
+        o2 = self.problem2.objective_value
+        o2_lin = self.problem2_linear.objective_value
+
+        # 0.1 is the default max error when fitting, although this is just an
+        # approximation when using 'balanced' mode.
+        self.assertLess(abs(o2 - o2_lin), 0.1 * abs(o2))
+        self.assertNotEqual(o2, o2_lin)

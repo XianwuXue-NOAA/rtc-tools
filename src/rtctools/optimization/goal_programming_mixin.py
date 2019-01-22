@@ -187,6 +187,9 @@ class Goal(metaclass=ABCMeta):
     #: Timeseries ID for goal violation data (optional)
     violation_timeseries_id = None
 
+    #: Coefficients to linearize a goal's order
+    _linear_coefficients = {}
+
     @property
     def has_target_min(self) -> bool:
         """
@@ -239,6 +242,59 @@ class Goal(metaclass=ABCMeta):
     def __repr__(self) -> str:
         return '{}(priority={}, target_min={}, target_max={}, function_range={})'.format(
             self.__class__, self.priority, self.target_min, self.target_max, self.function_range)
+
+    def _get_linear_coefficients(self, eps=0.1, kind='balanced'):
+        assert self.order > 1, "Order should be strictly larger than one"
+
+        try:
+            return self._linear_coefficients[eps][self.order]
+        except KeyError:
+            pass
+
+        x = ca.SX.sym('x')
+        a = ca.SX.sym('a')
+        b = ca.SX.sym('b')
+
+        # Strike a balance between "absolute error < eps" and "relative error < eps" by
+        # multiplying eps with x**(order-1)
+        if kind == 'balanced':
+            f = x**self.order - eps * x**(self.order-1) - (a * x + b)
+        elif kind == 'abs':
+            f = x**self.order - eps - (a * x + b)
+        else:
+            raise Exception("Unknown error approximation strategy '{}'".format(kind))
+
+        res_vals = ca.Function("res_vals", [x, ca.vertcat(a, b)], [f])
+
+        options = {'nlpsol': 'ipopt', 'nlpsol_options': {'print_time': 0, 'ipopt': {'print_level': 0}}}
+        do_step = ca.rootfinder("next_state", "nlpsol", res_vals, options)
+
+        x = 0.0
+        a = 0.0
+        b = 0.0
+
+        xs = [0.0]
+        while x < 1.0:
+            # Initial guess larger than 1.0 to always have the next point be
+            # on the right (i.e. not left) side.
+            x = float(do_step(2.0, [a, b]))
+            a = self.order * x ** (self.order - 1)
+            b = x**self.order - a * x
+            xs.append(x)
+
+        # Turn underestimate into an overestimate, such that we get rid of
+        # horizontal line at origin.
+        xs[-1] = 1.0
+        xs = np.array(xs)
+        ys = xs**self.order
+
+        a = (ys[1:] - ys[:-1])/(xs[1:] - xs[:-1])
+        b = ys[1:] - a * xs[1:]
+        lines = list(zip(a, b))
+
+        self._linear_coefficients.setdefault(eps, {})[self.order] = lines
+
+        return lines
 
 
 class StateGoal(Goal, metaclass=ABCMeta):
@@ -623,6 +679,8 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
         +---------------------------+-----------+---------------+
         | ``keep_soft_constraints`` | ``bool``  | ``False``     |
         +---------------------------+-----------+---------------+
+        | ``linearize_goal_order``  | ``bool``  | ``False``     |
+        +---------------------------+-----------+---------------+
 
         Before turning a soft constraint of the goal programming algorithm into a hard constraint,
         the violation variable (also known as epsilon) of each goal is relaxed with the
@@ -683,6 +741,12 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
         objective function is turned into a constraint for the subsequent priorities (while in the False
         option this was the case only for the function of minimization goals).
 
+        If ``linearize_goal_order`` is set to ``True``, the goal's order will
+        be approximated linearly for any goals where order > 1. Note that this
+        option does not work with minimization goals of higher order. Instead,
+        it is suggested to transform these minimization goals into goals with
+        a target (and function range) when using this option.
+
         :returns: A dictionary of goal programming options.
         """
 
@@ -698,6 +762,7 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
         options['interior_distance'] = 1e-6
         options['scale_by_problem_size'] = False
         options['keep_soft_constraints'] = False
+        options['linearize_goal_order'] = False
 
         # Define temporary variable to avoid infinite loop between
         # solver_options and goal_programming_options.
@@ -822,6 +887,11 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
             else:
                 if goal.size > 1:
                     raise Exception("Option `keep_soft_constraints` needs to be set for vector goal {}".format(goal))
+
+            if options['linearize_goal_order']:
+                if not goal.has_target_bounds and goal.order > 1:
+                    raise Exception("Higher order minimization goals not allowed with "
+                                    "`linearize_goal_order` for goal {}".format(goal))
 
         if is_path_goal:
             target_shape = len(self.times())
@@ -985,7 +1055,43 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
                 max_variable = None
 
             # Make objective for soft constraints and minimization goals
-            if not goal.critical:
+            if options['linearize_goal_order'] and goal.order > 1 and not goal.critical:
+                assert goal.has_target_bounds, "Cannot linearize minimization goals"
+
+                # Make a linear epsilon, and constraints relating the linear
+                # variable to the original objective function
+                path_prefix = "path_" if is_path_goal else ""
+                linear_variable = ca.MX.sym(path_prefix + "lineps_{}_{}".format(sym_index, j), goal.size)
+
+                epsilons.append(linear_variable)
+
+                for a, b in goal._get_linear_coefficients():
+                    # We add to soft constraints, as these constraints are no longer valid when
+                    # having `keep_soft_constraints` = False. This is because the `epsilon` and
+                    # the `linear_variable` no longer exist in the next priority.
+                    for ensemble_member in range(self.ensemble_size):
+                        def _f(problem,
+                               goal=goal, epsilon=epsilon, linear_variable=linear_variable, a=a, b=b,
+                               ensemble_member=ensemble_member, is_path_constraint=is_path_goal):
+                            if is_path_constraint:
+                                eps = problem.variable(epsilon.name())
+                                lin = problem.variable(linear_variable.name())
+                            else:
+                                eps = problem.extra_variable(epsilon.name(), ensemble_member)
+                                lin = problem.extra_variable(linear_variable.name(), ensemble_member)
+
+                            return lin - a * eps - b
+
+                        soft_constraints[ensemble_member].append(_GoalConstraint(goal, _f, 0.0, np.inf, False))
+
+                def _objective_func(problem, ensemble_member,
+                                    goal=goal, linear_variable=linear_variable, is_path_goal=is_path_goal):
+                    return goal.weight * linear_variable
+
+                objectives.append(_objective_func)
+
+            elif not goal.critical:
+                # linearize_goal_order is False, or the goal.order == 1
                 if goal.has_target_bounds:
                     def _objective_func(problem, ensemble_member,
                                         goal=goal, epsilon=epsilon, is_path_goal=is_path_goal):

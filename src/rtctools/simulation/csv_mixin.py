@@ -272,7 +272,7 @@ class CSVMixin(SimulationProblem):
                 initial_state[canonical_var] = value * sign
 
                 if logger.getEffectiveLevel() == logging.DEBUG:
-                        logger.debug("CSVMixin: Read initial state {} = {}".format(variable, value))
+                    logger.debug("CSVMixin: Read initial state {} = {}".format(variable, value))
             else:
                 logger.warning("CSVMixin: In initial_state.csv, {} is not an input or state variable.".format(variable))
         return initial_state

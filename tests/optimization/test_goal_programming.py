@@ -918,6 +918,14 @@ class RangeGoalUOrder2(RangeGoalUOrder1):
     order = 2
 
 
+class RangeGoalUOrder2Linearize(RangeGoalUOrder2):
+    linearize_order = True
+
+
+class RangeGoalUOrder2NoLinearize(RangeGoalUOrder2):
+    linearize_order = False
+
+
 class ModelRangeUOrder1(Model):
 
     def __init__(self, *args, **kwargs):
@@ -941,6 +949,12 @@ class ModelRangeUOrder2(ModelRangeUOrder1):
         return [RangeGoalX(), RangeGoalUOrder2(self)]
 
 
+class ModelRangeUOrder2OverruleLinearize(ModelRangeUOrder1):
+
+    def path_goals(self):
+        return [RangeGoalX(), RangeGoalUOrder2Linearize(self)]
+
+
 class ModelLinearGoalOrder1(ModelRangeUOrder1):
 
     def goal_programming_options(self):
@@ -957,6 +971,12 @@ class ModelLinearGoalOrder2(ModelRangeUOrder2):
         return options
 
 
+class ModelLinearGoalOrder2OverruleNoLinearize(ModelLinearGoalOrder2):
+
+    def path_goals(self):
+        return [RangeGoalX(), RangeGoalUOrder2NoLinearize(self)]
+
+
 class TestLinearGoalOrder(TestCase):
 
     @classmethod
@@ -970,6 +990,12 @@ class TestLinearGoalOrder(TestCase):
         cls.problem2.optimize()
         cls.problem2_linear = ModelLinearGoalOrder2()
         cls.problem2_linear.optimize()
+
+        cls.problem2_linear_overrule = ModelRangeUOrder2OverruleLinearize()
+        cls.problem2_linear_overrule.optimize()
+
+        cls.problem2_nonlinear_overrule = ModelLinearGoalOrder2OverruleNoLinearize()
+        cls.problem2_nonlinear_overrule.optimize()
 
     def test_order_1_linear_equal(self):
         self.assertEqual(self.problem1.objective_value, self.problem1_linear.objective_value)
@@ -988,3 +1014,9 @@ class TestLinearGoalOrder(TestCase):
         # approximation when using 'balanced' mode.
         self.assertLess(abs(o2 - o2_lin), 0.1 * abs(o2))
         self.assertNotEqual(o2, o2_lin)
+
+    def test_order_2_nonlinear_overrule_equal(self):
+        self.assertEqual(self.problem2.objective_value, self.problem2_nonlinear_overrule.objective_value)
+
+    def test_order_2_linear_overrule_equal(self):
+        self.assertEqual(self.problem2_linear.objective_value, self.problem2_linear_overrule.objective_value)

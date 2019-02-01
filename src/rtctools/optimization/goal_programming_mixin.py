@@ -187,6 +187,12 @@ class Goal(metaclass=ABCMeta):
     #: Timeseries ID for goal violation data (optional)
     violation_timeseries_id = None
 
+    #: Override linearization of goal order. Related global goal programming
+    #: option is ``linearize_goal_order`` (see :py:meth:`GoalProgrammingMixin.goal_programming_options`).
+    #: The default value of None defers to the global option, but the user can
+    #: explicitly override it per goal by setting this value to True or False.
+    linearize_order = None
+
     #: Coefficients to linearize a goal's order
     _linear_coefficients = {}
 
@@ -745,7 +751,8 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
         be approximated linearly for any goals where order > 1. Note that this
         option does not work with minimization goals of higher order. Instead,
         it is suggested to transform these minimization goals into goals with
-        a target (and function range) when using this option.
+        a target (and function range) when using this option. Note that this
+        option can be overriden on the level of a goal (see :py:attr:`Goal.linearize_order`).
 
         :returns: A dictionary of goal programming options.
         """
@@ -888,7 +895,7 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
                 if goal.size > 1:
                     raise Exception("Option `keep_soft_constraints` needs to be set for vector goal {}".format(goal))
 
-            if options['linearize_goal_order']:
+            if goal.linearize_order or (options['linearize_goal_order'] and goal.linearize_order is not False):
                 if not goal.has_target_bounds and goal.order > 1:
                     raise Exception("Higher order minimization goals not allowed with "
                                     "`linearize_goal_order` for goal {}".format(goal))
@@ -1054,8 +1061,10 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
             else:
                 max_variable = None
 
-            # Make objective for soft constraints and minimization goals
-            if options['linearize_goal_order'] and goal.order > 1 and not goal.critical:
+            # Make objective for soft constraints and minimization goals if
+            linearize_order = goal.linearize_order or (
+                options['linearize_goal_order'] and goal.linearize_order is not False)
+            if linearize_order and goal.order > 1 and not goal.critical:
                 assert goal.has_target_bounds, "Cannot linearize minimization goals"
 
                 # Make a linear epsilon, and constraints relating the linear

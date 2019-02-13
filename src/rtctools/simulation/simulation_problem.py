@@ -263,7 +263,6 @@ class SimulationProblem:
         self.__nominals.update(nominal_dict)
 
         # Assemble initial residuals and set values from start attributes into the state vector
-        constrained_residuals = []
         minimized_residuals = []
         for var in itertools.chain(self.__pymoca_model.states, self.__pymoca_model.alg_states):
             var_name = var.symbol.name()
@@ -316,8 +315,10 @@ class SimulationProblem:
             # Add a residual for the difference between the state and its starting expression
             start_expr = start_val if start_val is not None else var.start
             if var.fixed:
-                # require residual = 0
-                constrained_residuals.append((var.symbol - start_expr) / var_nominal)
+                # Set bounds to be equal to each other, such that IPOPT can
+                # turn the decision variable into a parameter.
+                var.min = start_expr
+                var.max = start_expr
             else:
                 # minimize residual
                 minimized_residuals.append((var.symbol - start_expr) / var_nominal)
@@ -341,7 +342,7 @@ class SimulationProblem:
 
         # Assemble symbolics needed to make a function describing the initial condition of the model
         # We constrain every entry in this MX to zero
-        equality_constraints = ca.vertcat(self.__dae_residual, self.__initial_residual, *constrained_residuals)
+        equality_constraints = ca.vertcat(self.__dae_residual, self.__initial_residual)
 
         # The variables that need a mutually consistent initial condition
         X = ca.vertcat(*self.__sym_list[:self.__states_end_index])
@@ -744,7 +745,7 @@ class SimulationProblem:
 
         :returns: A dictionary of CasADi :class:`root_finder` options.  See the CasADi documentation for details.
         """
-        return {'ipopt.print_level': 0, 'print_time': False}
+        return {'ipopt.fixed_variable_treatment': 'make_parameter', 'ipopt.print_level': 0, 'print_time': False}
 
     def get_variable_nominal(self, variable) -> Union[float, ca.MX]:
         """

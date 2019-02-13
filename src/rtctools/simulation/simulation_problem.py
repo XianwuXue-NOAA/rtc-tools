@@ -103,7 +103,7 @@ class SimulationProblem:
         # Store the nominals in an AliasDict
         self.__nominals = AliasDict(self.alias_relation)
         for v in itertools.chain(
-                self.__pymoca_model.states, self.__pymoca_model.alg_states, self.__pymoca_model.inputs):
+                self.__pymoca_model.states, self.__pymoca_model.alg_states):
             sym_name = v.symbol.name()
 
             # If the nominal is 0.0 or 1.0 or -1.0, ignore: get_variable_nominal returns a default of 1.0
@@ -582,8 +582,9 @@ class SimulationProblem:
             value *= sign
 
         # Adjust for nominal value if not default
-        nominal = self.get_variable_nominal(name)
-        value *= nominal
+        if index <= self.__states_end_index:
+            nominal = self.get_variable_nominal(name)
+            value *= nominal
 
         return value
 
@@ -697,11 +698,12 @@ class SimulationProblem:
                 raise Exception("Cannot set parameters after initialize() has been called.")
 
         # Adjust for nominal value if not default
-        nominal = self.get_variable_nominal(name)
-        value /= nominal
+        index = self.__get_state_vector_index(name)
+        if index <= self.__states_end_index:
+            nominal = self.get_variable_nominal(name)
+            value /= nominal
 
         # Store value in state vector
-        index = self.__get_state_vector_index(name)
         self.__state_vector[index] = value
 
     def set_var_slice(self, name, start, count, var):

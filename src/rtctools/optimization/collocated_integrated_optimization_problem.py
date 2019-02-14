@@ -1006,24 +1006,27 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
 
             # Initial conditions specified in history timeseries
             history = self.history(ensemble_member)
-            initial_state_constraint_states = []
-            initial_state_constraint_values = []
             for variable in itertools.chain(self.differentiated_states, self.algebraic_states, self.controls):
                 try:
                     history_timeseries = history[variable]
                 except KeyError:
                     pass
                 else:
-                    sym = self.state_vector(
-                        variable, ensemble_member=ensemble_member)[0]
-
                     val = self.interpolate(
                         t0, history_timeseries.times, history_timeseries.values, np.nan, np.nan)
                     val /= self.variable_nominal(variable)
 
                     if not np.isnan(val):
-                        initial_state_constraint_states.append(sym)
-                        initial_state_constraint_values.append(val)
+                        idx = self.__indices_as_lists[ensemble_member][variable][0]
+                        lbx[idx] = ubx[idx] = val
+
+            initial_derivative_constraints = []
+
+            ensemble_member_size = int(self.__state_size / self.ensemble_size)
+
+            der_offset = (self.__control_size
+                          + (ensemble_member + 1) * ensemble_member_size
+                          - len(self.dae_variables['derivatives']))
 
             for i, variable in enumerate(self.differentiated_states):
                 try:
@@ -1036,10 +1039,13 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
 
                     assert history_timeseries.times[-1] == t0
 
-                    sym = initial_derivatives[i]
-
                     if np.isnan(history_timeseries.values[-1]):
                         t0_val = self.state_vector(variable, ensemble_member=ensemble_member)[0]
+
+                        val = (t0_val - history_timeseries.values[-2]) / (t0 - history_timeseries.times[-2])
+
+                        sym = initial_derivatives[i]
+                        initial_derivative_constraints.append(sym - val)
                     else:
                         t0_val = self.interpolate(
                             t0,
@@ -1048,20 +1054,16 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                             np.nan,
                             np.nan
                         )
-                    val = (t0_val - history_timeseries.values[-2]) / (t0 - history_timeseries.times[-2])
+                        val = (t0_val - history_timeseries.values[-2]) / (t0 - history_timeseries.times[-2])
 
-                    expr = sym - val
-                    initial_state_constraint_states.append(expr)
-                    initial_state_constraint_values.append(0.0)
+                        idx = der_offset + i
+                        lbx[idx] = ubx[idx] = val
 
             # Call the external metadata function in one go, rather than two
-            if len(initial_state_constraint_states) > 0:
-                g.append(ca.vertcat(*initial_state_constraint_states))
-                initial_state_constraint_values = ca.vertcat(*initial_state_constraint_values)
-                [initial_state_constraint_values] = substitute_in_external(
-                    [initial_state_constraint_values], [symbolic_parameters], [parameters])
-                lbg.append(initial_state_constraint_values)
-                ubg.append(initial_state_constraint_values)
+            if len(initial_derivative_constraints) > 0:
+                g.append(ca.vertcat(*initial_derivative_constraints))
+                lbg.append(np.zeros(len(initial_derivative_constraints)))
+                ubg.append(np.zeros(len(initial_derivative_constraints)))
 
             # Initial conditions for integrator
             accumulation_X0 = []

@@ -427,10 +427,71 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
         return self.__problem_path_epsilons + self.__subproblem_path_epsilons
 
     def bounds(self):
-        bounds = super().bounds()
+        # Make sure we copy the dictionary we get from our parent. We will be
+        # updating/narrowing the bounds on certain variables, but have to make
+        # sure that e.g. a HomotopyMixin will start it's next theta loop with
+        # the original bounds.
+        bounds = super().bounds().copy()
+
         for epsilon in (self.__subproblem_epsilons + self.__subproblem_path_epsilons +
                         self.__problem_epsilons + self.__problem_path_epsilons):
             bounds[epsilon.name()] = (0.0, 1.0)
+
+        # Set bounds on previously optimized StateGoals instead of using
+        # constraints.
+        hard_constraints = itertools.chain(
+            self.__constraint_store[ensemble_member].values(),
+            self.__path_constraint_store[ensemble_member].values())
+
+        for constraint in hard_constraints:
+            if not isinstance(constraint.goal, StateGoal):
+                continue
+            assert constraint.optimized
+
+            # TODO: Clean this up/move it/simplify. See also #1074
+            state = constraint.goal.state
+            try:
+                m, M = bounds[state]
+            except KeyError:
+                m, M = (-np.inf, np.inf)
+
+            # Make copies of objects
+            if isinstance(m, Timeseries):
+                m = Timeseries(m.times, m.values)
+            elif isinstance(m, np.ndarray):
+                m = m.copy()
+            else:
+                assert np.isscalar(m)
+
+            if isinstance(M, Timeseries):
+                M = Timeseries(M.times, M.values)
+            elif isinstance(M, np.ndarray):
+                M = m.copy()
+            else:
+                assert np.isscalar(M)
+
+            # float < np.ndarray < Timeseries, We upcast only when needed.
+            if (np.isscalar(m) and np.isscalar(o)) or isinstance(m, type(o)):
+                pass
+            elif np.isscalar(:
+
+
+            # Vector goals typically can't get here... but CRITICAL vector goals can... >_>
+
+            if isinstance(m, Timeseries) and isinstance(constraint.min, Timeseries):
+                assert np.array_equal(m.times, constraint.min.times)
+                assert m.values.shape == constraint.min.values.shape
+                m.values = np.maximum(m.values, constraint.min.values)
+
+            if isinstance(M, Timeseries) and isinstance(constraint.max, Timeseries):
+                assert np.array_equal(M.times, constraint.max.times)
+                assert M.values.shape == constraint.max.values.shape
+                M.values = np.minimum(M.values, constraint.max.values)
+
+            constraints.append((constraint.function(self), constraint.min, constraint.max))
+
+        return constraints
+
         return bounds
 
     def constant_inputs(self, ensemble_member):
@@ -552,6 +613,10 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
             self.__subproblem_soft_constraints[ensemble_member])
 
         for constraint in additional_constraints:
+            # Skip optimized StateGoals, as we generally prefer setting bounds
+            # over setting constraints.
+            if isinstance(constraint.goal, StateGoal) and constraint.optimized:
+                continue
             constraints.append((constraint.function(self), constraint.min, constraint.max))
 
         return constraints
@@ -565,6 +630,10 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
             self.__subproblem_path_soft_constraints[ensemble_member])
 
         for constraint in additional_path_constraints:
+            # Skip optimized StateGoals, as we generally prefer setting bounds
+            # over setting constraints.
+            if isinstance(constraint.goal, StateGoal) and constraint.optimized:
+                continue
             path_constraints.append((constraint.function(self), constraint.min, constraint.max))
 
         return path_constraints

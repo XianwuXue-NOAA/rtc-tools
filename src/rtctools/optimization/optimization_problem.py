@@ -57,7 +57,7 @@ class OptimizationProblem(metaclass=ABCMeta):
 
         logger.debug("Creating solver")
 
-        if options.pop('expand', False):
+        if True:
             # NOTE: CasADi only supports the "expand" option for nlpsol. To
             # also be able to expand with e.g. qpsol, we do the expansion
             # ourselves here.
@@ -70,6 +70,49 @@ class OptimizationProblem(metaclass=ABCMeta):
             nlp['f'] = f_sx
             nlp['g'] = g_sx
             nlp['x'] = X_sx
+
+        # Detect and remove constraints like "a * X[i] + b = c", with a, b and c constants
+        lbg = np.array(ca.vertsplit(ca.veccat(*lbg))).ravel()
+        ubg = np.array(ca.vertsplit(ca.veccat(*ubg))).ravel()
+
+        x, g = nlp['x'], nlp['g']
+
+        # Find the linear constraints
+        g_sjac = ca.Function('Af', [x], [ca.jtimes(g, x, x.ones(*x.shape))])
+        g_sb = ca.Function('bf', [x], [g])
+
+        res = g_sjac(np.nan)
+        res = np.array(res).ravel()
+        g_is_linear = ~np.isnan(res)
+
+        # Find the rows in the jacobian with only a single entry
+        # TODO: Probably a lot faster if you just look at the sparsity.
+        g_jac_csr = ca.DM(ca.jacobian(g, x)).tocsc().tocsr()
+        g_single_variable = (np.diff(g_jac_csr.indptr) == 1)
+
+        # Find the rows which are equality constraints
+        g_eq_constraint = (lbg == ubg)
+
+        # The intersection of all selections are constraints like we want
+        g_constant_assignment = g_is_linear & g_single_variable & g_eq_constraint
+
+        offsets = g_jac_csr.indptr[np.where(g_constant_assignment)]
+        a_coefficients = g_jac_csr.data[offsets]
+        x_inds = g_jac_csr.indices[offsets]
+        b = np.array(g_sb(0)).ravel()
+        b_coefficients = b[g_constant_assignment]
+        c_coefficients = lbg[g_constant_assignment]  # ubg is equal
+        x_vals = (c_coefficients - b_coefficients) / a_coefficients
+
+        # Remove the constraints that we will move to bounds
+        g = np.array(ca.vertsplit(g))
+        nlp['g'] = ca.vertcat(*g[~g_constant_assignment])
+        lbg = lbg[~g_constant_assignment]
+        ubg = ubg[~g_constant_assignment]
+
+        # Update the bounds
+        lbx[x_inds] = x_vals
+        ubx[x_inds] = x_vals
 
         # Solver option
         my_solver = options['solver']
@@ -104,7 +147,7 @@ class OptimizationProblem(metaclass=ABCMeta):
         # Solve NLP
         logger.info("Calling solver")
 
-        results = solver(x0=x0, lbx=lbx, ubx=ubx, lbg=ca.veccat(*lbg), ubg=ca.veccat(*ubg))
+        results = solver(x0=x0, lbx=lbx, ubx=ubx, lbg=lbg, ubg=ubg)
 
         # Extract relevant stats
         self.__objective_value = float(results['f'])

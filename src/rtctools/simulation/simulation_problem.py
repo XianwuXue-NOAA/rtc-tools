@@ -93,15 +93,18 @@ class SimulationProblem:
             logger.debug("SimulationProblem: Found parameters {}".format(
                 ', '.join([var.name() for var in self.__mx['parameters']])))
 
-        # Initialize an AliasDict for nominals and types
-        self.__nominals = AliasDict(self.alias_relation)
+        # Store the types in an AliasDict
         self.__python_types = AliasDict(self.alias_relation)
+        model_variable_types = ["states", "der_states", "alg_states", "inputs", "constants", "parameters"]
+        for t in model_variable_types:
+            for v in getattr(self.__pymoca_model, t):
+                self.__python_types[v.symbol.name()] = v.python_type
+
+        # Store the nominals in an AliasDict
+        self.__nominals = AliasDict(self.alias_relation)
         for v in itertools.chain(
                 self.__pymoca_model.states, self.__pymoca_model.alg_states, self.__pymoca_model.inputs):
             sym_name = v.symbol.name()
-
-            # Store the types in an AliasDict
-            self.__python_types[sym_name] = v.python_type
 
             # If the nominal is 0.0 or 1.0 or -1.0, ignore: get_variable_nominal returns a default of 1.0
             # TODO: handle nominal vectors (update() will need to load them)

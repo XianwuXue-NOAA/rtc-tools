@@ -194,6 +194,22 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
         for mx_symbol, variable in zip(self.extra_variables, self.__extra_variable_names):
             self.__variable_sizes[variable] = mx_symbol.size1()
 
+        # Cache the initial step sizes
+        self.__initial_dt = {}
+        history_0 = self.history(0) # We assume that the history for every ensemble member has identical time stamps.
+        for variable in self.differentiated_states:
+            times = self.times(variable)
+            try:
+                h = history_0[variable]
+                if h.times[0] == times[0] or len(h.values) == 1:
+                    dt = times[1] - times[0]
+                else:
+                    assert h.times[-1] == times[0]
+                    dt = h.times[-1] - h.times[-2]
+            except KeyError:
+                dt = times[1] - times[0]
+            self.__initial_dt[variable] = dt
+
         # Variables that are integrated states are not yet allowed to have size > 1
         for variable in self.integrated_states:
             if self.__variable_sizes.get(variable, 1) > 1:
@@ -457,10 +473,12 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
             # both constant values and elements in the state vector
             initial_derivatives = ca.MX.zeros((n, 1))
             init_der_variable = []
+            init_variable_indices = []
             init_der_variable_indices = []
             init_der_variable_nominals = []
             init_der_constant = []
             init_der_constant_values = []
+            init_dt = []
 
             der_offset = (control_size
                           + (ensemble_member + 1) * ensemble_member_size
@@ -474,9 +492,12 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                 try:
                     i = self.__differentiated_states_map[variable]
 
+                    init_variable_indices.append(initial_state_indices[j])
                     init_der_variable_nominals.append(self.variable_nominal(variable))
                     init_der_variable_indices.append(der_offset + i)
                     init_der_variable.append(j)
+                    init_dt.append(self.__initial_dt[variable])
+
                 except KeyError:
                     # We do interpolation here instead of relying on der_at. This faster is because:
                     # 1. We can reuse the history variable.
@@ -495,7 +516,7 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                     init_der_constant_values.append(init_der)
                     init_der_constant.append(j)
 
-            initial_derivatives[init_der_variable] = X[init_der_variable_indices] * np.array(
+            initial_derivatives[init_der_variable] = (X[init_variable_indices] - X[init_der_variable_indices]) / np.array(init_dt) * np.array(
                 init_der_variable_nominals)
             if len(init_der_constant_values) > 0:
                 initial_derivatives[init_der_constant] = init_der_constant_values
@@ -1039,25 +1060,11 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
 
                     assert history_timeseries.times[-1] == t0
 
-                    if np.isnan(history_timeseries.values[-1]):
-                        t0_val = self.state_vector(variable, ensemble_member=ensemble_member)[0]
+                    val = history_timeseries.values[-2]
+                    val /= self.variable_nominal(variable)
 
-                        val = (t0_val - history_timeseries.values[-2]) / (t0 - history_timeseries.times[-2])
-
-                        sym = initial_derivatives[i]
-                        initial_derivative_constraints.append(sym - val)
-                    else:
-                        t0_val = self.interpolate(
-                            t0,
-                            history_timeseries.times,
-                            history_timeseries.values,
-                            np.nan,
-                            np.nan
-                        )
-                        val = (t0_val - history_timeseries.values[-2]) / (t0 - history_timeseries.times[-2])
-
-                        idx = der_offset + i
-                        lbx[idx] = ubx[idx] = val
+                    idx = der_offset + i
+                    lbx[idx] = ubx[idx] = val
 
             # Call the external metadata function in one go, rather than two
             if len(initial_derivative_constraints) > 0:
@@ -1930,11 +1937,14 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
 
             for k, (state_name, der_name) in enumerate(
                     zip(self.__differentiated_states, self.__derivative_names)):
+                nominal = self.variable_nominal(state_name)
                 try:
-                    nominal = self.variable_nominal(state_name)
-                    x0[offset + k] = seed["initial_" + der_name] / nominal
+                    x0[offset + k] = (seed[state_name].values[0] - self.__initial_dt[state_name] * seed["initial_" + der_name]) / nominal
                 except KeyError:
-                    pass
+                    try:
+                        x0[offset + k] = seed[state_name].values[0] / nominal
+                    except KeyError:
+                        pass
 
         # Return number of state variables
         return count, discrete, lbx, ubx, x0, indices
@@ -2021,7 +2031,9 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                 zip(self.__differentiated_states, self.__derivative_names)):
             try:
                 nominal = self.variable_nominal(state_name)
-                results["initial_" + der_name] = nominal * X[offset + k].ravel()
+                results["initial_" + der_name] = (
+                    results[state_name][0] - nominal * X[offset + k].ravel()
+                    ) / self.__initial_dt[state_name]
             except KeyError:
                 pass
 
@@ -2288,10 +2300,17 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                 pass
             else:
                 nominal = self.variable_nominal(canonical)
-                return nominal * sign * X[
-                    control_size +
-                    (ensemble_member + 1) * ensemble_member_size -
-                    len(self.dae_variables['derivatives']) + i]
+                return (
+                    self.state_at(variable, self.initial_time)
+                    - nominal
+                    * sign
+                    * X[
+                        control_size
+                        + (ensemble_member + 1) * ensemble_member_size
+                        - len(self.dae_variables["derivatives"])
+                        + i
+                    ]
+                ) / self.__initial_dt[canonical]
 
         # Time stamps for this variable
         times = self.times(variable)

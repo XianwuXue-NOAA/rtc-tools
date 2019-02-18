@@ -292,7 +292,7 @@ class ModelicaMixin(OptimizationProblem):
         seed = super().seed(ensemble_member)
 
         # Parameter values
-        parameters = self.parameters(0)
+        parameters = self.parameters(ensemble_member)
         parameter_values = [parameters.get(param.name(), param) for param in self.__mx['parameters']]
 
         # Load seeds

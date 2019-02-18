@@ -231,10 +231,29 @@ class ModelicaMixin(OptimizationProblem):
     def initial_state(self, ensemble_member):
         initial_state = AliasDict(self.alias_relation)
 
+        # Parameter values
+        parameters = self.parameters(ensemble_member)
+        parameter_values = [parameters.get(param.name(), param) for param in self.__mx['parameters']]
+
         # Initial conditions obtained from start attributes.
         for v in self.__pymoca_model.states:
             if v.fixed:
-                initial_state[v.symbol.name()] = v.start
+                sym_name = v.symbol.name()
+                start = v.start
+
+                if isinstance(start, ca.MX):
+                    # If start contains symbolics, try substituting parameter values
+                    if isinstance(start, ca.MX) and not start.is_constant():
+                        [start] = substitute_in_external([start], self.__mx['parameters'], parameter_values)
+                        if not start.is_constant():
+                            raise Exception('ModelicaMixin: Could not resolve initial value for {}'.format(sym_name))
+
+                    start = v.python_type(start)
+
+                initial_state[sym_name] = start
+
+                if logger.getEffectiveLevel() == logging.DEBUG:
+                    logger.debug("ModelicaMixin: Initial state variable {} = {}".format(sym_name, start))
 
         return initial_state
 

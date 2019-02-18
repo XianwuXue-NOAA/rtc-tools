@@ -303,8 +303,7 @@ class ModelicaMixin(OptimizationProblem):
 
             start = var.start
 
-            # NOTE: If start is symbolic, a cast to float will result in NaN
-            if float(start) != 0.0:
+            if isinstance(start, float) and start != 0.0 or isinstance(start, ca.MX):
                 sym_name = var.symbol.name()
 
                 # If start contains symbolics, try substituting parameter values
@@ -314,7 +313,7 @@ class ModelicaMixin(OptimizationProblem):
                         logger.error('ModelicaMixin: Could not resolve seed value for {}'.format(sym_name))
 
                 times = self.times(sym_name)
-                start = var.python_type(var.start)
+                start = var.python_type(start)
                 s = Timeseries(times, np.full_like(times, start))
                 if logger.getEffectiveLevel() == logging.DEBUG:
                     logger.debug("ModelicaMixin: Seeded variable {} = {}".format(sym_name, start))

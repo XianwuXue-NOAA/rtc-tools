@@ -71,7 +71,9 @@ class OptimizationProblem(metaclass=ABCMeta):
             nlp['g'] = g_sx
             nlp['x'] = X_sx
 
-        # Detect and remove constraints like "a * X[i] + b = c", with a, b and c constants
+        # Detect and remove constraints like "a * X[i] + b = c", with a, b and
+        # c constants. We also handle inequalities like "a * X[i] + b <= c"
+        # (and >= of course)
         lbg = np.array(ca.vertsplit(ca.veccat(*lbg))).ravel()
         ubg = np.array(ca.vertsplit(ca.veccat(*ubg))).ravel()
 
@@ -90,29 +92,41 @@ class OptimizationProblem(metaclass=ABCMeta):
         g_jac_csr = ca.DM(ca.jacobian(g, x)).tocsc().tocsr()
         g_single_variable = (np.diff(g_jac_csr.indptr) == 1)
 
-        # Find the rows which are equality constraints
-        g_eq_constraint = (lbg == ubg)
+        def get_xvals(inds, c_vals):
+            offsets = g_jac_csr.indptr[np.where(inds)]
+            a_coefficients = g_jac_csr.data[offsets]
+            x_inds = g_jac_csr.indices[offsets]
+            b = np.array(g_sb(0)).ravel()
+            b_coefficients = b[inds]
+            c_coefficients = c_vals[inds]
+            x_vals = (c_coefficients - b_coefficients) / a_coefficients
+            return x_vals, x_inds
 
         # The intersection of all selections are constraints like we want
-        g_constant_assignment = g_is_linear & g_single_variable & g_eq_constraint
+        g_constant_assignment = g_is_linear & g_single_variable
 
-        offsets = g_jac_csr.indptr[np.where(g_constant_assignment)]
-        a_coefficients = g_jac_csr.data[offsets]
-        x_inds = g_jac_csr.indices[offsets]
-        b = np.array(g_sb(0)).ravel()
-        b_coefficients = b[g_constant_assignment]
-        c_coefficients = lbg[g_constant_assignment]  # ubg is equal
-        x_vals = (c_coefficients - b_coefficients) / a_coefficients
-
-        # Remove the constraints that we will move to bounds
-        g = np.array(ca.vertsplit(g))
-        nlp['g'] = ca.vertcat(*g[~g_constant_assignment])
-        lbg = lbg[~g_constant_assignment]
-        ubg = ubg[~g_constant_assignment]
-
-        # Update the bounds
+        # Find the rows which are equality constraints
+        g_eq_constraint = (lbg == ubg)
+        x_vals, x_inds = get_xvals(g_constant_assignment & g_eq_constraint, lbg)
         lbx[x_inds] = x_vals
         ubx[x_inds] = x_vals
+
+        # Find the rows which are inequality constraints >= lbg
+        g_ineq_constraint_lbg = np.isfinite(lbg) & np.isposinf(ubg)
+        x_vals, x_inds = get_xvals(g_constant_assignment & g_ineq_constraint_lbg, lbg)
+        lbx[x_inds] = x_vals
+
+        # Find the rows which are inequality constraints <= ubg
+        g_ineq_constraint_ubg = np.isneginf(lbg) & np.isfinite(ubg)
+        x_vals, x_inds = get_xvals(g_constant_assignment & g_ineq_constraint_ubg, ubg)
+        ubx[x_inds] = x_vals
+
+        # Remove the constraints that we will move to bounds
+        inds = g_constant_assignment & (g_eq_constraint | g_ineq_constraint_lbg | g_ineq_constraint_ubg)
+        g = np.array(ca.vertsplit(g))
+        nlp['g'] = ca.vertcat(*g[~inds])
+        lbg = lbg[~inds]
+        ubg = ubg[~inds]
 
         # Solver option
         my_solver = options['solver']

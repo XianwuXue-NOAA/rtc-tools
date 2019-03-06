@@ -850,6 +850,8 @@ class Timeseries:
         self.__ensemble_size = ensemble_size
         while self.__ensemble_size > len(self.__values):
             self.__values.append({})
+        while self.__ensemble_size > len(self.__units):
+            self.__units.append({})
 
     @property
     def start_datetime(self):

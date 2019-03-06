@@ -583,8 +583,8 @@ class Timeseries:
                 if make_virtual_ensemble:
                     # Make references to the original input series for the virtual
                     # ensemble members.
-                    for _i in range(1, self.ensemble_size):
-                        self.__values[ensemble_member][variable] = self.__values[0][variable]
+                    for i in range(1, self.ensemble_size):
+                        self.__values[i][variable] = self.__values[0][variable]
 
                 # Prepend empty space, if start_datetime > self.__start_datetime.
                 if start_datetime > self.__start_datetime:

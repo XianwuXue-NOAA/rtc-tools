@@ -543,6 +543,8 @@ class Timeseries:
                     # for initial states that have a single historical values.
                     while self.ensemble_size > len(self.__values):
                         self.__values.append({})
+                    while self.ensemble_size > len(self.__units):
+                        self.__units.append({})
                     make_virtual_ensemble = True
 
                 if self.__dt:
@@ -585,6 +587,7 @@ class Timeseries:
                     # ensemble members.
                     for i in range(1, self.ensemble_size):
                         self.__values[i][variable] = self.__values[0][variable]
+                        self.set_unit(variable, unit=unit, ensemble_member=i)
 
                 # Prepend empty space, if start_datetime > self.__start_datetime.
                 if start_datetime > self.__start_datetime:

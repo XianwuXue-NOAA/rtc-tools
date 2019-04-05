@@ -292,10 +292,15 @@ class PIMixin(OptimizationProblem):
 
     @cached
     def initial_state(self, ensemble_member):
+        # Call parent class first for default values.
+        initial_state = super().initial_state(ensemble_member)
+
         history = self.history(ensemble_member)
-        return AliasDict(
-            self.alias_relation,
-            {variable: timeseries.values[-1] for variable, timeseries in history.items()})
+
+        for variable, timeseries in history.items():
+            initial_state[variable] = timeseries.values[-1]
+
+        return initial_state
 
     @cached
     def seed(self, ensemble_member):

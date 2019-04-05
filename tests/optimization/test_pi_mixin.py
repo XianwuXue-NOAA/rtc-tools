@@ -62,6 +62,7 @@ class TestPIMixin(TestCase):
     def test_initial_state(self):
         initial_state = self.problem.initial_state(0)
         self.assertAlmostEqual(initial_state["x"], 1.02, self.tolerance)
+        self.assertAlmostEqual(initial_state["v_initial"], 2.1, self.tolerance)
 
     def test_seed(self):
         seed = self.problem.seed(0)

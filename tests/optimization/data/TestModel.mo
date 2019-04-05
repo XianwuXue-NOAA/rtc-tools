@@ -3,6 +3,8 @@ model TestModel
 	Real w(start=0.0);
 	Real alias;
 
+	Real v_initial(start=2.1, fixed=true);
+
 	parameter Real k = 1.0;
 
 	input Real u(fixed=false);
@@ -21,6 +23,7 @@ model TestModel
 equation
 	der(x) = k * x + u;
 	der(w) = x;
+	der(v_initial) = 0;
 
 	alias = x;
 

@@ -532,7 +532,18 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                 # Check linearity of collocation constraints, which is a necessary condition for the
                 # optimization problem to be convex
                 self.linear_collocation = True
-                if not is_affine(dae_residual_collocated,
+
+                # Aside from decision variables, the DAE expression also contains parameters
+                # and constant inputs. We need to inline them before we do the affinity check.
+                # Note that this not an exhaustive check, as other values for the
+                # parameters/constant inputs may result in a non-affine DAE (or vice-versa).
+                np.random.seed(42)
+                fixed_vars = ca.vertcat(*self.dae_variables['time'],
+                                        *self.dae_variables['constant_inputs'],
+                                        ca.MX(symbolic_parameters))
+                fixed_var_values = np.random.rand(fixed_vars.size1())
+
+                if not is_affine(ca.substitute(dae_residual_collocated, fixed_vars, fixed_var_values),
                                  ca.vertcat(* collocated_variables + integrated_variables +
                                             collocated_derivatives + integrated_derivatives)):
                     self.linear_collocation = False

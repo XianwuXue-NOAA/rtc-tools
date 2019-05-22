@@ -943,3 +943,243 @@ class TestGoalProgrammingSeed(TestCase):
     def test_seed(self):
         self.assertTrue(np.array_equal(self.problem._results[0], self.problem._x0[1]))
         self.assertTrue(np.array_equal(self.problem._results[1], self.problem._x0[2]))
+
+
+class ModelMinimization(GoalProgrammingMixin, ModelicaMixin, CollocatedIntegratedOptimizationProblem):
+
+    def __init__(self):
+        super().__init__(
+            input_folder=data_path(),
+            output_folder=data_path(),
+            model_name="ModelAlgebraic",
+            model_folder=data_path(),
+        )
+        self._constraints_test = {}
+        self._constraints_test['variable'] = 'y'
+
+    def post(self):
+        super().post()
+        try:
+            self._constraints_test['max'] = list(self._GoalProgrammingMixin__constraint_store[0].values())[0].max
+        except Exception:
+            pass
+
+    def times(self, variable=None):
+        # Collocation points
+        return np.linspace(-0.5, 1.0, 21)
+
+    def bounds(self):
+        bounds = super().bounds()
+        bounds["y"] = (-2.0, -1.0)
+        return bounds
+
+    def compiler_options(self):
+        compiler_options = super().compiler_options()
+        compiler_options["cache"] = False
+        compiler_options['library_folders'] = []
+        return compiler_options
+
+
+class ModelMinimizationOrderGoals1(ModelMinimization):
+
+    def goals(self):
+        return [FirstOrderMinimizationGoal()]
+
+
+class ModelMinimizationOrderGoals2(ModelMinimization):
+
+    def goals(self):
+        return [SecondOrderMinimizationGoalWithoutRelaxation()]
+
+
+class FirstOrderMinimizationGoal(Goal):
+
+    def function(self, optimization_problem, ensemble_member):
+        return optimization_problem.state_at(
+            optimization_problem._constraints_test['variable'], 0.5,
+            ensemble_member=ensemble_member)**2
+
+    priority = 1
+    order = 1
+
+
+class SecondOrderMinimizationGoalWithoutRelaxation(Goal):
+
+    def function(self, optimization_problem, ensemble_member):
+        return optimization_problem.state_at(
+            optimization_problem._constraints_test['variable'], 0.5,
+            ensemble_member=ensemble_member)
+
+    priority = 1
+    order = 2
+
+
+class TestGoalProgrammingMinimizationGoals(TestCase):
+
+    def setUp(self):
+        self.problem1 = ModelMinimizationOrderGoals1()
+        self.problem2 = ModelMinimizationOrderGoals2()
+        self.problem1.optimize()
+        self.problem2.optimize()
+
+    def test_minimization_constraint(self):
+        self.assertAlmostGreaterThan(self.problem1._constraints_test['max'], 0, 1e-6)
+        self.assertAlmostGreaterThan(self.problem2._constraints_test['max'], 0, 1e-6)
+        self.assertAlmostEqual(self.problem1._constraints_test['max'], self.problem2._constraints_test['max'], 1e-6)
+
+
+class RelaxationModel(GoalProgrammingMixin, ModelicaMixin, CollocatedIntegratedOptimizationProblem):
+
+    def __init__(self):
+        super().__init__(
+            input_folder=data_path(),
+            output_folder=data_path(),
+            model_name="ModelAlgebraic",
+            model_folder=data_path(),
+        )
+        self._constraints_test = {}
+        self._constraints_test['variable'] = 'y'
+        self._constraints_test['max'] = []
+
+    def append_min_max_constraints(self):
+        try:
+            self._constraints_test['max'].append(list(self._GoalProgrammingMixin__constraint_store[0].values())[-1].max)
+        except Exception:
+            pass
+
+    def priority_completed(self, priority):
+        super().priority_completed(priority)
+        self.append_min_max_constraints()
+
+    def post(self):
+        super().post()
+        self.append_min_max_constraints()
+
+    def times(self, variable=None):
+        # Collocation points
+        return np.linspace(-0.5, 1.0, 21)
+
+    def bounds(self):
+        bounds = super().bounds()
+        bounds["y"] = (-2.0, -1.0)
+        return bounds
+
+    def compiler_options(self):
+        compiler_options = super().compiler_options()
+        compiler_options["cache"] = False
+        compiler_options['library_folders'] = []
+        return compiler_options
+
+
+class SecondOrderMinimizationGoalWithRelaxation(Goal):
+
+    def function(self, optimization_problem, ensemble_member):
+        return optimization_problem.state_at(
+            optimization_problem._constraints_test['variable'], 0.5,
+            ensemble_member=ensemble_member)
+
+    priority = 1
+    order = 2
+    relaxation = 0.1
+
+
+class TargetGoalWithoutRelaxation(Goal):
+
+    def function(self, optimization_problem, ensemble_member):
+        return optimization_problem.state_at(
+            optimization_problem._constraints_test['variable'], 0.5,
+            ensemble_member=ensemble_member)
+
+    priority = 1
+    order = 1
+    target_min = -1.8
+    target_max = -1.2
+    function_range = [-2, -1]
+
+
+class TargetGoalWithRelaxation(Goal):
+
+    def function(self, optimization_problem, ensemble_member):
+        return optimization_problem.state_at(
+            optimization_problem._constraints_test['variable'], 0.5,
+            ensemble_member=ensemble_member)
+
+    priority = 1
+    order = 1
+    target_min = -1.8
+    target_max = -1.2
+    function_range = [-2, -1]
+    relaxation = 0.1
+    function_key = 'foobar'
+
+
+class SecondTargetGoalWithRelaxation(Goal):
+
+    def function(self, optimization_problem, ensemble_member):
+        return optimization_problem.state_at(
+            optimization_problem._constraints_test['variable'], 0.5,
+            ensemble_member=ensemble_member)
+
+    priority = 2
+    order = 1
+    target_min = -1.7
+    target_max = -1.3
+    function_range = [-2, -1]
+    relaxation = 0.1
+    function_key = 'foobar'
+
+
+class ModelRelaxationGoals1(RelaxationModel):
+
+    def goals(self):
+        return [SecondOrderMinimizationGoalWithRelaxation()]
+
+
+class ModelRelaxationGoals2(RelaxationModel):
+
+    def goals(self):
+        return [SecondOrderMinimizationGoalWithoutRelaxation()]
+
+
+class ModelRelaxationGoals3(RelaxationModel):
+
+    def goals(self):
+        return [TargetGoalWithoutRelaxation()]
+
+
+class ModelRelaxationGoals4(RelaxationModel):
+
+    def goals(self):
+        return [TargetGoalWithRelaxation()]
+
+
+class ModelRelaxationGoals5(RelaxationModel):
+
+    def goals(self):
+        return [TargetGoalWithRelaxation(), SecondTargetGoalWithRelaxation()]
+
+
+class TestGoalProgrammingRelaxation(TestCase):
+
+    def setUp(self):
+        self.problem1 = ModelRelaxationGoals1()
+        self.problem2 = ModelRelaxationGoals2()
+        self.problem3 = ModelRelaxationGoals3()
+        self.problem4 = ModelRelaxationGoals4()
+        self.problem5 = ModelRelaxationGoals5()
+        self.problem1.optimize()
+        self.problem2.optimize()
+        self.problem3.optimize()
+        self.problem4.optimize()
+        self.problem5.optimize()
+
+    def test_minimization_relaxation(self):
+        self.assertAlmostGreaterThan(self.problem2._constraints_test['max'][-1],
+                                     self.problem1._constraints_test['max'][-1], 1e-6)
+
+    def test_target_goal_relaxation(self):
+        self.assertAlmostEqual(self.problem3._constraints_test['max'][-1],
+                               self.problem4._constraints_test['max'][-1]-0.1, 1e-6)
+
+    def test_merge_goal_constraint_with_relaxation(self):
+        self.assertTrue(self.problem5._constraints_test['max'][-2] != self.problem5._constraints_test['max'][-1])

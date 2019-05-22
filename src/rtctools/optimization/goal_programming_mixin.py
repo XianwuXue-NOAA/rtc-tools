@@ -1120,13 +1120,12 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
         else:
             # Epsilon is equal to the function value
             if options['fix_minimized_values'] and goal.relaxation == 0.0:
-                m = epsilon / goal.function_nominal
-                M = epsilon / goal.function_nominal
+                m = M = epsilon**goal.order / goal.function_nominal
                 self.check_collocation_linearity = False
                 self.linear_collocation = False
             else:
                 m = -np.inf * np.ones(epsilon.shape)
-                M = (epsilon + goal.relaxation) / goal.function_nominal + options['constraint_relaxation']
+                M = (epsilon + goal.relaxation)**goal.order / goal.function_nominal + options['constraint_relaxation']
 
         if is_path_goal:
             m = Timeseries(self.times(), m)
@@ -1135,11 +1134,18 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
             m = m[0]
             M = M[0]
 
-        constraint = _GoalConstraint(
-            goal,
-            lambda problem, ensemble_member=ensemble_member, goal=goal: (
-                goal.function(problem, ensemble_member) / goal.function_nominal),
-            m, M, True)
+        if goal.has_target_bounds:
+            constraint = _GoalConstraint(
+                goal,
+                lambda problem, ensemble_member=ensemble_member, goal=goal: (
+                    goal.function(problem, ensemble_member) / goal.function_nominal),
+                m, M, True)
+        else:
+            constraint = _GoalConstraint(
+                goal,
+                lambda problem, ensemble_member=ensemble_member, goal=goal: (
+                    ca.constpow(goal.function(problem, ensemble_member) / goal.function_nominal, goal.order)),
+                m, M, True)
 
         # Epsilon is fixed. Override previous {min,max} constraints for this
         # state.

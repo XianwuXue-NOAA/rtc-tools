@@ -820,6 +820,9 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
 
             if np.any(goal.function_nominal <= 0):
                 raise Exception("Nonpositive nominal value specified for goal {}".format(goal))
+            if isinstance(goal.function_nominal, np.ndarray) and len(goal.function_nominal) != goal.size:
+                raise Exception("Function nominal array must have length equal to {}, i.e., the goal size, "
+                                "for goal {}".format(goal.size, goal.__class__))
 
             if goal.critical and not goal.has_target_bounds:
                 raise Exception("Minimization goals cannot be critical")
@@ -827,6 +830,11 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
             if goal.has_target_bounds:
                 if not np.all(np.isfinite(m)) or not np.all(np.isfinite(M)):
                     raise Exception("No function range specified for goal {}".format(goal))
+
+                if ((isinstance(m, np.ndarray) and len(m) != goal.size) or
+                        (isinstance(M, np.ndarray) and len(M) != goal.size)):
+                    raise Exception("Function range array(s) must have length equal to {}, i.e., the goal size, "
+                                    "for goal {}".format(goal.size, goal.__class__))
 
                 if np.any(m >= M):
                     raise Exception("Invalid function range for goal {}.".format(goal))
@@ -837,11 +845,25 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
                 if goal.function_range != (np.nan, np.nan):
                     raise Exception("Specifying function range not allowed for goal {}".format(goal))
 
-            if not is_path_goal:
-                if isinstance(goal.target_min, Timeseries):
+            if isinstance(goal.target_min, Timeseries):
+                if not is_path_goal:
                     raise Exception("Target min cannot be a Timeseries for goal {}".format(goal))
-                if isinstance(goal.target_max, Timeseries):
+                if goal.target_min.values.ndim > 1 and goal.target_min.values.shape[1] != goal.size:
+                    raise Exception("Target min Timeseries values must have {} columns, i.e., as many columns "
+                                    "as goal size for goal {}".format(goal.size, goal.__class__))
+            elif isinstance(goal.target_min, np.ndarray) and len(goal.target_min) != goal.size:
+                raise Exception("Target min array must have length equal to {}, i.e., the goal size, for goal {}"
+                                .format(goal.size, goal.__class__))
+
+            if isinstance(goal.target_max, Timeseries):
+                if not is_path_goal:
                     raise Exception("Target max cannot be a Timeseries for goal {}".format(goal))
+                if goal.target_max.values.ndim > 1 and goal.target_max.values.shape[1] != goal.size:
+                    raise Exception("Target max Timeseries values must have {} columns, i.e., as many columns "
+                                    "as goal size for goal {}".format(goal.size, goal.__class__))
+            elif isinstance(goal.target_max, np.ndarray) and len(goal.target_max) != goal.size:
+                raise Exception("Target max array must have length equal to {}, i.e., the goal size, for goal {}"
+                                .format(goal.size, goal.__class__))
 
             try:
                 int(goal.priority)
@@ -1040,6 +1062,9 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
                             epsilon = problem.variable(epsilon.name())
                         else:
                             epsilon = problem.extra_variable(epsilon.name(), ensemble_member)
+                        if goal.size != epsilon.shape[0]:
+                            raise Exception(
+                                "Goal size does not match the number of objective functions for goal {}".format(goal))
 
                         return goal.weight * ca.constpow(epsilon, goal.order) / n_active
                 else:
@@ -1051,6 +1076,9 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
                     def _objective_func(problem, ensemble_member, goal=goal, is_path_goal=is_path_goal,
                                         n_active=n_active):
                         f = goal.function(problem, ensemble_member) / goal.function_nominal
+                        if goal.size != f.shape[0]:
+                            raise Exception(
+                                "Goal size does not match the number of objective functions for goal {}".format(goal))
                         return goal.weight * ca.constpow(f, goal.order) / n_active
 
                 objectives.append(_objective_func)

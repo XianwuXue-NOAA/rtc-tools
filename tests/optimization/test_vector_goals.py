@@ -126,7 +126,7 @@ class Goal1_2_3(Goal):
             optimization_problem.state_at("x", 0.7, ensemble_member=ensemble_member),
             optimization_problem.state_at("x", 1.0, ensemble_member=ensemble_member))
 
-    function_range = (-5.0, 5.0)
+    function_range = (np.array([-5.0, -5.0, -5.0]), np.array([5.0, 5.0, 5.0]))
     size = 3
     order = 1
     priority = 1
@@ -205,10 +205,46 @@ class PathGoal1_2(Goal):
     priority = 1
 
 
+class PathGoal1_2_nan(Goal):
+    def __init__(self, optimization_problem):
+        bounds_x = optimization_problem.bounds()['x']
+        bounds_z = optimization_problem.bounds()['z']
+        lb = np.array([bounds_x[0], bounds_z[0], bounds_z[0]])
+        ub = np.array([bounds_x[1], bounds_z[1], bounds_z[1]])
+        self.function_range = (lb, ub)
+
+        times = optimization_problem.times()
+        n_times = len(times)
+
+        self.target_min = Timeseries(times,
+                                     np.stack((np.full(n_times, 0.1),
+                                               np.full(n_times, 0.5),
+                                               np.full(n_times, np.nan)),
+                                              axis=1))
+        self.target_min.values[10, 0] = np.nan
+
+        self.target_max = np.array([np.nan, 2.0, np.nan])
+
+    def function(self, optimization_problem, ensemble_member):
+        return ca.vertcat(optimization_problem.state('x'),
+                          optimization_problem.state('z'),
+                          optimization_problem.state('z'))
+
+    size = 3
+    order = 1
+    priority = 1
+
+
 class ModelPathGoalsVector(Model):
 
     def path_goals(self):
         return [PathGoal1_2(self), PathGoal3(self)]
+
+
+class ModelPathGoalsVectorWithTrivialTarget(Model):
+
+    def path_goals(self):
+        return [PathGoal1_2_nan(self), PathGoal3(self)]
 
 
 class TestVectorGoals(TestCase):
@@ -268,6 +304,10 @@ class ModelPathGoalsVectorScale(ScaleByProblemSizeMixin, ModelPathGoalsVector):
     pass
 
 
+class ModelPathGoalsVectorWithTrivialTargetScale(ScaleByProblemSizeMixin, ModelPathGoalsVectorWithTrivialTarget):
+    pass
+
+
 class TestVectorGoalsScaleProblemSize(TestCase):
 
     def test_vector_goals(self):
@@ -310,3 +350,13 @@ class TestVectorGoalsScaleProblemSize(TestCase):
 
         self.assertListEqual(self.problem1._objective_values, self.problem2._objective_values)
         self.assertTrue(np.array_equal(results1['x'], results2['x']))
+
+    def test_path_vector_goals_with_trivial_target(self):
+        self.problem1 = ModelPathGoalsVectorScale()
+        self.problem2 = ModelPathGoalsVectorWithTrivialTargetScale()
+        self.problem1.optimize()
+        self.problem2.optimize()
+
+        problem1_objvals = np.array(self.problem1._objective_values)
+        problem2_objvals = np.array(self.problem2._objective_values)
+        self.assertAlmostEqual(problem1_objvals, problem2_objvals, 1e-6)

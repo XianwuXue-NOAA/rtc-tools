@@ -1118,7 +1118,7 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
             m -= options['constraint_relaxation']
             M += options['constraint_relaxation']
         else:
-            # Epsilon encodes the position within the function range.
+            # Epsilon is equal to the function value
             if options['fix_minimized_values'] and goal.relaxation == 0.0:
                 m = epsilon / goal.function_nominal
                 M = epsilon / goal.function_nominal

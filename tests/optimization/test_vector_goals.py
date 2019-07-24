@@ -194,10 +194,7 @@ class PathGoal1_2(Goal):
                                               axis=1))
         self.target_min.values[10, 0] = np.nan
 
-        self.target_max = Timeseries(times,
-                                     np.stack((np.full(n_times, np.nan),
-                                               np.full(n_times, 2.0)),
-                                              axis=1))
+        self.target_max = np.array([np.nan, 2.0])
 
     def function(self, optimization_problem, ensemble_member):
         return ca.vertcat(optimization_problem.state('x'),

@@ -450,7 +450,7 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
         # timeseries are shared between all ensemble members.
         for (variable, value) in self.__subproblem_path_timeseries + self.__problem_path_timeseries:
             if isinstance(value, np.ndarray):
-                value = Timeseries(self.times(), np.broadcast_to(value, (n_times, len(value))).transpose())
+                value = Timeseries(self.times(), np.broadcast_to(value, (n_times, len(value))))
             elif not isinstance(value, Timeseries):
                 value = Timeseries(self.times(), np.full(n_times, value))
 
@@ -732,33 +732,51 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
         return []
 
     def __min_max_arrays(self, g, target_shape=None):
+        """
+        Broadcasts the goal target minimum and target maximum to arrays of a desired target shape.
+
+        Depending on whether g is a vector goal or not, the output shape differs:
+
+        - A 2-D array of size (goal.size, target_shape or 1) if the goal size
+          is larger than one, i.e. a vector goal
+        - A 1-D array of size (target_shape or 1, ) otherwise
+        """
+
         times = self.times()
 
         m, M = None, None
         if isinstance(g.target_min, Timeseries):
             m = self.interpolate(
                 times, g.target_min.times, g.target_min.values, -np.inf, -np.inf)
+            if m.ndim > 1:
+                m = m.transpose()
         elif isinstance(g.target_min, np.ndarray) and target_shape:
-            m = np.broadcast_to(g.target_min, (target_shape, len(g.target_min)))
+            m = np.broadcast_to(g.target_min, (target_shape, g.size)).transpose()
         elif target_shape:
             m = np.full(target_shape, g.target_min)
         else:
-            m = np.array([g.target_min])
+            m = np.array([g.target_min]).transpose()
         if isinstance(g.target_max, Timeseries):
             M = self.interpolate(
                 times, g.target_max.times, g.target_max.values, np.inf, np.inf)
+            if M.ndim > 1:
+                M = M.transpose()
         elif isinstance(g.target_max, np.ndarray) and target_shape:
-            M = np.broadcast_to(g.target_max, (target_shape, len(g.target_max)))
+            M = np.broadcast_to(g.target_max, (target_shape, g.size)).transpose()
         elif target_shape:
             M = np.full(target_shape, g.target_max)
         else:
-            M = np.array([g.target_max])
+            M = np.array([g.target_max]).transpose()
 
         if g.size > 1 and m.ndim == 1:
-            m = np.broadcast_to(m, (g.size, len(m))).transpose()
+            m = np.broadcast_to(m, (g.size, len(m)))
         if g.size > 1 and M.ndim == 1:
-            M = np.broadcast_to(M, (g.size, len(M))).transpose()
+            M = np.broadcast_to(M, (g.size, len(M)))
 
+        if g.size > 1:
+            assert m.shape == (g.size, 1 if target_shape is None else target_shape)
+        else:
+            assert m.shape == (1 if target_shape is None else target_shape, )
         assert m.shape == M.shape
 
         return m, M
@@ -871,8 +889,8 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
 
         for goal in goals:
             goal_m, goal_M = self.__min_max_arrays(goal, target_shape)
-            goal_lb = np.broadcast_to(goal.function_range[0], goal_m.shape)
-            goal_ub = np.broadcast_to(goal.function_range[1], goal_M.shape)
+            goal_lb = np.broadcast_to(goal.function_range[0], goal_m.shape[::-1]).transpose()
+            goal_ub = np.broadcast_to(goal.function_range[1], goal_M.shape[::-1]).transpose()
 
             if goal.has_target_min and goal.has_target_max:
                 indices = np.where(np.logical_not(np.logical_or(
@@ -997,7 +1015,7 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
                     if is_path_goal and options['scale_by_problem_size']:
                         goal_m, goal_M = self.__min_max_arrays(goal, target_shape=len(self.times()))
                         goal_active = np.isfinite(goal_m) | np.isfinite(goal_M)
-                        n_active = np.sum(goal_active.astype(int), axis=0)
+                        n_active = np.sum(goal_active.astype(int), axis=-1)
                     else:
                         n_active = 1
 
@@ -1076,7 +1094,7 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
         if not is_path_goal:
             epsilon = epsilon[:1]
 
-        goal_m, goal_M = self.__min_max_arrays(goal, target_shape=epsilon.shape)
+        goal_m, goal_M = self.__min_max_arrays(goal, target_shape=epsilon.shape[0])
 
         if goal.has_target_bounds:
             # We use a violation variable formulation, with the violation

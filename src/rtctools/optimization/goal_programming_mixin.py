@@ -1026,6 +1026,8 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
                         goal_m, goal_M = self.__min_max_arrays(goal, target_shape=len(self.times()))
                         goal_active = np.isfinite(goal_m) | np.isfinite(goal_M)
                         n_active = np.sum(goal_active.astype(int), axis=-1)
+                        # Avoid possible division by zero if goal is inactive
+                        n_active = np.maximum(n_active, 1)
                     else:
                         n_active = 1
 

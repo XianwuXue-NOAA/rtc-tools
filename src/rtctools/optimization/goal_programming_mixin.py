@@ -110,6 +110,16 @@ class Goal(metaclass=ABCMeta):
     optimization of the goal's priority. The unit of the relaxation is equal
     to that of the goal function.
 
+    A goal can be written in vector form. In a vector goal:
+        * The goal size determines how many goals there are.
+        * The goal function has shape ``(goal size, 1)``.
+        * The function is either minimized or has, possibly various, targets.
+        * Function nominal can either be an array with as many entries as the goal size or have a single value.
+        * Function ranges can either be an array with as many entries as the goal size or have a single value.
+        * In a goal, the target can either be an array with as many entries as the goal size or have a single value.
+        * In a path goal, the target can also be a Timeseries whose values are either a 1-dimensional vector or have
+          as many columns as the goal size.
+
     Example definition of the point goal :math:`x(t) \geq 1.1` for :math:`t=1.0` at priority 1::
 
         class MyGoal(Goal):

@@ -14,7 +14,9 @@ from .optimization.pi_mixin import PIMixin as OptimizationPIMixin
 from .simulation.pi_mixin import PIMixin as SimulationPIMixin
 
 
-def run_optimization_problem(optimization_problem_class, base_folder='..', log_level=logging.INFO, profile=False):
+def run_optimization_problem(optimization_problem_class,
+                             base_folder='..', log_level=logging.INFO, profile=False,
+                             **kwargs):
     """
     Sets up and solves an optimization problem.
 
@@ -80,7 +82,8 @@ def run_optimization_problem(optimization_problem_class, base_folder='..', log_l
     # Run
     try:
         prob = optimization_problem_class(
-            model_folder=model_folder, input_folder=input_folder, output_folder=output_folder)
+            model_folder=model_folder, input_folder=input_folder, output_folder=output_folder,
+            **kwargs)
         if profile:
             filename = os.path.join(base_folder, "profile.prof")
 
@@ -112,7 +115,9 @@ def run_optimization_problem(optimization_problem_class, base_folder='..', log_l
         raise
 
 
-def run_simulation_problem(simulation_problem_class, base_folder='..', log_level=logging.INFO):
+def run_simulation_problem(simulation_problem_class,
+                           base_folder='..', log_level=logging.INFO,
+                           **kwargs):
     """
     Sets up and runs a simulation problem.
 
@@ -162,6 +167,7 @@ def run_simulation_problem(simulation_problem_class, base_folder='..', log_level
 
     # Run
     prob = simulation_problem_class(
-        model_folder=model_folder, input_folder=input_folder, output_folder=output_folder)
+        model_folder=model_folder, input_folder=input_folder, output_folder=output_folder,
+        **kwargs)
     prob.simulate()
     return prob

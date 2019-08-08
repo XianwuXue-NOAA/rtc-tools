@@ -475,6 +475,14 @@ class TestGoalProgrammingPathGoalsMixed(TestGoalProgrammingPathGoals):
         self.tolerance = 1e-6
 
 
+class TestGoalProgrammingPathGoalsMixedCritical(TestGoalProgrammingPathGoals):
+
+    def setUp(self):
+        self.problem = ModelPathGoalsMixedCritical()
+        self.problem.optimize()
+        self.tolerance = 1e-6
+
+
 class ModelPathGoalsMixedKeepSoft(ModelPathGoalsMixed):
 
     def goal_programming_options(self):

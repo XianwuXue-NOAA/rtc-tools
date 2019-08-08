@@ -824,7 +824,11 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
             if goal.critical and not goal.has_target_bounds:
                 raise Exception("Minimization goals cannot be critical")
 
-            if goal.has_target_bounds:
+            if goal.critical:
+                # Allow a function range for backwards compatibility reasons.
+                # Maybe raise a warning that its not actually used?
+                pass
+            elif goal.has_target_bounds:
                 if not np.all(np.isfinite(m)) or not np.all(np.isfinite(M)):
                     raise Exception("No function range specified for goal {}".format(goal))
 
@@ -909,7 +913,7 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
                 if np.any(goal_m[indices] > goal_M[indices]):
                     raise Exception("Target minimum exceeds target maximum for goal {}".format(goal))
 
-            if goal.has_target_min:
+            if goal.has_target_min and not goal.critical:
                 indices = np.where(np.isfinite(goal_m))
                 if np.any(goal_m[indices] <= goal_lb[indices]):
                     raise Exception(
@@ -919,7 +923,7 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
                     raise Exception(
                         'Target minimum should be smaller than the upper bound of the function range for goal {}'
                         .format(goal))
-            if goal.has_target_max:
+            if goal.has_target_max and not goal.critical:
                 indices = np.where(np.isfinite(goal_M))
                 if np.any(goal_M[indices] >= goal_ub[indices]):
                     raise Exception(
@@ -1113,12 +1117,15 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
             # variables epsilon bounded between 0 and 1.
             m, M = np.full_like(epsilon, -np.inf, dtype=np.float64), np.full_like(epsilon, np.inf, dtype=np.float64)
 
+            # A function range does not have to be specified for critical
+            # goals. Avoid multiplying with NaN in that case.
             if goal.has_target_min:
-                m = (epsilon * (goal.function_range[0] - goal_m)
+                m = (epsilon * ((goal.function_range[0] - goal_m) if not goal.critical else 0.0)
                      + goal_m - goal.relaxation) / goal.function_nominal
             if goal.has_target_max:
-                M = (epsilon * (goal.function_range[1] - goal_M)
+                M = (epsilon * ((goal.function_range[1] - goal_M) if not goal.critical else 0.0)
                      + goal_M + goal.relaxation) / goal.function_nominal
+
             if goal.has_target_min and goal.has_target_max:
                 # Avoid comparing with NaN
                 inds = ~(np.isnan(m) | np.isnan(M))

@@ -862,6 +862,9 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
                 if goal.size > 1:
                     raise Exception("Option `keep_soft_constraints` needs to be set for vector goal {}".format(goal))
 
+            if goal.critical and goal.size > 1:
+                raise Exception("Vector goal cannot be critical for goal {}".format(goal))
+
         if is_path_goal:
             target_shape = len(self.times())
         else:
@@ -967,7 +970,8 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
 
         for j, goal in enumerate(goals):
             if goal.critical:
-                epsilon = np.zeros(goal.size)
+                assert goal.size == 1, "Critical goals cannot be vector goals"
+                epsilon = np.zeros(len(self.times()) if is_path_goal else 1)
             elif goal.has_target_bounds:
                 epsilon = ca.MX.sym(eps_format.format(sym_index, j), goal.size)
                 epsilons.append(epsilon)

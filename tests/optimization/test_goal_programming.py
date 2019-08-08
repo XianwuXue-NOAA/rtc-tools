@@ -448,6 +448,20 @@ class PathGoal1Critical(Goal):
     critical = True
 
 
+class PathGoal1CriticalTimeseries(Goal):
+
+    def __init__(self, optimization_problem):
+        super().__init__()
+        times = optimization_problem.times()
+        self.target_min = Timeseries(times, np.full(len(times), 0.0))
+
+    def function(self, optimization_problem, ensemble_member):
+        return optimization_problem.state("x")
+
+    priority = 1
+    critical = True
+
+
 class TestGoalLowerUCritical(Goal):
 
     def function(self, optimization_problem, ensemble_member):
@@ -467,6 +481,15 @@ class ModelPathGoalsMixedCritical(ModelPathGoals):
         return [TestGoalLowerUCritical()]
 
 
+class ModelPathGoalsMixedCriticalTimeseries(ModelPathGoals):
+
+    def path_goals(self):
+        return [PathGoal1CriticalTimeseries(self), PathGoal2()]
+
+    def goals(self):
+        return [TestGoalLowerUCritical()]
+
+
 class TestGoalProgrammingPathGoalsMixed(TestGoalProgrammingPathGoals):
 
     def setUp(self):
@@ -479,6 +502,14 @@ class TestGoalProgrammingPathGoalsMixedCritical(TestGoalProgrammingPathGoals):
 
     def setUp(self):
         self.problem = ModelPathGoalsMixedCritical()
+        self.problem.optimize()
+        self.tolerance = 1e-6
+
+
+class TestGoalProgrammingPathGoalsMixedCriticalTimeseries(TestGoalProgrammingPathGoals):
+
+    def setUp(self):
+        self.problem = ModelPathGoalsMixedCriticalTimeseries()
         self.problem.optimize()
         self.tolerance = 1e-6
 

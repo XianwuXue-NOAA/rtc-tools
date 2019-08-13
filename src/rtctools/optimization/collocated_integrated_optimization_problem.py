@@ -75,6 +75,10 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                 self.dae_variables['time']):
             self.__variables[var.name()] = var
 
+        self.__orig_variables = AliasDict(self.alias_relation)
+        self.__orig_variables.update(self.__variables)
+        # self.__orig_variables = self.__variables.copy()
+
         # Call super
         super().__init__(**kwargs)
 
@@ -156,6 +160,8 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                 dae_residual.size1(), len(self.times()), len(self.dae_variables['free_variables'])))
 
         # Reset dictionary of variables
+        self.__variables = AliasDict(self.alias_relation)
+        self.__variables.update(self.__orig_variables)
         for var in itertools.chain(self.path_variables, self.extra_variables):
             self.__variables[var.name()] = var
 

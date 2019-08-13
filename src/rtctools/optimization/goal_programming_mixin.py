@@ -1398,7 +1398,7 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
         self.__path_constraint_store = [OrderedDict() for ensemble_member in range(self.ensemble_size)]
 
         # Lists for when `keep_soft_constraints` is True
-        self._special_wide_constraints = []
+        self.__special_wide_constraints = []
         self.__problem_constraints = [[] for ensemble_member in range(self.ensemble_size)]
         self.__problem_epsilons = []
         self.__problem_parameters = []

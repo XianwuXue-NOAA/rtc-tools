@@ -423,6 +423,7 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
 
         # Lists that are only filled when 'keep_soft_constraints' is True
         self.__problem_constraints = _EmptyEnsembleList()
+        self.__special_wide_constraints = []
         self.__problem_path_constraints = _EmptyEnsembleList()
         self.__problem_epsilons = []
         self.__problem_path_epsilons = []
@@ -1358,7 +1359,7 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
         # The goal works over all ensemble members, so we add it to the last
         # one, as at that point the inputs of all previous ensemble members
         # will have been discretized, mapped and stored.
-        self.__problem_constraints[-1].append(constraint)
+        self.__special_wide_constraints.append(constraint)
 
     def optimize(self, preprocessing=True, postprocessing=True, log_solver_failure_as_error=True):
         # Do pre-processing
@@ -1397,6 +1398,7 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
         self.__path_constraint_store = [OrderedDict() for ensemble_member in range(self.ensemble_size)]
 
         # Lists for when `keep_soft_constraints` is True
+        self._special_wide_constraints = []
         self.__problem_constraints = [[] for ensemble_member in range(self.ensemble_size)]
         self.__problem_epsilons = []
         self.__problem_parameters = []
@@ -1486,3 +1488,20 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
         # If self.__results is not up to date, do the super().extract_results
         # method
         return super().extract_results(ensemble_member)
+
+    def transcribe(self):
+        discrete, lbx, ubx, lbg, ubg, x0, nlp = super().transcribe()
+
+
+        constraints = []
+        for constraint in self.__special_wide_constraints:
+            constraints.append((constraint.function(self), constraint.min, constraint.max))
+
+        if constraints:
+            g, l, u = zip(*constraints)
+
+            nlp['g'] = ca.vertcat(nlp['g'], *g)
+            lbg.extend(l)
+            ubg.extend(u)
+
+        return discrete, lbx, ubx, lbg, ubg, x0, nlp

@@ -1492,7 +1492,6 @@ class GoalProgrammingMixin(OptimizationProblem, metaclass=ABCMeta):
     def transcribe(self):
         discrete, lbx, ubx, lbg, ubg, x0, nlp = super().transcribe()
 
-
         constraints = []
         for constraint in self.__special_wide_constraints:
             constraints.append((constraint.function(self), constraint.min, constraint.max))

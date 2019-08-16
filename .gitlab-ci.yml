@@ -66,9 +66,9 @@ py37:linux:
 coverage:
   stage: coverage
   script:
+    - pip install python-coveralls
     - tox -vv
-    - pip install codecov
-    - codecov --token=$CODECOV_TOKEN
+    - coveralls
   variables:
     TOXENV: coverage
   tags:

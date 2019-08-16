@@ -12,4 +12,4 @@ exclude_lines =
 [paths]
 source =
     src/rtctools
-	.tox/*/lib/python*/site-packages/rtctools
+    */site-packages/rtctools

@@ -615,7 +615,7 @@ class OptimizationProblem(metaclass=ABCMeta):
         """
         if hasattr(t, '__iter__'):
             f = np.vectorize(lambda t_: self.__interpolate(
-                t_, ts, fs, f_left, f_right))
+                t_, ts, fs, f_left, f_right, mode))
             return f(t)
         else:
             return self.__interpolate(t, ts, fs, f_left, f_right, mode)

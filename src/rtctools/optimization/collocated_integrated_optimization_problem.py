@@ -1135,7 +1135,7 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                 interpolation_method = self.interpolation_method(variable)
                 values = self.state_vector(variable, ensemble_member=ensemble_member)
                 interpolated = interpolate(
-                    times, values, collocation_times, self.equidistant, interpolation_method)
+                    times, values, collocation_times, False, interpolation_method)
 
                 nominal = self.variable_nominal(variable)
                 if nominal != 1:
@@ -1389,12 +1389,12 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                         interpolation_method = self.interpolation_method(
                             in_canonical)
                         x_in = interpolate(in_times, in_values,
-                                           collocation_times, self.equidistant, interpolation_method)
+                                           collocation_times, False, interpolation_method)
                     else:
                         x_in = in_values
                     interpolation_method = self.interpolation_method(in_canonical)
                     x_out_delayed = interpolate(
-                        out_times, out_values, collocation_times - delay, self.equidistant, interpolation_method)
+                        out_times, out_values, collocation_times - delay, False, interpolation_method)
 
                     nominal = nominal_delayed_feedback[i]
 

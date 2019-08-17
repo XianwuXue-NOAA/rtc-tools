@@ -992,7 +992,7 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                     variable, ensemble_member=ensemble_member)
                 if len(collocation_times) != len(times):
                     interpolated = interpolate(
-                        times, values, collocation_times, self.equidistant, interpolation_method)
+                        times, values, collocation_times, False, interpolation_method)
                 else:
                     interpolated = values
                 nominal = self.variable_nominal(variable)
@@ -1224,12 +1224,12 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                     interpolation_method = self.interpolation_method(
                         in_canonical)
                     x_in = interpolate(in_times, in_values,
-                                       collocation_times, self.equidistant, interpolation_method)
+                                       collocation_times, False, interpolation_method)
                 else:
                     x_in = in_values
                 interpolation_method = self.interpolation_method(in_canonical)
                 x_out_delayed = interpolate(
-                    out_times, out_values, collocation_times - delay, self.equidistant, interpolation_method)
+                    out_times, out_values, collocation_times - delay, False, interpolation_method)
 
                 nominal = nominal_delayed_feedback[i]
 
@@ -2124,7 +2124,7 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
             values = self.state_vector(state, ensemble_member)
             if len(times) != n_collocation_times:
                 accumulation_states[i] = interpolate(
-                    times, values, collocation_times, self.equidistant, interpolation_method)
+                    times, values, collocation_times, False, interpolation_method)
             else:
                 accumulation_states[i] = values
             nominal = self.variable_nominal(state)

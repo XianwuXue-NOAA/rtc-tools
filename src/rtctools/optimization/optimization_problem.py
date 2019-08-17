@@ -629,7 +629,7 @@ class OptimizationProblem(metaclass=ABCMeta):
                 return fs.copy()
 
             f = np.vectorize(lambda t_: self.__interpolate(
-                t_, ts, fs, f_left, f_right))
+                t_, ts, fs, f_left, f_right, mode))
             return f(t)
         else:
             if ts[0] == t:

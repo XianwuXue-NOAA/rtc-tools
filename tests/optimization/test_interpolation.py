@@ -281,6 +281,30 @@ class TestSymbolicInterpolation(TestCase):
             [results["x"][0], (results["x"][1] + results["x"][0]) / 2, results["x"][1]],
             self.tolerance)
 
+    def test_state_at_block_forward(self):
+        self.problem._interpolation_x = self.problem.INTERPOLATION_PIECEWISE_CONSTANT_FORWARD
+        self.problem.optimize()
+
+        results = self.problem.extract_results()
+        res_state_at = self._at_0_half_1(self.problem.state_at, "x")
+
+        self.assertAlmostEqual(
+            res_state_at,
+            [results["x"][0], results["x"][0], results["x"][1]],
+            self.tolerance)
+
+    def test_state_at_block_backward(self):
+        self.problem._interpolation_x = self.problem.INTERPOLATION_PIECEWISE_CONSTANT_BACKWARD
+        self.problem.optimize()
+
+        results = self.problem.extract_results()
+        res_state_at = self._at_0_half_1(self.problem.state_at, "x")
+
+        self.assertAlmostEqual(
+            res_state_at,
+            [results["x"][0], results["x"][1], results["x"][1]],
+            self.tolerance)
+
     def test_control_at_linear(self):
         self.problem._interpolation_u = self.problem.INTERPOLATION_LINEAR
         self.problem.optimize()
@@ -291,6 +315,30 @@ class TestSymbolicInterpolation(TestCase):
         self.assertAlmostEqual(
             res_control_at,
             [results["u"][0], (results["u"][1] + results["u"][0]) / 2, results["u"][1]],
+            self.tolerance)
+
+    def test_control_at_block_forward(self):
+        self.problem._interpolation_u = self.problem.INTERPOLATION_PIECEWISE_CONSTANT_FORWARD
+        self.problem.optimize()
+
+        results = self.problem.extract_results()
+        res_control_at = self._at_0_half_1(self.problem.control_at, "u")
+
+        self.assertAlmostEqual(
+            res_control_at,
+            [results["u"][0], results["u"][0], results["u"][1]],
+            self.tolerance)
+
+    def test_control_at_block_backward(self):
+        self.problem._interpolation_u = self.problem.INTERPOLATION_PIECEWISE_CONSTANT_BACKWARD
+        self.problem.optimize()
+
+        results = self.problem.extract_results()
+        res_control_at = self._at_0_half_1(self.problem.control_at, "u")
+
+        self.assertAlmostEqual(
+            res_control_at,
+            [results["u"][0], results["u"][1], results["u"][1]],
             self.tolerance)
 
     def test_map_linear(self):

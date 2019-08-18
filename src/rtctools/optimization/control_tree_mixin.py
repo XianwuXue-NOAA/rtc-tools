@@ -276,8 +276,14 @@ class ControlTreeMixin(OptimizationProblem):
                         if extrapolate:
                             f_left = history_timeseries.values[0]
                             f_right = history_timeseries.values[-1]
+                        interpolation_method = self.interpolation_method(control_input)
                         sym = self.interpolate(
-                                t, history_timeseries.times, history_timeseries.values, f_left, f_right)
+                                t,
+                                history_timeseries.times,
+                                history_timeseries.values,
+                                f_left,
+                                f_right,
+                                interpolation_method)
                     if not scaled and nominal != 1:
                         sym *= nominal
                 else:
@@ -285,8 +291,9 @@ class ControlTreeMixin(OptimizationProblem):
                         raise Exception("Cannot interpolate for {}: Point {} outside of range [{}, {}]".format(
                             control_input, t, times[0], times[-1]))
 
+                    interpolation_method = self.interpolation_method(control_input)
                     sym = interpolate(
-                        times, variable_values, [t], False)
+                        times, variable_values, [t], False, interpolation_method)
                     if not scaled and nominal != 1:
                         sym *= nominal
                 if sign < 0:

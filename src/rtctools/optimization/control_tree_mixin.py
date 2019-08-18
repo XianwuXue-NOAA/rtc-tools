@@ -268,16 +268,23 @@ class ControlTreeMixin(OptimizationProblem):
                         if extrapolate:
                             f_left = history_timeseries.values[0]
                             f_right = history_timeseries.values[-1]
+                        interpolation_method = self.interpolation_method(control_input)
                         sym = self.interpolate(
-                                t, history_timeseries.times, history_timeseries.values, f_left, f_right)
+                                t,
+                                history_timeseries.times,
+                                history_timeseries.values,
+                                f_left,
+                                f_right,
+                                interpolation_method)
                     if not scaled and nominal != 1:
                         sym *= nominal
                 else:
                     if extrapolate:
                         f_left = variable_values[0]
                         f_right = variable_values[-1]
+                    interpolation_method = self.interpolation_method(control_input)
                     sym = self.interpolate(
-                        t, times, variable_values, f_left, f_right)
+                        t, times, variable_values, f_left, f_right, interpolation_method)
                     if not scaled and nominal != 1:
                         sym *= nominal
                 if sign < 0:

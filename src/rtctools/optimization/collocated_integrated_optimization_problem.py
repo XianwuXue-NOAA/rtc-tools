@@ -255,8 +255,9 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                             [values] = substitute_in_external(
                                 [values], symbolic_parameters, parameter_values)
                             values = ca.vertsplit(values)
+                        interpolation_method = self.interpolation_method(variable)
                         constant_inputs_interpolated[variable] = self.interpolate(
-                            collocation_times, constant_input.times, values, 0.0, 0.0)
+                            collocation_times, constant_input.times, values, 0.0, 0.0, interpolation_method)
 
                 return constant_inputs_interpolated
 
@@ -945,8 +946,9 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                     sym = self.state_vector(
                         variable, ensemble_member=ensemble_member)[0]
 
+                    interpolation_method = self.interpolation_method(variable)
                     val = self.interpolate(
-                        t0, history_timeseries.times, history_timeseries.values, np.nan, np.nan)
+                        t0, history_timeseries.times, history_timeseries.values, np.nan, np.nan, interpolation_method)
                     val /= self.variable_nominal(variable)
 
                     if not np.isnan(val):
@@ -1101,13 +1103,20 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
             history_values = np.empty((history_times.shape[0], len(integrated_variables) + len(collocated_variables)))
             if history_times.shape[0] > 0:
                 for j, var in enumerate(integrated_variables + collocated_variables):
+                    var_name = var.name()
                     try:
-                        history_series = history[var.name()]
+                        history_series = history[var_name]
                     except KeyError:
                         history_values[:, j] = np.nan
                     else:
+                        interpolation_method = self.interpolation_method(var_name)
                         history_values[:, j] = self.interpolate(
-                            history_times, history_series.times, history_series.values, np.nan, np.nan)
+                            history_times,
+                            history_series.times,
+                            history_series.values,
+                            np.nan,
+                            np.nan,
+                            interpolation_method)
 
             # Calculate the historical derivatives of historical values
             history_derivatives = ca.repmat(np.nan, 1, history_values.shape[1])
@@ -1120,13 +1129,20 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
             constant_input_values = np.empty((history_times.shape[0], len(self.dae_variables['constant_inputs'])))
             if history_times.shape[0] > 0:
                 for j, var in enumerate(self.dae_variables['constant_inputs']):
+                    var_name = var.name()
                     try:
-                        constant_input_series = raw_constant_inputs[var.name()]
+                        constant_input_series = raw_constant_inputs[var_name]
                     except KeyError:
                         constant_input_values[:, j] = np.nan
                     else:
+                        interpolation_method = self.interpolation_method(var_name)
                         constant_input_values[:, j] = self.interpolate(
-                            history_times, constant_input_series.times, constant_input_series.values, np.nan, np.nan)
+                            history_times,
+                            constant_input_series.times,
+                            constant_input_series.values,
+                            np.nan,
+                            np.nan,
+                            interpolation_method)
 
             if len(delayed_feedback_expressions) > 0:
                 delayed_feedback_history = np.zeros((history_times.shape[0], len(delayed_feedback_expressions)))
@@ -1423,23 +1439,39 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                 pass
             else:
                 nominal = self.variable_nominal(variable)
+                interpolation_method = self.interpolation_method(variable)
                 if bound[0] is not None:
                     if isinstance(bound[0], Timeseries):
                         lbx[offset:offset + n_times] = self.interpolate(
-                            times, bound[0].times, bound[0].values, -np.inf, -np.inf) / nominal
+                            times,
+                            bound[0].times,
+                            bound[0].values,
+                            -np.inf,
+                            -np.inf,
+                            interpolation_method) / nominal
                     else:
                         lbx[offset:offset + n_times] = bound[0] / nominal
                 if bound[1] is not None:
                     if isinstance(bound[1], Timeseries):
                         ubx[offset:offset + n_times] = self.interpolate(
-                            times, bound[1].times, bound[1].values, +np.inf, +np.inf) / nominal
+                            times,
+                            bound[1].times,
+                            bound[1].values,
+                            +np.inf,
+                            +np.inf,
+                            interpolation_method) / nominal
                     else:
                         ubx[offset:offset + n_times] = bound[1] / nominal
 
                 try:
                     seed_k = seed[variable]
                     x0[offset:offset + n_times] = self.interpolate(
-                        times, seed_k.times, seed_k.values, 0, 0) / nominal
+                        times,
+                        seed_k.times,
+                        seed_k.values,
+                        0,
+                        0,
+                        interpolation_method) / nominal
                 except KeyError:
                     pass
 
@@ -1492,16 +1524,23 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                         if extrapolate:
                             f_left = history_timeseries.values[0]
                             f_right = history_timeseries.values[-1]
+                        interpolation_method = self.interpolation_method(control_input)
                         sym = self.interpolate(
-                            t, history_timeseries.times, history_timeseries.values, f_left, f_right)
+                            t,
+                            history_timeseries.times,
+                            history_timeseries.values,
+                            f_left,
+                            f_right,
+                            interpolation_method)
                     if not scaled and nominal != 1:
                         sym *= nominal
                 else:
                     if extrapolate:
                         f_left = variable_values[0]
                         f_right = variable_values[-1]
+                    interpolation_method = self.interpolation_method(control_input)
                     sym = self.interpolate(
-                        t, times, variable_values, f_left, f_right)
+                        t, times, variable_values, f_left, f_right, interpolation_method)
                     if not scaled and nominal != 1:
                         sym *= nominal
                 if sign < 0:
@@ -1607,16 +1646,17 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                         pass
                     else:
                         nominal = self.variable_nominal(variable)
+                        interpolation_method = self.interpolation_method(variable)
                         if bound[0] is not None:
                             if isinstance(bound[0], Timeseries):
                                 lbx[offset] = self.interpolate(self.initial_time, bound[0].times, bound[
-                                    0].values, -np.inf, -np.inf) / nominal
+                                    0].values, -np.inf, -np.inf, interpolation_method) / nominal
                             else:
                                 lbx[offset] = bound[0] / nominal
                         if bound[1] is not None:
                             if isinstance(bound[1], Timeseries):
                                 ubx[offset] = self.interpolate(self.initial_time, bound[1].times, bound[
-                                    1].values, +np.inf, +np.inf) / nominal
+                                    1].values, +np.inf, +np.inf, interpolation_method) / nominal
                             else:
                                 ubx[offset] = bound[1] / nominal
 
@@ -1640,15 +1680,17 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                         nominal = self.variable_nominal(variable)
                         if bound[0] is not None:
                             if isinstance(bound[0], Timeseries):
+                                interpolation_method = self.interpolation_method(variable)
                                 lower_bound = self.interpolate(
-                                    times, bound[0].times, bound[0].values, -np.inf, -np.inf)
+                                    times, bound[0].times, bound[0].values, -np.inf, -np.inf, interpolation_method)
                             else:
                                 lower_bound = bound[0]
                             lbx[offset:offset + n_times] = lower_bound / nominal
                         if bound[1] is not None:
                             if isinstance(bound[1], Timeseries):
+                                interpolation_method = self.interpolation_method(variable)
                                 upper_bound = self.interpolate(
-                                    times, bound[1].times, bound[1].values, +np.inf, +np.inf)
+                                    times, bound[1].times, bound[1].values, +np.inf, +np.inf, interpolation_method)
                             else:
                                 upper_bound = bound[1]
                             ubx[offset:offset + n_times] = upper_bound / nominal
@@ -1689,8 +1731,9 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                     try:
                         seed_k = seed[variable]
                         nominal = self.variable_nominal(variable)
+                        interpolation_method = self.interpolation_method(variable)
                         x0[offset] = self.interpolate(
-                            self.initial_time, seed_k.times, seed_k.values, 0, 0) / nominal
+                            self.initial_time, seed_k.times, seed_k.values, 0, 0, interpolation_method) / nominal
                     except KeyError:
                         pass
 
@@ -1703,8 +1746,9 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                     try:
                         seed_k = seed[variable]
                         nominal = self.variable_nominal(variable)
+                        interpolation_method = self.interpolation_method(variable)
                         x0[offset:offset + n_times] = self.interpolate(
-                            times, seed_k.times, seed_k.values, 0, 0) / nominal
+                            times, seed_k.times, seed_k.values, 0, 0, interpolation_method) / nominal
                     except KeyError:
                         pass
 
@@ -1855,16 +1899,23 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                                 if extrapolate:
                                     f_left = history_timeseries.values[0]
                                     f_right = history_timeseries.values[-1]
+                                interpolation_method = self.interpolation_method(free_variable)
                                 sym = self.interpolate(
-                                    t, history_timeseries.times, history_timeseries.values, f_left, f_right)
+                                    t,
+                                    history_timeseries.times,
+                                    history_timeseries.values,
+                                    f_left,
+                                    f_right,
+                                    interpolation_method)
                             if scaled and nominal != 1:
                                 sym /= nominal
                         else:
                             if extrapolate:
                                 f_left = variable_values[0]
                                 f_right = variable_values[-1]
+                            interpolation_method = self.interpolation_method(free_variable)
                             sym = self.interpolate(
-                                t, times, variable_values, f_left, f_right)
+                                t, times, variable_values, f_left, f_right, interpolation_method)
                             if not scaled and nominal != 1:
                                 sym *= nominal
                         if sign < 0:
@@ -1896,8 +1947,9 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                     if extrapolate:
                         f_left = constant_input.values[0]
                         f_right = constant_input.values[-1]
+                    interpolation_method = self.interpolation_method(variable)
                     sym = self.interpolate(
-                        t, constant_input.times, constant_input.values, f_left, f_right)
+                        t, constant_input.times, constant_input.values, f_left, f_right, interpolation_method)
             if not found:
                 parameters = self.parameters(ensemble_member)
                 try:
@@ -2165,8 +2217,9 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                     [values] = substitute_in_external(
                         [values], symbolic_parameters, self.__parameter_values_ensemble_member_0)
                     values = ca.vertsplit(values)
+                interpolation_method = self.interpolation_method(variable)
                 accumulation_constant_inputs[i] = self.interpolate(
-                    collocation_times, constant_input.times, values, 0.0, 0.0)
+                    collocation_times, constant_input.times, values, 0.0, 0.0, interpolation_method)
 
         accumulation_constant_inputs = ca.transpose(
             ca.horzcat(*accumulation_constant_inputs))

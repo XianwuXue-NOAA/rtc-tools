@@ -1683,11 +1683,12 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                     if not scaled and nominal != 1:
                         sym *= nominal
                 else:
-                    if extrapolate:
-                        f_left = variable_values[0]
-                        f_right = variable_values[-1]
-                    sym = self.interpolate(
-                        t, times, variable_values, f_left, f_right)
+                    if not extrapolate and (t < times[0] or t > times[-1]):
+                        raise Exception("Cannot interpolate for {}: Point {} outside of range [{}, {}]".format(
+                            control_input, t, times[0], times[-1]))
+
+                    sym = interpolate(
+                        times, variable_values, [t], False)
                     if not scaled and nominal != 1:
                         sym *= nominal
                 if sign < 0:
@@ -2111,11 +2112,12 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                             if scaled and nominal != 1:
                                 sym /= nominal
                         else:
-                            if extrapolate:
-                                f_left = variable_values[0]
-                                f_right = variable_values[-1]
-                            sym = self.interpolate(
-                                t, times, variable_values, f_left, f_right)
+                            if not extrapolate and (t < times[0] or t > times[-1]):
+                                raise Exception("Cannot interpolate for {}: Point {} outside of range [{}, {}]".format(
+                                    free_variable, t, times[0], times[-1]))
+
+                            sym = interpolate(
+                                times, variable_values, [t], False)
                             if not scaled and nominal != 1:
                                 sym *= nominal
                         if sign < 0:

@@ -2087,8 +2087,8 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                                 found = True
                                 break
                             else:
-                                variable_values = self.integrators[
-                                    free_variable]
+                                variable_values = ca.horzcat(sign * X[offset], self.integrators[
+                                    free_variable]).T
                         else:
                             nominal = self.variable_nominal(free_variable)
                             variable_values = X[offset:offset + n_times]

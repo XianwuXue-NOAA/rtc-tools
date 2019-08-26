@@ -179,6 +179,30 @@ class TestNumericalLinearInterpolation(TestNumericalInterpolation):
 
         np.testing.assert_array_equal(res_scalar, res_arr)
 
+    def test_2d_interpolate(self):
+        self.problem._equidistant = False
+
+        np.random.seed(42)
+
+        # 3 timeseries of length 10
+        shape = (10, 3)
+
+        ts = np.cumsum(np.random.rand(shape[0]))
+        fs_2d = np.random.rand(*shape)
+        t = np.random.rand(shape[0])
+
+        res_2d = self.problem.interpolate(t, ts, fs_2d, -np.inf, np.inf)
+
+        res_1d = np.stack([
+            self.problem.interpolate(t, ts, fs_2d[:, i], -np.inf, np.inf)
+            for i in range(shape[1])
+        ], axis=1)
+
+        self.assertEqual(res_2d.shape, shape)
+        self.assertEqual(res_1d.shape, shape)
+
+        np.testing.assert_array_equal(res_2d, res_1d)
+
 
 class TestNumericalBlockInterpolation(TestNumericalInterpolation):
     t = np.array([-1.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.5, 6.0])

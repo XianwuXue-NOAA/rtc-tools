@@ -1392,7 +1392,7 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                                            collocation_times, self.equidistant, interpolation_method)
                     else:
                         x_in = in_values
-                    interpolation_method = self.interpolation_method()
+                    interpolation_method = self.interpolation_method(in_canonical)
                     x_out_delayed = interpolate(
                         out_times, out_values, collocation_times - delay, self.equidistant, interpolation_method)
 

@@ -355,7 +355,7 @@ class PIMixin(OptimizationProblem):
         if self.ensemble_size > 1:
             self.__timeseries_export.contains_ensemble = True
         self.__timeseries_export.ensemble_size = self.ensemble_size
-        self.__timeseries_export.contains_ensemble = self.__timeseries_import.contains_ensemble
+        self.__timeseries_export.contains_ensemble = (self.ensemble_size > 1)
 
         # Start looping over the ensembles for extraction of the output values.
         for ensemble_member in range(self.ensemble_size):
@@ -392,10 +392,12 @@ class PIMixin(OptimizationProblem):
                         'so cannot be added to the output file.'.format(variable))
                     continue
 
-                # Add series to output file
+                # Add series to output file.
+                # NOTE: We use the unit of the zeroth ensemble member, as
+                # we might be outputting more ensembles than we read in.
                 self.__timeseries_export.set(
                     variable, values,
-                    unit=self.__timeseries_import.get_unit(variable, ensemble_member=ensemble_member),
+                    unit=self.__timeseries_import.get_unit(variable, ensemble_member=0),
                     ensemble_member=ensemble_member)
 
         # Write output file to disk

@@ -575,13 +575,6 @@ class Timeseries:
                 unit = header.find('pi:units', ns).text
                 self.set_unit(variable, unit=unit, ensemble_member=ensemble_member)
 
-                if make_virtual_ensemble:
-                    # Make references to the original input series for the virtual
-                    # ensemble members.
-                    for i in range(1, self.ensemble_size):
-                        self.__values[i][variable] = self.__values[0][variable]
-                        self.set_unit(variable, unit=unit, ensemble_member=i)
-
                 # Prepend empty space, if start_datetime > self.__start_datetime.
                 if start_datetime > self.__start_datetime:
                     if self.__dt:
@@ -613,6 +606,13 @@ class Timeseries:
                     filler.fill(np.nan)
                     self.__values[ensemble_member][variable] = np.hstack(
                         (self.__values[ensemble_member][variable], filler))
+
+                if make_virtual_ensemble:
+                    # Make references to the original input series for the virtual
+                    # ensemble members.
+                    for i in range(1, self.ensemble_size):
+                        self.__values[i][variable] = self.__values[0][variable]
+                        self.set_unit(variable, unit=unit, ensemble_member=i)
 
             if not self.__dt:
                 # Remove time values outside the start/end datetimes.

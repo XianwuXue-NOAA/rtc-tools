@@ -41,6 +41,12 @@ class DummyIOMixin(IOMixin):
     def write(self):
         pass
 
+    def times(self, variable=None):
+        if hasattr(self, '_overrule_times'):
+            return self._overrule_times
+        else:
+            return super().times(variable)
+
 
 class Model(DummyIOMixin, ModelicaMixin, CollocatedIntegratedOptimizationProblem):
 
@@ -106,26 +112,63 @@ class TestOptimizationProblem(TestCase):
         # now let's do this again but only give part of the values
         values = [1.1, 2.1, 3.1]
 
-        # with check_consistency=True (default) we should get a ValueError
-        with self.assertRaises(ValueError):
-            self.problem.set_timeseries('partialSeries', Timeseries(times[-3:], values))
+        # with check_consistency=True (default) we should be fine as long
+        # as the timeseries times are a subset of the import times
+        self.problem.set_timeseries('partialSeries1', Timeseries(times[-3:], values))
+        actual_series = self.problem.get_timeseries('partialSeries1')
+        self.assertTrue(np.array_equal(actual_series.times, times))
+        self.assertTrue(np.array_equal(actual_series.values[-3:], values))
+        self.assertTrue(np.all(np.isnan(actual_series.values[:-3])))
 
-        self.problem.set_timeseries('partialSeries', Timeseries(times[-3:], values), check_consistency=False)
+        wrong_times = times[-3:].copy()
+        wrong_times[-1] -= 1
+        with self.assertRaisesRegex(ValueError, "different times"):
+            self.problem.set_timeseries('partialSeries2', Timeseries(wrong_times, values))
 
-        actual_series = self.problem.get_timeseries('partialSeries')
+        # Without the check, we will also get through with wrong times
+        self.problem.set_timeseries('partialSeries2', Timeseries(wrong_times, values), check_consistency=False)
+
+        actual_series = self.problem.get_timeseries('partialSeries2')
         self.assertTrue(np.array_equal(actual_series.times, times))
         self.assertTrue(np.array_equal(actual_series.values[-3:], values))
         self.assertTrue(np.all(np.isnan(actual_series.values[:-3])))
 
     def test_set_timeseries_with_array(self):
         times = self.problem.times()
-        values = np.ones(times.shape)
+        values = np.random.random(times.shape)
         self.problem.set_timeseries('newVar', values)
 
         actual_series = self.problem.get_timeseries('newVar')
         forecast_index = bisect.bisect_left(self.problem.io.datetimes, self.problem.io.reference_datetime)
         self.assertTrue(np.array_equal(actual_series.values[forecast_index:], values))
         self.assertTrue(np.all(np.isnan(actual_series.values[:forecast_index])))
+
+        # with check_consistency=True (default) we should be fine as long
+        # as self.times() returns subset of the import times
+        orig_times = self.problem.times()
+        self.problem._overrule_times = orig_times[1:]
+        self.problem.set_timeseries('partialSeries1', values[1:])
+        actual_series = self.problem.get_timeseries('partialSeries1')
+        self.assertTrue(np.array_equal(actual_series.times, self.problem.io.times_sec))
+        self.assertTrue(np.array_equal(actual_series.values[-3:], values[1:]))
+        self.assertTrue(np.all(np.isnan(actual_series.values[:-3])))
+
+        with self.assertRaisesRegex(ValueError, "different length"):
+            self.problem.set_timeseries('partialSeries1', values)
+
+        wrong_times = orig_times.copy()[1:]
+        wrong_times[-1] -= 1
+        self.problem._overrule_times = wrong_times
+        with self.assertRaisesRegex(ValueError, "different times"):
+            self.problem.set_timeseries('partialSeries2', values[1:])
+
+        # Without the check, we will also get through with wrong times
+        self.problem.set_timeseries('partialSeries2', values[1:], check_consistency=False)
+
+        actual_series = self.problem.get_timeseries('partialSeries2')
+        self.assertTrue(np.array_equal(actual_series.times, self.problem.io.times_sec))
+        self.assertTrue(np.array_equal(actual_series.values[-3:], values[1:]))
+        self.assertTrue(np.all(np.isnan(actual_series.values[:-3])))
 
     def test_timeseries_at(self):
         times = self.problem.io.times_sec

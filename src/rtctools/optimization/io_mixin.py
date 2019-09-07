@@ -108,12 +108,13 @@ class IOMixin(OptimizationProblem, metaclass=ABCMeta):
 
             if not np.array_equal(timeseries_times_sec, timeseries.times):
                 if check_consistency:
-                    raise ValueError(
-                        'IOMixin: Trying to set timeseries {} with different times '
-                        '(in seconds) than the imported timeseries. Please make sure the '
-                        'timeseries covers all timesteps of the longest '
-                        'imported timeseries.'.format(variable)
-                    )
+                    if not set(timeseries_times_sec).issuperset(timeseries.times):
+                        raise ValueError(
+                            'IOMixin: Trying to set timeseries {} with different times '
+                            '(in seconds) than the imported timeseries. Please make sure the '
+                            'timeseries covers all timesteps of the longest '
+                            'imported timeseries.'.format(variable)
+                        )
 
                 # Determine position of first times of added timeseries within the
                 # import times. For this we assume that both time ranges are ordered,
@@ -127,16 +128,25 @@ class IOMixin(OptimizationProblem, metaclass=ABCMeta):
                 values = timeseries.values
 
         else:
-            if check_consistency and len(self.times()) != len(timeseries):
-                raise ValueError('IOMixin: Trying to set values for {} with a different '
-                                 'length ({}) than the forecast length. Please make sure the '
-                                 'values covers all timesteps of the longest imported timeseries (length {}).'
+            timeseries_times_sec = self.io.times_sec
+
+            if check_consistency:
+                if len(self.times()) != len(timeseries):
+                    raise ValueError('IOMixin: Trying to set values for {} with a different '
+                                 'length ({}) than the forecast length ({}).'
                                  .format(variable, len(timeseries), len(self.times())))
+                elif not set(timeseries_times_sec).issuperset(self.times()):
+                    raise ValueError(
+                        'IOMixin: Trying to set timeseries {} with different times '
+                        '(in seconds) than the imported timeseries. Please make sure the '
+                        'timeseries covers all timesteps of the longest '
+                        'imported timeseries.'.format(variable)
+                    )
 
             # If times is not supplied with the timeseries, we add the
             # forecast times range to a new Timeseries object. Hereby
             # we assume that the supplied values stretch from T0 to end.
-            t_pos = len(self.io.datetimes) - len(timeseries)
+            t_pos = bisect.bisect_left(timeseries_times_sec, self.initial_time)
 
             # Construct a new values range with length of self.io.get_times()
             values = stretch_values(timeseries, t_pos)

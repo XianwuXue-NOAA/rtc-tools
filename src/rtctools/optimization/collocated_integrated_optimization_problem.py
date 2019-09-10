@@ -1256,7 +1256,7 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
 
             # Delayed feedback
             # Make an array of all unique times in history series
-            history_times = np.unique([history_series.times for history_series in history.values()])
+            history_times = np.unique(np.hstack([history_series.times for history_series in history.values()]))
             # By convention, the last timestep in history series is the initial time. We drop this index
             history_times = history_times[:-1]
 

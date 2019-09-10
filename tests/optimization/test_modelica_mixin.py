@@ -263,7 +263,8 @@ class ModelMixedInteger(ModelicaMixin, CollocatedIntegratedOptimizationProblem):
 class ModelHistory(Model):
     def history(self, ensemble_member):
         h = super().history(ensemble_member)
-        h['x'] = Timeseries(np.array([-0.1, 0.0]), np.array([0.9, 1.1]))
+        # NOTE: We deliberately add histories of different lengths
+        h['x'] = Timeseries(np.array([-0.2, -0.1, 0.0]), np.array([0.7, 0.9, 1.1]))
         h['w'] = Timeseries(np.array([-0.1, 0.0]), np.array([0.9, np.nan]))
         return h
 

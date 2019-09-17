@@ -7,7 +7,6 @@ import casadi as ca
 
 import numpy as np
 
-from rtctools._internal.alias_tools import AliasDict
 from rtctools._internal.caching import cached
 from rtctools.optimization.optimization_problem import OptimizationProblem
 from rtctools.optimization.timeseries import Timeseries
@@ -219,7 +218,7 @@ class IOMixin(OptimizationProblem, metaclass=ABCMeta):
     @cached
     def history(self, ensemble_member):
         # Load history
-        history = AliasDict(self.alias_relation)
+        history = super().history(ensemble_member)
 
         end_index = bisect.bisect_left(self.io.times_sec, self.initial_time) + 1
 

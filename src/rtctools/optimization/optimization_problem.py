@@ -399,7 +399,7 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
 
     def history(self, ensemble_member: int) -> AliasDict[str, Timeseries]:
         """
-        Returns the state history.  Uses the initial_state() method by default.
+        Returns the state history. Calls :py:meth:`initial_state` by default for values at t0.
 
         :param ensemble_member: The ensemble member index.
 
@@ -443,18 +443,15 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
         """
         The initial state.
 
-        The default implementation uses t0 data returned by the ``history`` method.
+        The default implementation returns an empty :py:class:`.AliasDict`.
+        Note that is a convencience method called by :py:meth:`history` for
+        additional values at t0.
 
         :param ensemble_member: The ensemble member index.
 
         :returns: A dictionary of variable names and initial state (t0) values.
         """
-        t0 = self.initial_time
-        history = self.history(ensemble_member)
-        return AliasDict(
-            self.alias_relation,
-            {variable: self.interpolate(t0, timeseries.times, timeseries.values)
-             for variable, timeseries in history.items()})
+        return AliasDict(self.alias_relation, {})
 
     @property
     def initial_residual(self) -> ca.MX:

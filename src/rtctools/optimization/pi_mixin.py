@@ -3,7 +3,6 @@ from datetime import timedelta
 
 import rtctools.data.pi as pi
 import rtctools.data.rtc as rtc
-from rtctools._internal.caching import cached
 from rtctools.optimization.io_mixin import IOMixin
 
 logger = logging.getLogger("rtctools")
@@ -142,18 +141,6 @@ class PIMixin(IOMixin):
 
         # Done
         return options
-
-    @cached
-    def initial_state(self, ensemble_member):
-        # Call parent class first for default values.
-        initial_state = super().initial_state(ensemble_member)
-
-        history = self.history(ensemble_member)
-
-        for variable, timeseries in history.items():
-            initial_state[variable] = timeseries.values[-1]
-
-        return initial_state
 
     def write(self):
         # Call parent class first for default behaviour.

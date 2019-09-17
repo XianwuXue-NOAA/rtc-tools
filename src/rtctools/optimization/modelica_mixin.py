@@ -207,7 +207,7 @@ class ModelicaMixin(OptimizationProblem):
 
     @cached
     def initial_state(self, ensemble_member):
-        initial_state = AliasDict(self.alias_relation)
+        initial_state = super().initial_state(ensemble_member)
 
         # Parameter values
         parameters = self.parameters(ensemble_member)

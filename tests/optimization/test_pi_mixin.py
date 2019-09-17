@@ -62,10 +62,10 @@ class TestPIMixin(TestCase):
         self.assertEqual(params["SV_H_y"], 22.02)
         self.assertEqual(params["SV_H_y"], params["SV_V_y"])
 
-    def test_initial_state(self):
-        initial_state = self.problem.initial_state(0)
-        self.assertAlmostEqual(initial_state["x"], 1.02, self.tolerance)
-        self.assertAlmostEqual(initial_state["v_initial"], 2.1, self.tolerance)
+    def test_history(self):
+        history = self.problem.history(0)
+        self.assertAlmostEqual(history["x"].values[-1], 1.02, self.tolerance)
+        self.assertAlmostEqual(history["v_initial"].values[-1], 2.1, self.tolerance)
 
     def test_seed(self):
         seed = self.problem.seed(0)

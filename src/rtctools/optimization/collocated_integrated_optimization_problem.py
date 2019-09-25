@@ -59,6 +59,8 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
 
         self.__derivative_names = [variable.name() for variable in self.dae_variables['derivatives']]
 
+        self.__initial_derivative_names = ["initial_" + variable for variable in self.__derivative_names]
+
         # DAE cache
         self.__integrator_step_function = None
         self.__dae_residual_function_collocated = None
@@ -1767,8 +1769,8 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
 
                 offset += variable_size
 
-            for der_name in self.__derivative_names:
-                indices[ensemble_member]["initial_" + der_name] = offset
+            for initial_der_name in self.__initial_derivative_names:
+                indices[ensemble_member][initial_der_name] = offset
 
                 offset += 1
 
@@ -1942,10 +1944,7 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                 except KeyError:
                     pass
 
-            for state_name, der_name in zip(self.__differentiated_states, self.__derivative_names):
-
-                initial_der_name = "initial_" + der_name
-
+            for state_name, initial_der_name in zip(self.__differentiated_states, self.__initial_derivative_names):
                 inds = indices[ensemble_member][initial_der_name]
 
                 try:
@@ -2035,10 +2034,7 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
             results[variable] *= self.variable_nominal(variable)
 
         # Extract initial derivatives
-        for state_name, der_name in zip(self.__differentiated_states, self.__derivative_names):
-
-            initial_der_name = "initial_" + der_name
-
+        for state_name, initial_der_name in zip(self.__differentiated_states, self.__initial_derivative_names):
             inds = indices[initial_der_name]
 
             try:

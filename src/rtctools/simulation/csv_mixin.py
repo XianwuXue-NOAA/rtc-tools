@@ -6,6 +6,7 @@ from datetime import timedelta
 import numpy as np
 
 import rtctools.data.csv as csv
+from rtctools._internal.alias_tools import AliasDict
 from rtctools._internal.caching import cached
 
 from .simulation_problem import SimulationProblem
@@ -125,6 +126,8 @@ class CSVMixin(SimulationProblem):
                         'Set equidistant=False if this is intended.'.format(
                             self.__timeseries_times[i + 1]))
 
+        self.__simulation_times = []
+
     def initialize(self, config_file=None):
         # Set up experiment
         self.setup_experiment(0, self.__timeseries_times_sec[-1], self.__dt)
@@ -151,18 +154,18 @@ class CSVMixin(SimulationProblem):
 
         logger.debug("Model inputs are {}".format(self.__input_variables))
 
+        self.__simulation_times.append(self.get_current_time())
+
         # Empty output
         self.__output_variables = self.get_output_variables()
-        n_times = len(self.__timeseries_times_sec)
-        self.__output = {
-            variable: np.full(n_times, np.nan) for variable in self.__output_variables}
+        self.__output = AliasDict(self.alias_relation)
 
         # Call super, which will also initialize the model itself
         super().initialize(config_file)
 
         # Extract consistent t0 values
         for variable in self.__output_variables:
-            self.__output[variable][0] = self.get_var(variable)
+            self.__output = np.array([self.get_var(variable)])
 
     def update(self, dt):
         # Time step
@@ -171,6 +174,7 @@ class CSVMixin(SimulationProblem):
 
         # Current time stamp
         t = self.get_current_time()
+        self.__simulation_times.append(t + dt)
 
         # Get current time index
         t_idx = bisect.bisect_left(self.__timeseries_times_sec, t + dt)
@@ -186,19 +190,21 @@ class CSVMixin(SimulationProblem):
         super().update(dt)
 
         # Extract results
-        for variable in self.__output_variables:
-            self.__output[variable][t_idx] = self.get_var(variable)
+        for variable, values in self.__output.items():
+            self.__output = np.append(values, self.get_var(variable))
 
     def post(self):
         # Call parent class first for default behaviour.
         super().post()
 
+        times = self.__simulation_times
+
         # Write output
         names = ['time'] + sorted(set(self.__output.keys()))
         formats = ['O'] + (len(names) - 1) * ['f8']
         dtype = {'names': names, 'formats': formats}
-        data = np.zeros(len(self.__timeseries_times), dtype=dtype)
-        data['time'] = self.__timeseries_times
+        data = np.zeros(len(times), dtype=dtype)
+        data['time'] = self.__sec_to_datetime(times)
         for variable, values in self.__output.items():
             data[variable] = values
 

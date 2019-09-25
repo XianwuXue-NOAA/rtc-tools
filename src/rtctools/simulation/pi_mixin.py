@@ -131,6 +131,8 @@ class PIMixin(SimulationProblem):
                 logger.debug('PIMixin: Timeseries {} replaced another aliased timeseries.'.format(variable))
             self.__timeseries_import_dict[variable] = values
 
+        self.__simulation_times = []
+
     def initialize(self, config_file=None):
         # Set up experiment
         self.setup_experiment(0, self.__timeseries_import_times[-1], self.__dt)
@@ -159,18 +161,19 @@ class PIMixin(SimulationProblem):
 
         logger.debug("Model inputs are {}".format(self.__input_variables))
 
+        # Set first timestep
+        self.__simulation_times.append(self.get_current_time())
+
         # Empty output
         self.__output_variables = self.get_output_variables()
-        n_times = len(self.__timeseries_import_times)
         self.__output = AliasDict(self.alias_relation)
-        self.__output.update({variable: np.full(n_times, np.nan) for variable in self.__output_variables})
 
         # Call super, which will also initialize the model itself
         super().initialize(config_file)
 
         # Extract consistent t0 values
         for variable in self.__output_variables:
-            self.__output[variable][self.__timeseries_import.forecast_index] = self.get_var(variable)
+            self.__output[variable] = np.array([self.get_var(variable)])
 
     def update(self, dt):
         # Time step
@@ -179,6 +182,7 @@ class PIMixin(SimulationProblem):
 
         # Current time stamp
         t = self.get_current_time()
+        self.__simulation_times.append(t + dt)
 
         # Get current time index
         t_idx = bisect.bisect_left(self.__timeseries_import_times, t + dt)
@@ -196,20 +200,29 @@ class PIMixin(SimulationProblem):
         super().update(dt)
 
         # Extract results
-        for variable in self.__output_variables:
-            self.__output[variable][t_idx] = self.get_var(variable)
+        for variable, values in self.__output.items():
+            self.__output[variable] = np.append(values, self.get_var(variable))
 
     def post(self):
         # Call parent class first for default behaviour.
         super().post()
 
+        # Get simulation time info
+        times = self.__simulation_times
+        if len(set(np.diff(times))) == 1:
+            dt = timedelta(seconds=times[1] - times[0])
+        else:
+            dt = None
+
         # Start of write output
         # Write the time range for the export file.
-        self.__timeseries_export.times = self.__timeseries_import.times[self.__timeseries_import.forecast_index:]
+        self.__timeseries_export.times = [
+            self.__timeseries_import.times[self.__timeseries_import.forecast_index]
+            + timedelta(seconds=s) for s in times]
 
         # Write other time settings
         self.__timeseries_export.forecast_datetime = self.__timeseries_import.forecast_datetime
-        self.__timeseries_export.dt = self.__timeseries_import.dt
+        self.__timeseries_export.dt = dt
         self.__timeseries_export.timezone = self.__timeseries_import.timezone
 
         # Write the ensemble properties for the export file.
@@ -218,8 +231,7 @@ class PIMixin(SimulationProblem):
 
         # For all variables that are output variables the values are
         # extracted from the results.
-        for variable in self.__output_variables:
-            values = self.__output[variable]
+        for variable, values in self.__output.items():
             # Check if ID mapping is present
             try:
                 self.__data_config.pi_variable_ids(variable)

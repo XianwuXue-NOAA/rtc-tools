@@ -235,16 +235,3 @@ class ControlTreeMixin(OptimizationProblem):
 
         # Return number of control variables
         return count, discrete, lbx, ubx, x0, self.__control_indices
-
-    def extract_controls(self, ensemble_member=0):
-        # Solver output
-        X = self.solver_output.copy()
-
-        # Extract control inputs
-        results = {}
-        for variable in self.controls:
-            results[variable] = self.variable_nominal(
-                variable) * X[self.__control_indices[ensemble_member][variable]].ravel()
-
-        # Done
-        return results

@@ -1667,19 +1667,15 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
         return count, discrete, lbx, ubx, x0, indices
 
     def extract_controls(self, ensemble_member=0):
-        # Solver output
         X = self.solver_output.copy()
 
-        # Extract control inputs
-        results = {}
-        offset = 0
-        for variable in self.controls:
-            n_times = len(self.times(variable))
-            results[variable] = self.variable_nominal(
-                variable) * X[offset:offset + n_times]
-            offset += n_times
+        indices = self.__indices[ensemble_member]
 
-        # Done
+        results = {}
+        for variable in self.controls:
+            inds = indices[variable]
+            results[variable] = self.variable_nominal(variable) * X[inds]
+
         return results
 
     def control_at(self, variable, t, ensemble_member=0, scaled=False, extrapolate=True):
@@ -1972,11 +1968,35 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
 
         indices = self.__indices[ensemble_member]
 
-        # Extract collocated variables
-        for variable in itertools.chain(self.differentiated_states, self.algebraic_states):
-            if variable not in self.integrated_states:
-                inds = indices[variable]
-                results[variable] = self.variable_nominal(variable) * X[inds]
+        # Extract initial derivatives
+        for state_name, initial_der_name in zip(self.__differentiated_states, self.__initial_derivative_names):
+            inds = indices[initial_der_name]
+
+            try:
+                nominal = self.variable_nominal(state_name)
+                dt = self.__initial_dt[state_name]
+                results[initial_der_name] = nominal / dt * X[inds].ravel()
+            except KeyError:
+                pass
+
+        # Extract all other variables
+        variable_sizes = self.__variable_sizes
+
+        for variable in itertools.chain(self.differentiated_states, self.algebraic_states,
+                                        self.__path_variable_names, self.__extra_variable_names):
+            if variable in results:
+                continue
+
+            inds = indices[variable]
+            variable_size = variable_sizes[variable]
+
+            if variable_size > 1:
+                results[variable] = X[inds] \
+                    .reshape((variable_size, -1)).transpose()
+            else:
+                results[variable] = X[inds]
+
+            results[variable] = self.variable_nominal(variable) * results[variable]
 
         # Extract constant input aliases
         constant_inputs = self.constant_inputs(ensemble_member)
@@ -1990,51 +2010,6 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                 results[variable] = np.interp(self.times(
                     variable), constant_input.times, constant_input.values)
 
-        variable_sizes = self.__variable_sizes
-
-        # Extract path variables
-        n_collocation_times = len(self.times())
-        for variable in self.__path_variable_names:
-            inds = indices[variable]
-
-            variable_size = variable_sizes[variable]
-
-            if variable_size > 1:
-                results[variable] = X[inds] \
-                    .reshape((variable_size, n_collocation_times)).transpose()
-            else:
-                results[variable] = X[inds]
-
-            results[variable] *= self.variable_nominal(variable)
-
-        # Extract extra variables
-        for variable in self.__extra_variable_names:
-            inds = indices[variable]
-
-            variable_size = variable_sizes[variable]
-
-            if variable_size > 1:
-                # NOTE: To avoid confusion with 1D flat array for collocated variables, we
-                # want to explicitly return a column vector here.
-                results[variable] = X[inds][None, :]
-                assert results[variable].ndim == 2
-            else:
-                results[variable] = X[inds].ravel()
-
-            results[variable] *= self.variable_nominal(variable)
-
-        # Extract initial derivatives
-        for state_name, initial_der_name in zip(self.__differentiated_states, self.__initial_derivative_names):
-            inds = indices[initial_der_name]
-
-            try:
-                nominal = self.variable_nominal(state_name)
-                dt = self.__initial_dt[state_name]
-                results[initial_der_name] = nominal / dt * X[inds].ravel()
-            except KeyError:
-                pass
-
-        # Done
         return results
 
     def state_vector(self, variable, ensemble_member=0):

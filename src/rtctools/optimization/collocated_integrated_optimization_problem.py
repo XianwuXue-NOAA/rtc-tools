@@ -433,8 +433,6 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
         # Update the store of all ensemble-member-specific data for all ensemble members
         # with initial states, derivatives, and path variables.
         # Use vectorized approach to avoid SWIG call overhead for each CasADi call.
-        ensemble_member_size = int(self.__state_size / self.ensemble_size)
-
         n = len(integrated_variables) + len(collocated_variables)
         for ensemble_member in range(self.ensemble_size):
             ensemble_data = ensemble_store[ensemble_member]
@@ -451,10 +449,6 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
             init_der_constant_values = []
             init_dt = []
 
-            der_offset = (control_size
-                          + (ensemble_member + 1) * ensemble_member_size
-                          - len(self.dae_variables['derivatives']))
-
             history = self.history(ensemble_member)
 
             for j, variable in enumerate(integrated_variable_names + collocated_variable_names):
@@ -464,7 +458,8 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                     i = self.__differentiated_states_map[variable]
 
                     init_der_variable_nominals.append(self.variable_nominal(variable))
-                    init_der_variable_indices.append(der_offset + i)
+                    initial_der_name = self.__initial_derivative_names[i]
+                    init_der_variable_indices.append(self.__indices[ensemble_member][initial_der_name])
                     init_der_variable.append(j)
                     init_dt.append(self.__initial_dt[variable])
 
@@ -1037,12 +1032,6 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
 
             initial_derivative_constraints = []
 
-            ensemble_member_size = int(self.__state_size / self.ensemble_size)
-
-            der_offset = (self.__control_size
-                          + (ensemble_member + 1) * ensemble_member_size
-                          - len(self.dae_variables['derivatives']))
-
             for i, variable in enumerate(self.differentiated_states):
                 try:
                     history_timeseries = history[variable]
@@ -1076,7 +1065,8 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                         val *= self.__initial_dt[variable]
                         val /= self.variable_nominal(variable)
 
-                        idx = der_offset + i
+                        initial_der_name = self.__initial_derivative_names[i]
+                        idx = self.__indices[ensemble_member][initial_der_name]
                         lbx[idx] = ubx[idx] = val
 
             if len(initial_derivative_constraints) > 0:
@@ -2294,8 +2284,6 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
         if t == self.initial_time:
             # We have a special symbol for t0 derivatives
             X = self.solver_input
-            control_size = self.__control_size
-            ensemble_member_size = int(self.__state_size / self.ensemble_size)
 
             canonical, sign = self.alias_relation.canonical_signed(variable)
             try:
@@ -2306,10 +2294,11 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
             else:
                 nominal = self.variable_nominal(canonical)
                 dt = self.__initial_dt[canonical]
-                return nominal / dt * sign * X[
-                    control_size +
-                    (ensemble_member + 1) * ensemble_member_size -
-                    len(self.dae_variables['derivatives']) + i]
+
+                initial_der_name = self.__initial_derivative_names[i]
+                idx = self.__indices[ensemble_member][initial_der_name]
+
+                return nominal / dt * sign * X[idx]
 
         # Time stamps for this variable
         times = self.times(variable)

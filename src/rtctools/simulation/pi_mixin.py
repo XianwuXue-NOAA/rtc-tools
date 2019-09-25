@@ -213,4 +213,4 @@ class PIMixin(IOMixin):
 
         :returns: An AliasDict of output variables and results array format.
         """
-        return self.__output
+        return self.output

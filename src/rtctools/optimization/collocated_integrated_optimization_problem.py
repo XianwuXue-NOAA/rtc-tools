@@ -1691,59 +1691,12 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
         return results
 
     def control_at(self, variable, t, ensemble_member=0, scaled=False, extrapolate=True):
-        # Default implementation: One single set of control inputs for all
-        # ensembles
-        t0 = self.initial_time
-        X = self.solver_input
-
         canonical, sign = self.alias_relation.canonical_signed(variable)
-        offset = 0
-        for control_input in self.controls:
-            times = self.times(control_input)
-            if control_input == canonical:
-                nominal = self.variable_nominal(control_input)
-                n_times = len(times)
-                variable_values = X[offset:offset + n_times]
-                f_left, f_right = np.nan, np.nan
-                if t < t0:
-                    history = self.history(ensemble_member)
-                    try:
-                        history_timeseries = history[control_input]
-                    except KeyError:
-                        if extrapolate:
-                            sym = variable_values[0]
-                        else:
-                            sym = np.nan
-                    else:
-                        if extrapolate:
-                            f_left = history_timeseries.values[0]
-                            f_right = history_timeseries.values[-1]
-                        interpolation_method = self.interpolation_method(control_input)
-                        sym = self.interpolate(
-                            t,
-                            history_timeseries.times,
-                            history_timeseries.values,
-                            f_left,
-                            f_right,
-                            interpolation_method)
-                    if not scaled and nominal != 1:
-                        sym *= nominal
-                else:
-                    if not extrapolate and (t < times[0] or t > times[-1]):
-                        raise Exception("Cannot interpolate for {}: Point {} outside of range [{}, {}]".format(
-                            control_input, t, times[0], times[-1]))
 
-                    interpolation_method = self.interpolation_method(control_input)
-                    sym = interpolate(
-                        times, variable_values, [t], False, interpolation_method)
-                    if not scaled and nominal != 1:
-                        sym *= nominal
-                if sign < 0:
-                    sym *= -1
-                return sym
-            offset += len(times)
+        if canonical not in self.__controls_map:
+            raise KeyError(variable)
 
-        raise KeyError(variable)
+        return self.state_at(variable, t, ensemble_member, scaled, extrapolate)
 
     @property
     def differentiated_states(self):
@@ -2119,80 +2072,70 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
             # Look up transcribe_problem() state.
             t0 = self.initial_time
             X = self.solver_input
-            control_size = self.__control_size
-            ensemble_member_size = int(self.__state_size / self.ensemble_size)
 
             # Fetch appropriate symbol, or value.
             canonical, sign = self.alias_relation.canonical_signed(variable)
             found = False
-            if not found:
-                offset = control_size + ensemble_member * ensemble_member_size
-                for free_variable in itertools.chain(
-                        self.differentiated_states, self.algebraic_states, self.__path_variable_names):
-                    if free_variable == canonical:
-                        times = self.times(free_variable)
-                        n_times = len(times)
-                        if free_variable in self.integrated_states:
-                            nominal = 1
-                            if t == self.initial_time:
-                                sym = sign * X[offset]
-                                found = True
-                                break
-                            else:
-                                variable_values = ca.horzcat(sign * X[offset], self.integrators[
-                                    free_variable]).T
-                        else:
-                            nominal = self.variable_nominal(free_variable)
-                            variable_values = X[offset:offset + n_times]
-                        f_left, f_right = np.nan, np.nan
-                        if t < t0:
-                            history = self.history(ensemble_member)
-                            try:
-                                history_timeseries = history[free_variable]
-                            except KeyError:
-                                if extrapolate:
-                                    sym = variable_values[0]
-                                else:
-                                    sym = np.nan
-                            else:
-                                if extrapolate:
-                                    f_left = history_timeseries.values[0]
-                                    f_right = history_timeseries.values[-1]
-                                interpolation_method = self.interpolation_method(free_variable)
-                                sym = self.interpolate(
-                                    t,
-                                    history_timeseries.times,
-                                    history_timeseries.values,
-                                    f_left,
-                                    f_right,
-                                    interpolation_method)
-                            if scaled and nominal != 1:
-                                sym /= nominal
-                        else:
-                            if not extrapolate and (t < times[0] or t > times[-1]):
-                                raise Exception("Cannot interpolate for {}: Point {} outside of range [{}, {}]".format(
-                                    free_variable, t, times[0], times[-1]))
 
-                            interpolation_method = self.interpolation_method(free_variable)
-                            sym = interpolate(
-                                times, variable_values, [t], False, interpolation_method)
-                            if not scaled and nominal != 1:
-                                sym *= nominal
-                        if sign < 0:
-                            sym *= -1
+            # Check if it is in the state vector
+            try:
+                inds = self.__indices[ensemble_member][canonical]
+            except KeyError:
+                pass
+            else:
+                times = self.times(canonical)
+
+                if canonical in self.integrated_states:
+                    nominal = 1
+                    if t == self.initial_time:
+                        sym = sign * X[inds]
                         found = True
-                        break
-                    if free_variable in self.integrated_states:
-                        offset += 1
                     else:
-                        offset += len(self.times(free_variable))
-            if not found:
-                try:
-                    sym = self.control_at(
-                        variable, t, ensemble_member=ensemble_member, extrapolate=extrapolate)
+                        variable_values = ca.horzcat(sign * X[inds], self.integrators[
+                            canonical]).T
+                else:
+                    nominal = self.variable_nominal(canonical)
+                    variable_values = X[inds]
+
+                if not found:
+                    f_left, f_right = np.nan, np.nan
+                    if t < t0:
+                        history = self.history(ensemble_member)
+                        try:
+                            history_timeseries = history[canonical]
+                        except KeyError:
+                            if extrapolate:
+                                sym = variable_values[0]
+                            else:
+                                sym = np.nan
+                        else:
+                            if extrapolate:
+                                f_left = history_timeseries.values[0]
+                                f_right = history_timeseries.values[-1]
+                            interpolation_method = self.interpolation_method(canonical)
+                            sym = self.interpolate(
+                                t,
+                                history_timeseries.times,
+                                history_timeseries.values,
+                                f_left,
+                                f_right,
+                                interpolation_method)
+                        if scaled and nominal != 1:
+                            sym /= nominal
+                    else:
+                        if not extrapolate and (t < times[0] or t > times[-1]):
+                            raise Exception("Cannot interpolate for {}: Point {} outside of range [{}, {}]".format(
+                                canonical, t, times[0], times[-1]))
+
+                        interpolation_method = self.interpolation_method(canonical)
+                        sym = interpolate(
+                            times, variable_values, [t], False, interpolation_method)
+                        if not scaled and nominal != 1:
+                            sym *= nominal
+                    if sign < 0:
+                        sym *= -1
                     found = True
-                except KeyError:
-                    pass
+
             if not found:
                 constant_inputs = self.constant_inputs(ensemble_member)
                 try:
@@ -2202,7 +2145,6 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                     pass
                 else:
                     times = self.times(variable)
-                    n_times = len(times)
                     f_left, f_right = np.nan, np.nan
                     if extrapolate:
                         f_left = constant_input.values[0]

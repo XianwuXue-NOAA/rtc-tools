@@ -3,8 +3,6 @@ from typing import Dict, List, Union
 
 import numpy as np
 
-from rtctools._internal.casadi_helpers import interpolate
-
 from .optimization_problem import OptimizationProblem
 from .timeseries import Timeseries
 
@@ -250,54 +248,3 @@ class ControlTreeMixin(OptimizationProblem):
 
         # Done
         return results
-
-    def control_at(self, variable, t, ensemble_member=0, scaled=False, extrapolate=True):
-        t0 = self.initial_time
-        X = self.solver_input
-
-        canonical, sign = self.alias_relation.canonical_signed(variable)
-        for control_input in self.controls:
-            times = self.times(control_input)
-            if control_input == canonical:
-                nominal = self.variable_nominal(control_input)
-                variable_values = [X[i] for i in self.__control_indices[ensemble_member][
-                    control_input]]
-                f_left, f_right = np.nan, np.nan
-                if t < t0:
-                    history = self.history(ensemble_member)
-                    try:
-                        history_timeseries = history[control_input]
-                    except KeyError:
-                        if extrapolate:
-                            sym = variable_values[0]
-                        else:
-                            sym = np.nan
-                    else:
-                        if extrapolate:
-                            f_left = history_timeseries.values[0]
-                            f_right = history_timeseries.values[-1]
-                        interpolation_method = self.interpolation_method(control_input)
-                        sym = self.interpolate(
-                                t,
-                                history_timeseries.times,
-                                history_timeseries.values,
-                                f_left,
-                                f_right,
-                                interpolation_method)
-                    if not scaled and nominal != 1:
-                        sym *= nominal
-                else:
-                    if not extrapolate and (t < times[0] or t > times[-1]):
-                        raise Exception("Cannot interpolate for {}: Point {} outside of range [{}, {}]".format(
-                            control_input, t, times[0], times[-1]))
-
-                    interpolation_method = self.interpolation_method(control_input)
-                    sym = interpolate(
-                        times, variable_values, [t], False, interpolation_method)
-                    if not scaled and nominal != 1:
-                        sym *= nominal
-                if sign < 0:
-                    sym *= -1
-                return sym
-
-        raise KeyError(variable)

@@ -20,9 +20,13 @@ class IOMixin(SimulationProblem, metaclass=ABCMeta):
         # Call parent class first for default behaviour.
         super().__init__(**kwargs)
 
+        self._simulation_times = []
+
     def pre(self) -> None:
         # Call read method to read all input
         self.read()
+
+        self._simulation_times = []
 
     @abstractmethod
     def read(self) -> None:
@@ -66,18 +70,19 @@ class IOMixin(SimulationProblem, metaclass=ABCMeta):
 
         logger.debug("Model inputs are {}".format(self.__input_variables))
 
+        # Set first timestep
+        self._simulation_times.append(self.get_current_time())
+
         # Empty output
         self.__output_variables = self.get_output_variables()
-        n_times = len(self.io.times_sec)
         self.__output = AliasDict(self.alias_relation)
-        self.__output.update({variable: np.full(n_times, np.nan) for variable in self.__output_variables})
 
         # Call super, which will also initialize the model itself
         super().initialize(config_file)
 
         # Extract consistent t0 values
         for variable in self.__output_variables:
-            self.__output[variable][t_idx] = self.get_var(variable)
+            self.__output[variable] = np.array([self.get_var(variable)])
 
     def __set_input_variables(self, t_idx):
         for variable in self.get_variables():
@@ -97,6 +102,7 @@ class IOMixin(SimulationProblem, metaclass=ABCMeta):
 
         # Current time stamp
         t = self.get_current_time()
+        self._simulation_times.append(t + dt)
 
         # Get current time index
         t_idx = bisect.bisect_left(self.io.times_sec, t + dt)
@@ -108,8 +114,8 @@ class IOMixin(SimulationProblem, metaclass=ABCMeta):
         super().update(dt)
 
         # Extract results
-        for variable in self.__output_variables:
-            self.__output[variable][t_idx] = self.get_var(variable)
+        for variable, values in self.__output.items():
+            self.__output[variable] = np.append(values, self.get_var(variable))
 
     @property
     def output_variables(self):

@@ -120,12 +120,14 @@ class CSVMixin(IOMixin):
         # Call parent class first for default behaviour.
         super().write()
 
+        times = self._simulation_times
+
         # Write output
         names = ['time'] + sorted(set(self.__output.keys()))
         formats = ['O'] + (len(names) - 1) * ['f8']
         dtype = {'names': names, 'formats': formats}
-        data = np.zeros(len(self.__timeseries_times), dtype=dtype)
-        data['time'] = self.__timeseries_times
+        data = np.zeros(len(times), dtype=dtype)
+        data['time'] = self.io.sec_to_datetime(times, self.io.reference_datetime)
         for variable, values in self.output.items():
             data[variable] = values
 

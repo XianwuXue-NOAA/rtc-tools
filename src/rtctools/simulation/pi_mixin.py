@@ -1,5 +1,7 @@
-import bisect
 import logging
+from datetime import timedelta
+
+import numpy as np
 
 import rtctools.data.pi as pi
 import rtctools.data.rtc as rtc
@@ -116,14 +118,19 @@ class PIMixin(IOMixin):
         # Call parent class first for default behaviour.
         super().write()
 
+        times = self._simulation_times
+        if len(set(np.diff(times))) == 1:
+            dt = timedelta(seconds=times[1] - times[0])
+        else:
+            dt = None
+
         # Start of write output
         # Write the time range for the export file.
-        t_idx = bisect.bisect_left(self.io.datetimes, self.io.reference_datetime)
-        self.__timeseries_export.times = self.__timeseries_import.times[t_idx:]
+        self.__timeseries_export.times = [self.io.reference_datetime + timedelta(seconds=s) for s in times]
 
         # Write other time settings
-        self.__timeseries_export.forecast_datetime = self.__timeseries_import.forecast_datetime
-        self.__timeseries_export.dt = self.__timeseries_import.dt
+        self.__timeseries_export.forecast_datetime = self.io.reference_datetime
+        self.__timeseries_export.dt = dt
         self.__timeseries_export.timezone = self.__timeseries_import.timezone
 
         # Write the ensemble properties for the export file.
@@ -132,8 +139,7 @@ class PIMixin(IOMixin):
 
         # For all variables that are output variables the values are
         # extracted from the results.
-        for variable in self.output_variables:
-            values = self.output[variable]
+        for variable, values in self.output.items():
             # Check if ID mapping is present
             try:
                 self.__data_config.pi_variable_ids(variable)

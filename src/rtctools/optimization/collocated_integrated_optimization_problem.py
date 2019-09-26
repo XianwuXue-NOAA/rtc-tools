@@ -2140,58 +2140,7 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
         indices = self.__indices[ensemble_member][extra_variable]
         return self.solver_input[indices] * self.variable_nominal(extra_variable)
 
-    def states_in(self, variable, t0=None, tf=None, ensemble_member=0):
-        # Time stamps for this variable
-        times = self.times(variable)
-
-        # Set default values
-        if t0 is None:
-            t0 = times[0]
-        if tf is None:
-            tf = times[-1]
-
-        # Find canonical variable
-        canonical, sign = self.alias_relation.canonical_signed(variable)
-        nominal = self.variable_nominal(canonical)
-        state = nominal * self.state_vector(canonical, ensemble_member)
-        if sign < 0:
-            state *= -1
-
-        # Compute combined points
-        if t0 < times[0]:
-            history = self.history(ensemble_member)
-            try:
-                history_timeseries = history[canonical]
-            except KeyError:
-                raise Exception(
-                    "No history found for variable {}, but a historical value was requested".format(variable))
-            else:
-                history_times = history_timeseries.times[:-1]
-                history = history_timeseries.values[:-1]
-                if sign < 0:
-                    history *= -1
-        else:
-            history_times = np.empty(0)
-            history = np.empty(0)
-
-        # Collect states within specified interval
-        indices, = np.where(np.logical_and(times >= t0, times <= tf))
-        history_indices, = np.where(np.logical_and(
-            history_times >= t0, history_times <= tf))
-        if (t0 not in times[indices]) and (t0 not in history_times[history_indices]):
-            x0 = self.state_at(variable, t0, ensemble_member)
-        else:
-            x0 = ca.MX()
-        if (tf not in times[indices]) and (tf not in history_times[history_indices]):
-            xf = self.state_at(variable, tf, ensemble_member)
-        else:
-            xf = ca.MX()
-        x = ca.vertcat(x0, history[history_indices],
-                       state[indices[0]:indices[-1] + 1], xf)
-
-        return x
-
-    def integral(self, variable, t0=None, tf=None, ensemble_member=0):
+    def __states_times_in(self, variable, t0=None, tf=None, ensemble_member=0):
         # Time stamps for this variable
         times = self.times(variable)
 
@@ -2240,6 +2189,16 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
         t = ca.vertcat(t0, history_times[history_indices], times[indices], tf)
         x = ca.vertcat(x0, history[history_indices],
                        state[indices[0]:indices[-1] + 1], xf)
+
+        return x, t
+
+    def states_in(self, variable, t0=None, tf=None, ensemble_member=0):
+        x, _ = self.__states_times_in(variable, t0, tf, ensemble_member)
+
+        return x
+
+    def integral(self, variable, t0=None, tf=None, ensemble_member=0):
+        x, t = self.__states_times_in(variable, t0, tf, ensemble_member)
 
         # Integrate knots using trapezoid rule
         x_avg = 0.5 * (x[:x.size1() - 1] + x[1:])

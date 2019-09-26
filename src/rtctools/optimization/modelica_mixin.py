@@ -372,4 +372,7 @@ class ModelicaMixin(OptimizationProblem):
         return nominal_dict
 
     def variable_nominal(self, variable):
-        return self.__nominals.get(variable, 1)
+        try:
+            return self.__nominals[variable]
+        except KeyError:
+            return super().variable_nominal(variable)

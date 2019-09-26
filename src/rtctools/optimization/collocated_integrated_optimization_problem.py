@@ -61,6 +61,8 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
 
         self.__initial_derivative_names = ["initial_" + variable for variable in self.__derivative_names]
 
+        self.__initial_derivative_nominals = {}
+
         # DAE cache
         self.__integrator_step_function = None
         self.__dae_residual_function_collocated = None
@@ -196,11 +198,11 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
         for mx_symbol, variable in zip(self.extra_variables, self.__extra_variable_names):
             self.__variable_sizes[variable] = mx_symbol.size1()
 
-        # Cache the initial step sizes. We assume that the history has
-        # (roughly) identical time steps for the entire ensemble.
-        self.__initial_dt = {}
+        # Calculate nominals for the initial derivatives. We assume that the
+        # history has (roughly) identical time steps for the entire ensemble.
+        self.__initial_derivative_nominals = {}
         history_0 = self.history(0)
-        for variable in self.differentiated_states:
+        for variable, initial_der_name in zip(self.__differentiated_states, self.__initial_derivative_names):
             times = self.times(variable)
             try:
                 h = history_0[variable]
@@ -211,7 +213,8 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                     dt = h.times[-1] - h.times[-2]
             except KeyError:
                 dt = times[1] - times[0]
-            self.__initial_dt[variable] = dt
+
+            self.__initial_derivative_nominals[initial_der_name] = self.variable_nominal(variable) / dt
 
         # Variables that are integrated states are not yet allowed to have size > 1
         for variable in self.integrated_states:
@@ -447,7 +450,6 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
             init_der_variable_nominals = []
             init_der_constant = []
             init_der_constant_values = []
-            init_dt = []
 
             history = self.history(ensemble_member)
 
@@ -457,11 +459,10 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                 try:
                     i = self.__differentiated_states_map[variable]
 
-                    init_der_variable_nominals.append(self.variable_nominal(variable))
                     initial_der_name = self.__initial_derivative_names[i]
+                    init_der_variable_nominals.append(self.variable_nominal(initial_der_name))
                     init_der_variable_indices.append(self.__indices[ensemble_member][initial_der_name])
                     init_der_variable.append(j)
-                    init_dt.append(self.__initial_dt[variable])
 
                 except KeyError:
                     # We do interpolation here instead of relying on der_at. This faster is because:
@@ -481,8 +482,8 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                     init_der_constant_values.append(init_der)
                     init_der_constant.append(j)
 
-            initial_derivatives[init_der_variable] = X[init_der_variable_indices] / np.array(
-                init_dt) * np.array(init_der_variable_nominals)
+            initial_derivatives[init_der_variable] = (
+                X[init_der_variable_indices] * np.array(init_der_variable_nominals))
             if len(init_der_constant_values) > 0:
                 initial_derivatives[init_der_constant] = init_der_constant_values
 
@@ -1061,11 +1062,11 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                             np.nan,
                             interpolation_method
                         )
-                        val = (t0_val - history_timeseries.values[-2]) / (t0 - history_timeseries.times[-2])
-                        val *= self.__initial_dt[variable]
-                        val /= self.variable_nominal(variable)
-
                         initial_der_name = self.__initial_derivative_names[i]
+
+                        val = (t0_val - history_timeseries.values[-2]) / (t0 - history_timeseries.times[-2])
+                        val /= self.variable_nominal(initial_der_name)
+
                         idx = self.__indices[ensemble_member][initial_der_name]
                         lbx[idx] = ubx[idx] = val
 
@@ -1930,13 +1931,12 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                 except KeyError:
                     pass
 
-            for state_name, initial_der_name in zip(self.__differentiated_states, self.__initial_derivative_names):
+            for initial_der_name in self.__initial_derivative_names:
                 inds = indices[ensemble_member][initial_der_name]
 
                 try:
-                    nominal = self.variable_nominal(state_name)
-                    dt = self.__initial_dt[state_name]
-                    x0[inds] = seed[initial_der_name] * dt / nominal
+                    nominal = self.variable_nominal(initial_der_name)
+                    x0[inds] = seed[initial_der_name] / nominal
                 except KeyError:
                     pass
 
@@ -1969,13 +1969,12 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
         indices = self.__indices[ensemble_member]
 
         # Extract initial derivatives
-        for state_name, initial_der_name in zip(self.__differentiated_states, self.__initial_derivative_names):
+        for initial_der_name in self.__initial_derivative_names:
             inds = indices[initial_der_name]
 
             try:
-                nominal = self.variable_nominal(state_name)
-                dt = self.__initial_dt[state_name]
-                results[initial_der_name] = nominal / dt * X[inds].ravel()
+                nominal = self.variable_nominal(initial_der_name)
+                results[initial_der_name] = nominal * X[inds].ravel()
             except KeyError:
                 pass
 
@@ -2131,6 +2130,12 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
     def variable(self, variable):
         return self.__variables[variable]
 
+    def variable_nominal(self, variable):
+        try:
+            return self.__initial_derivative_nominals[variable]
+        except KeyError:
+            return super().variable_nominal(variable)
+
     def extra_variable(self, extra_variable, ensemble_member=0):
         indices = self.__indices[ensemble_member][extra_variable]
         return self.solver_input[indices] * self.variable_nominal(extra_variable)
@@ -2267,13 +2272,11 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                 # Fall through, in case 'variable' is not a differentiated state.
                 pass
             else:
-                nominal = self.variable_nominal(canonical)
-                dt = self.__initial_dt[canonical]
-
                 initial_der_name = self.__initial_derivative_names[i]
+                nominal = self.variable_nominal(initial_der_name)
                 idx = self.__indices[ensemble_member][initial_der_name]
 
-                return nominal / dt * sign * X[idx]
+                return nominal * sign * X[idx]
 
         # Time stamps for this variable
         times = self.times(variable)

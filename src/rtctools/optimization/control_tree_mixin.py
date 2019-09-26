@@ -4,7 +4,6 @@ from typing import Dict, List, Union
 import numpy as np
 
 from .optimization_problem import OptimizationProblem
-from .timeseries import Timeseries
 
 logger = logging.getLogger("rtctools")
 
@@ -190,48 +189,9 @@ class ControlTreeMixin(OptimizationProblem):
                         list(range(count, count + nnz))
                 count += nnz
 
-        # Construct bounds and initial guess
-        discrete = np.zeros(count, dtype=np.bool)
-
-        lbx = np.full(count, -np.inf, dtype=np.float64)
-        ubx = np.full(count, np.inf, dtype=np.float64)
-
-        x0 = np.zeros(count, dtype=np.float64)
-
-        for ensemble_member in range(self.ensemble_size):
-            seed = self.seed(ensemble_member)
-
-            for variable in self.controls:
-                times = self.times(variable)
-
-                discrete[self.__control_indices[ensemble_member][variable]] = \
-                    self.variable_is_discrete(variable)
-
-                try:
-                    bound = resolved_bounds[variable]
-                except KeyError:
-                    pass
-                else:
-                    nominal = self.variable_nominal(variable)
-                    if bound[0] is not None:
-                        if isinstance(bound[0], Timeseries):
-                            lbx[self.__control_indices[ensemble_member][variable]] = self.interpolate(
-                                times, bound[0].times, bound[0].values, -np.inf, -np.inf) / nominal
-                        else:
-                            lbx[self.__control_indices[ensemble_member][variable]] = bound[0] / nominal
-                    if bound[1] is not None:
-                        if isinstance(bound[1], Timeseries):
-                            ubx[self.__control_indices[ensemble_member][variable]] = self.interpolate(
-                                times, bound[1].times, bound[1].values, +np.inf, +np.inf) / nominal
-                        else:
-                            ubx[self.__control_indices[ensemble_member][variable]] = bound[1] / nominal
-
-                    try:
-                        seed_k = seed[variable]
-                        x0[self.__control_indices[ensemble_member][variable]] = self.interpolate(
-                            times, seed_k.times, seed_k.values, 0, 0) / nominal
-                    except KeyError:
-                        pass
+        discrete = self._get_discrete(count, self.__control_indices)
+        lbx, ubx = self._get_lbx_ubx(count, self.__control_indices)
+        x0 = self._get_x0(count, self.__control_indices)
 
         # Return number of control variables
         return count, discrete, lbx, ubx, x0, self.__control_indices

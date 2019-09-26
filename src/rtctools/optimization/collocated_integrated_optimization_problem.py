@@ -189,7 +189,8 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
         # is expensive due to SWIG call overhead.
         self.__variable_sizes = {}
 
-        for variable in itertools.chain(self.differentiated_states, self.algebraic_states):
+        for variable in itertools.chain(self.differentiated_states, self.algebraic_states,
+                                        self.controls, self.__initial_derivative_names):
             self.__variable_sizes[variable] = 1
 
         for mx_symbol, variable in zip(self.path_variables, self.__path_variable_names):
@@ -1586,7 +1587,130 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
     def controls(self):
         return self.__controls
 
-    def discretize_controls(self, bounds):
+    def _get_lbx_ubx(self, count, indices):
+        bounds = self.bounds()
+
+        lbx = np.full(count, -np.inf, dtype=np.float64)
+        ubx = np.full(count, np.inf, dtype=np.float64)
+
+        # Variables that are not collocated, and only have a single entry in the state vector
+        scalar_variables_set = set(self.__extra_variable_names) | set(self.integrated_states)
+
+        variable_sizes = self.__variable_sizes
+
+        # Bounds, defaulting to +/- inf, if not set
+        for ensemble_member in range(self.ensemble_size):
+            for variable, inds in indices[ensemble_member].items():
+                variable_size = variable_sizes[variable]
+
+                if variable in scalar_variables_set:
+                    times = self.initial_time
+                    n_times = 1
+                else:
+                    times = self.times(variable)
+                    n_times = len(times)
+
+                try:
+                    bound = bounds[variable]
+                except KeyError:
+                    pass
+                else:
+                    nominal = self.variable_nominal(variable)
+                    interpolation_method = self.interpolation_method(variable)
+                    if isinstance(nominal, np.ndarray):
+                        nominal = np.broadcast_to(nominal, (n_times, variable_size)).transpose().ravel()
+
+                    if bound[0] is not None:
+                        if isinstance(bound[0], Timeseries):
+                            lower_bound = self.interpolate(
+                                times,
+                                bound[0].times,
+                                bound[0].values,
+                                -np.inf,
+                                -np.inf,
+                                interpolation_method).ravel()
+                        elif isinstance(bound[0], np.ndarray):
+                            lower_bound = np.broadcast_to(bound[0], (n_times, variable_size)).transpose().ravel()
+                        else:
+                            lower_bound = bound[0]
+                        lbx[inds] = lower_bound / nominal
+
+                    if bound[1] is not None:
+                        if isinstance(bound[1], Timeseries):
+                            upper_bound = self.interpolate(
+                                times,
+                                bound[1].times,
+                                bound[1].values,
+                                +np.inf,
+                                +np.inf,
+                                interpolation_method).ravel()
+                        elif isinstance(bound[1], np.ndarray):
+                            upper_bound = np.broadcast_to(bound[1], (n_times, variable_size)).transpose().ravel()
+                        else:
+                            upper_bound = bound[1]
+                        ubx[inds] = upper_bound / nominal
+
+                # Warn for NaNs
+                if np.any(np.isnan(lbx[inds])):
+                    logger.error('Lower bound on variable {} contains NaN'.format(variable))
+                if np.any(np.isnan(ubx[inds])):
+                    logger.error('Upper bound on variable {} contains NaN'.format(variable))
+
+        return lbx, ubx
+
+    def _get_x0(self, count, indices):
+        x0 = np.zeros(count, dtype=np.float64)
+
+        # Variables that are not collocated, and only have a single entry in the state vector
+        scalar_variables_set = set(self.__extra_variable_names) | set(self.integrated_states)
+
+        variable_sizes = self.__variable_sizes
+
+        for ensemble_member in range(self.ensemble_size):
+            seed = self.seed(ensemble_member)
+            for variable, inds in indices[ensemble_member].items():
+                variable_size = variable_sizes[variable]
+
+                if variable in scalar_variables_set:
+                    times = self.initial_time
+                    n_times = 1
+                else:
+                    times = self.times(variable)
+                    n_times = len(times)
+
+                try:
+                    seed_k = seed[variable]
+                    nominal = self.variable_nominal(variable)
+                    interpolation_method = self.interpolation_method(variable)
+                    if isinstance(nominal, np.ndarray):
+                        nominal = np.broadcast_to(nominal, (n_times, variable_size)).transpose().ravel()
+
+                    if isinstance(seed_k, Timeseries):
+                        x0[inds] = self.interpolate(
+                            times,
+                            seed_k.times,
+                            seed_k.values,
+                            0,
+                            0,
+                            interpolation_method).transpose().ravel()
+                    else:
+                        x0[inds] = seed_k
+
+                    x0[inds] /= nominal
+                except KeyError:
+                    pass
+        return x0
+
+    def _get_discrete(self, count, indices):
+        discrete = np.zeros(count, dtype=np.bool)
+
+        for ensemble_member in range(self.ensemble_size):
+            for variable, inds in indices[ensemble_member].items():
+                discrete[inds] = self.variable_is_discrete(variable)
+
+        return discrete
+
+    def discretize_controls(self, bounds=None):
         # Default implementation: One single set of control inputs for all
         # ensembles
         count = 0
@@ -1596,18 +1720,7 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
 
             count += n_times
 
-        # We assume the seed for the controls to be identical for the entire ensemble.
-        # After all, we don't use a stochastic tree if we end up here.
-        seed = self.seed(ensemble_member=0)
-
         indices = [{} for ensemble_member in range(self.ensemble_size)]
-
-        discrete = np.zeros(count, dtype=np.bool)
-
-        lbx = np.full(count, -np.inf, dtype=np.float64)
-        ubx = np.full(count, np.inf, dtype=np.float64)
-
-        x0 = np.zeros(count, dtype=np.float64)
 
         offset = 0
         for variable in self.controls:
@@ -1617,52 +1730,11 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
             for ensemble_member in range(self.ensemble_size):
                 indices[ensemble_member][variable] = slice(offset, offset + n_times)
 
-            discrete[offset:offset +
-                     n_times] = self.variable_is_discrete(variable)
-
-            try:
-                bound = bounds[variable]
-            except KeyError:
-                pass
-            else:
-                nominal = self.variable_nominal(variable)
-                interpolation_method = self.interpolation_method(variable)
-                if bound[0] is not None:
-                    if isinstance(bound[0], Timeseries):
-                        lbx[offset:offset + n_times] = self.interpolate(
-                            times,
-                            bound[0].times,
-                            bound[0].values,
-                            -np.inf,
-                            -np.inf,
-                            interpolation_method) / nominal
-                    else:
-                        lbx[offset:offset + n_times] = bound[0] / nominal
-                if bound[1] is not None:
-                    if isinstance(bound[1], Timeseries):
-                        ubx[offset:offset + n_times] = self.interpolate(
-                            times,
-                            bound[1].times,
-                            bound[1].values,
-                            +np.inf,
-                            +np.inf,
-                            interpolation_method) / nominal
-                    else:
-                        ubx[offset:offset + n_times] = bound[1] / nominal
-
-                try:
-                    seed_k = seed[variable]
-                    x0[offset:offset + n_times] = self.interpolate(
-                        times,
-                        seed_k.times,
-                        seed_k.values,
-                        0,
-                        0,
-                        interpolation_method) / nominal
-                except KeyError:
-                    pass
-
             offset += n_times
+
+        discrete = self._get_discrete(count, indices)
+        lbx, ubx = self._get_lbx_ubx(count, indices)
+        x0 = self._get_x0(count, indices)
 
         # Return number of control variables
         return count, discrete, lbx, ubx, x0, indices
@@ -1721,14 +1793,6 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
         # Allocate arrays
         indices = [{} for ensemble_member in range(self.ensemble_size)]
 
-        discrete = np.zeros(count, dtype=np.bool)
-
-        lbx = -np.inf * np.ones(count)
-        ubx = np.inf * np.ones(count)
-
-        x0 = np.zeros(count)
-
-        # Indices
         for ensemble_member in range(self.ensemble_size):
             offset = ensemble_member * ensemble_member_size
             for variable in itertools.chain(
@@ -1761,184 +1825,9 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
 
                 offset += 1
 
-        # Types
-        for ensemble_member in range(self.ensemble_size):
-            for variable, inds in indices[ensemble_member].items():
-                discrete[inds] = self.variable_is_discrete(variable)
-
-        # Bounds, defaulting to +/- inf, if not set
-        for ensemble_member in range(self.ensemble_size):
-            for variable in itertools.chain(
-                    self.differentiated_states, self.algebraic_states, self.__path_variable_names):
-
-                inds = indices[ensemble_member][variable]
-
-                variable_size = variable_sizes[variable]
-
-                if variable in self.integrated_states:
-                    assert variable_size == 1
-                    try:
-                        bound = bounds[variable]
-                    except KeyError:
-                        pass
-                    else:
-                        nominal = self.variable_nominal(variable)
-                        interpolation_method = self.interpolation_method(variable)
-                        if bound[0] is not None:
-                            if isinstance(bound[0], Timeseries):
-                                lbx[inds] = self.interpolate(self.initial_time, bound[0].times, bound[
-                                    0].values, -np.inf, -np.inf, interpolation_method) / nominal
-                            else:
-                                lbx[inds] = bound[0] / nominal
-                        if bound[1] is not None:
-                            if isinstance(bound[1], Timeseries):
-                                ubx[inds] = self.interpolate(self.initial_time, bound[1].times, bound[
-                                    1].values, +np.inf, +np.inf, interpolation_method) / nominal
-                            else:
-                                ubx[inds] = bound[1] / nominal
-
-                    # Warn for NaNs
-                    if np.any(np.isnan(lbx[inds])):
-                        logger.error('Lower bound on variable {} contains NaN'.format(variable))
-                    if np.any(np.isnan(ubx[inds])):
-                        logger.error('Upper bound on variable {} contains NaN'.format(variable))
-
-                else:
-                    times = self.times(variable)
-                    n_times = len(times)
-
-                    try:
-                        bound = bounds[variable]
-                    except KeyError:
-                        pass
-                    else:
-                        nominal = self.variable_nominal(variable)
-                        interpolation_method = self.interpolation_method(variable)
-                        if isinstance(nominal, np.ndarray):
-                            nominal = np.broadcast_to(nominal, (n_times, variable_size)).transpose().ravel()
-
-                        if bound[0] is not None:
-                            if isinstance(bound[0], Timeseries):
-                                lower_bound = self.interpolate(
-                                    times,
-                                    bound[0].times,
-                                    bound[0].values,
-                                    -np.inf,
-                                    -np.inf,
-                                    interpolation_method).ravel()
-                            elif isinstance(bound[0], np.ndarray):
-                                lower_bound = np.broadcast_to(bound[0], (n_times, variable_size)).transpose().ravel()
-                            else:
-                                lower_bound = bound[0]
-                            lbx[inds] = lower_bound / nominal
-
-                        if bound[1] is not None:
-                            if isinstance(bound[1], Timeseries):
-                                upper_bound = self.interpolate(
-                                    times,
-                                    bound[1].times,
-                                    bound[1].values,
-                                    +np.inf,
-                                    +np.inf,
-                                    interpolation_method).ravel()
-                            elif isinstance(bound[1], np.ndarray):
-                                upper_bound = np.broadcast_to(bound[1], (n_times, variable_size)).transpose().ravel()
-                            else:
-                                upper_bound = bound[1]
-                            ubx[inds] = upper_bound / nominal
-
-                    # Warn for NaNs
-                    if np.any(np.isnan(lbx[inds])):
-                        logger.error('Lower bound on variable {} contains NaN'.format(variable))
-                    if np.any(np.isnan(ubx[inds])):
-                        logger.error('Upper bound on variable {} contains NaN'.format(variable))
-
-            for variable in self.__extra_variable_names:
-
-                inds = indices[ensemble_member][variable]
-
-                try:
-                    bound = bounds[variable]
-                except KeyError:
-                    pass
-                else:
-                    nominal = self.variable_nominal(variable)
-                    if bound[0] is not None:
-                        lbx[inds] = bound[0] / nominal
-                    if bound[1] is not None:
-                        ubx[inds] = bound[1] / nominal
-
-                # Warn for NaNs
-                if np.any(np.isnan(lbx[inds])):
-                    logger.error('Lower bound on variable {} contains NaN'.format(variable))
-                if np.any(np.isnan(ubx[inds])):
-                    logger.error('Upper bound on variable {} contains NaN'.format(variable))
-
-            # Initial guess based on provided seeds, defaulting to zero if no
-            # seed is given
-            seed = self.seed(ensemble_member)
-
-            for variable in itertools.chain(
-                    self.differentiated_states, self.algebraic_states, self.__path_variable_names):
-
-                inds = indices[ensemble_member][variable]
-
-                variable_size = variable_sizes[variable]
-
-                if variable in self.integrated_states:
-                    assert variable_size == 1
-                    try:
-                        seed_k = seed[variable]
-                        nominal = self.variable_nominal(variable)
-                        interpolation_method = self.interpolation_method(variable)
-                        x0[inds] = self.interpolate(
-                            self.initial_time, seed_k.times, seed_k.values, 0, 0, interpolation_method) / nominal
-                    except KeyError:
-                        pass
-
-                else:
-                    times = self.times(variable)
-                    n_times = len(times)
-
-                    try:
-                        seed_k = seed[variable]
-                        nominal = self.variable_nominal(variable)
-                        interpolation_method = self.interpolation_method(variable)
-                        if isinstance(nominal, np.ndarray):
-                            nominal = np.broadcast_to(nominal, (n_times, variable_size)).transpose().ravel()
-                        x0[inds] = self.interpolate(
-                            times,
-                            seed_k.times,
-                            seed_k.values,
-                            0,
-                            0,
-                            interpolation_method).transpose().ravel() / nominal
-                    except KeyError:
-                        pass
-
-            for variable in self.__extra_variable_names:
-
-                inds = indices[ensemble_member][variable]
-
-                variable_size = variable_sizes[variable]
-
-                try:
-                    seed_v = seed[variable]
-                    nominal = self.variable_nominal(variable)
-                    if isinstance(seed_v, np.ndarray):
-                        seed_v = seed_v.ravel()
-                    x0[inds] = seed_v / nominal
-                except KeyError:
-                    pass
-
-            for initial_der_name in self.__initial_derivative_names:
-                inds = indices[ensemble_member][initial_der_name]
-
-                try:
-                    nominal = self.variable_nominal(initial_der_name)
-                    x0[inds] = seed[initial_der_name] / nominal
-                except KeyError:
-                    pass
+        discrete = self._get_discrete(count, indices)
+        lbx, ubx = self._get_lbx_ubx(count, indices)
+        x0 = self._get_x0(count, indices)
 
         # Return number of state variables
         return count, discrete, lbx, ubx, x0, indices

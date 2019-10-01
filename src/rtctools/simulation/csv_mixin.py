@@ -165,7 +165,7 @@ class CSVMixin(SimulationProblem):
 
         # Extract consistent t0 values
         for variable in self.__output_variables:
-            self.__output = np.array([self.get_var(variable)])
+            self.__output[variable] = np.array([self.get_var(variable)])
 
     def update(self, dt):
         # Time step
@@ -191,7 +191,7 @@ class CSVMixin(SimulationProblem):
 
         # Extract results
         for variable, values in self.__output.items():
-            self.__output = np.append(values, self.get_var(variable))
+            self.__output[variable] = np.append(values, self.get_var(variable))
 
     def post(self):
         # Call parent class first for default behaviour.

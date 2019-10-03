@@ -1780,7 +1780,7 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
 
         indices = [{} for ensemble_member in range(self.ensemble_size)]
 
-        offset = 0
+        offset = len(self.dae_variables['derivatives'])
         for variable in self.controls:
             times = self.times(variable)
             n_times = len(times)
@@ -1856,7 +1856,13 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
 
         assert self.ensemble_size == 1
         for ensemble_member in range(self.ensemble_size):
-            offset = len(self.controls)
+            offset = 0
+            for initial_der_name in self.__initial_derivative_names:
+                indices[ensemble_member][initial_der_name] = offset
+
+                offset += 1
+
+            offset += len(self.controls)
             for variable in itertools.chain(
                     self.differentiated_states, self.algebraic_states, self.__path_variable_names):
 
@@ -1877,7 +1883,7 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
 
                     offset += 1
 
-            offset = n_collocated_variables * len(collocation_times)
+            offset = n_collocated_variables * len(collocation_times) + len(self.dae_variables['derivatives'])
             for extra_variable in self.__extra_variable_names:
                 variable_size = variable_sizes[extra_variable]
 
@@ -1885,10 +1891,6 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
 
                 offset += variable_size
 
-            for initial_der_name in self.__initial_derivative_names:
-                indices[ensemble_member][initial_der_name] = offset
-
-                offset += 1
 
         # Return number of state variables
         return count, indices

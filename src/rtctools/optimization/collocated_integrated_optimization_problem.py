@@ -954,9 +954,23 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
 
         # Start collecting constraints
         f = []
-        g = []
-        lbg = []
-        ubg = []
+
+        # We want to interleave collocated constraints, so we store them
+        # separately.
+        # TODO: This does not work yet for when we have to deal with ensembles
+        g_collocated = []
+        lbg_collocated = []
+        ubg_collocated = []
+
+        # Constraints that go at the start
+        g_initial = []
+        lbg_initial = []
+        ubg_initial = []
+
+        # Constraints that have no structure to them
+        g_individual = []
+        lbg_individual = []
+        ubg_individual = []
 
         # Add constraints for initial conditions
         if self.__initial_residual_with_params_fun_map is None:
@@ -986,16 +1000,10 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
             False, True)
 
         res = ca.vec(res)
-        g.append(res)
+        g_initial.append(res)
         zeros = [0.0] * res.size1()
-        lbg.extend(zeros)
-        ubg.extend(zeros)
-
-        # individual constraints
-        single_g = []
-        single_lbg = []
-        single_ubg = []
-
+        lbg_initial.extend(zeros)
+        ubg_initial.extend(zeros)
 
         # The initial values and the interpolated mapped arguments are saved
         # such that can be reused in map_path_expression().
@@ -1084,11 +1092,9 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                         lbx[idx] = ubx[idx] = val
 
             if len(initial_derivative_constraints) > 0:
-                g.append(ca.vertcat(*initial_derivative_constraints))
-                lbg.append(np.zeros(len(initial_derivative_constraints)))
-                ubg.append(np.zeros(len(initial_derivative_constraints)))
-            else:
-                g.append(ca.MX())
+                g_initial.append(ca.vertcat(*initial_derivative_constraints))
+                lbg_initial.append(np.zeros(len(initial_derivative_constraints)))
+                ubg_initial.append(np.zeros(len(initial_derivative_constraints)))
 
             # Initial conditions for integrator
             accumulation_X0 = []
@@ -1257,12 +1263,10 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
 
             # Add collocation constraints
             if collocation_constraints.size1() > 0:
-                g.append(collocation_constraints)
+                g_collocated.append(collocation_constraints)
                 zeros = np.zeros(collocation_constraints.size1())
-                lbg.extend(zeros)
-                ubg.extend(zeros)
-            else:
-                g.append(ca.MX())
+                lbg_collocated.append(zeros)
+                ubg_collocated.append(zeros)
 
             # Delayed feedback
             # Make an array of all unique times in history series
@@ -1433,10 +1437,12 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
 
                     nominal = nominal_delayed_feedback[i]
 
-                    g.append((x_in - x_out_delayed) / nominal)
-                    zeros = np.zeros(n_collocation_times)
-                    lbg.extend(zeros)
-                    ubg.extend(zeros)
+                    assert False
+                    # Annoyingly this is n_collocation_times wide instead of n - 1.
+                    # g_collocated.append((x_in - x_out_delayed) / nominal)
+                    # zeros = np.zeros(n_collocation_times)
+                    # lbg_collocated.append(zeros)
+                    # ubg_collocated.append(zeros)
 
             # Objective
             f_member = self.objective(ensemble_member)
@@ -1483,9 +1489,9 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                             raise Exception("Shape mismatch between constraint #{} ({},) and its upper bound ({},)"
                                             .format(i, g_i.shape[0], ubg_i.shape[0]))
 
-                single_g.extend(g_constraint)
-                single_lbg.extend(lbg_constraint)
-                single_ubg.extend(ubg_constraint)
+                g_individual.extend(g_constraint)
+                lbg_individual.extend(lbg_constraint)
+                ubg_individual.extend(ubg_constraint)
 
             # Path constraints
             # We need to call self.path_constraints() again here,
@@ -1498,8 +1504,8 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                 # included in the accumulation.
                 [initial_path_constraints] = path_constraints_function.call(
                     self.__func_initial_inputs[ensemble_member], False, True)
-                g.append(initial_path_constraints)
-                g.append(discretized_path_constraints)
+                g_initial.append(initial_path_constraints)
+                g_collocated.append(discretized_path_constraints)
 
                 lbg_path_constraints = np.empty(
                     (path_constraint_expressions.size1(), n_collocation_times))
@@ -1539,11 +1545,12 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
 
                     j += s
 
-                lbg.extend(lbg_path_constraints.transpose().ravel())
-                ubg.extend(ubg_path_constraints.transpose().ravel())
+                lbg_initial.extend(lbg_path_constraints[:, 0].transpose().ravel())
+                ubg_initial.extend(ubg_path_constraints[:, 0].transpose().ravel())
 
-            else:
-                g.extend([ca.MX(), ca.MX()])
+                lbg_collocated.append(lbg_path_constraints[:, 1:].transpose().ravel())
+                ubg_collocated.append(ubg_path_constraints[:, 1:].transpose().ravel())
+
 
         """
         initial residual
@@ -1556,13 +1563,32 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
         """
         assert self.ensemble_size == 1
 
-        assert len(g) == 5
+        g = g_initial.copy()
+        lbg = lbg_initial.copy()
+        ubg = ubg_initial.copy()
 
         # TODO: Interleave constraints
+        assert sum(len(x) for x in lbg_collocated) == sum(x.size1() for x in g_collocated)
+        assert sum(len(x) for x in ubg_collocated) == sum(x.size1() for x in g_collocated)
 
-        # Don't forget to append the single constraints again!
+        # Note that CasADi behaves like Fortran order, whereas NumPy behaves
+        # like C order.
+        g_coll = ca.vertcat(*(g_c.reshape((-1, n_collocation_times - 1)) for g_c in g_collocated))
+        g_coll = g_coll.reshape((np.prod(g_coll.shape), 1))
+        g.append(g_coll)
 
+        lbg_coll = np.hstack([lbg_c.reshape((n_collocation_times -1, -1)) for lbg_c in lbg_collocated])
+        lbg_coll = lbg_coll.ravel()
+        lbg.extend(lbg_coll)
 
+        ubg_coll = np.hstack([ubg_c.reshape((n_collocation_times -1, -1)) for ubg_c in ubg_collocated])
+        ubg_coll = ubg_coll.ravel()
+        ubg.extend(ubg_coll)
+
+        # Any other constraints that do not have a particular structure
+        g.extend(g_individual)
+        lbg.extend(lbg_individual)
+        ubg.extend(ubg_individual)
 
         # NLP function
         logger.info("Creating NLP dictionary")

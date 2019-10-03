@@ -148,6 +148,11 @@ class Example(GoalProgrammingMixin, CSVMixin, ModelicaMixin,
         options[solver]['print_level'] = 1
         return options
 
+    # def compiler_options(self):
+    #     options = super().compiler_options()
+    #     options['cache'] = False
+    #
+    #     return options
 
 # Run
 run_optimization_problem(Example)

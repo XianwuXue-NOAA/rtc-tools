@@ -73,6 +73,12 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
 
         logger.debug("Creating solver")
 
+        logging.info("Plotting")
+        import matplotlib.pyplot as plt
+
+        plt.spy(ca.jacobian(nlp['g'], nlp['x']).sparsity())
+        plt.show()
+
         if options.pop('expand', False):
             # NOTE: CasADi only supports the "expand" option for nlpsol. To
             # also be able to expand with e.g. qpsol, we do the expansion

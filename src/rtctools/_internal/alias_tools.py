@@ -114,7 +114,11 @@ class AliasDict(Generic[KT, VT]):
     def __setitem__(self, key: KT, val: VT):
         var, sign = self.__canonical_signed(key)
         if isinstance(val, tuple):
-            self.__d[var] = [-c if sign < 0 else c for c in val]
+            assert len(val) == 2
+            if sign < 0:
+                self.__d[var] = (-val[1], -val[0])
+            else:
+                self.__d[var] = val
         else:
             self.__d[var] = -val if sign < 0 else val
 
@@ -122,7 +126,10 @@ class AliasDict(Generic[KT, VT]):
         var, sign = self.__canonical_signed(key)
         val = self.__d[var]
         if isinstance(val, tuple):
-            return [-c if sign < 0 else c for c in val]
+            if sign < 0:
+                return (-val[1], -val[0])
+            else:
+                return val
         else:
             return -val if sign < 0 else val
 

@@ -622,3 +622,20 @@ class TestModelicaMixinSymbolicParameters(TestCase, unittest.TestCase):
         self.assertEqual(self.problem.initial_state(0)['x'], 1.1)
         self.problem.optimize()
         self.assertAlmostEqual(self.problem.extract_results()['x'][0], 1.1, self.tolerance)
+
+
+class ModelAliasBounds(Model):
+
+    def bounds(self):
+        bounds = super().bounds()
+        bounds['negative_alias'] = (-2.0, 1.0)
+        return bounds
+
+
+class TestAliasBounds(TestCase):
+
+    def test_alias_bounds(self):
+        problem = ModelAliasBounds()
+        bounds = problem.bounds()
+        self.assertEqual(bounds['x'], (-1.0, 2.0))
+        self.assertEqual(bounds['negative_alias'], (-2.0, 1.0))

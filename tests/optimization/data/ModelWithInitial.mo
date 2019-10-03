@@ -2,6 +2,7 @@ model ModelWithInitial
 	Real x;
 	Real w(start=0.0, fixed=true);
 	Real alias;
+	Real negative_alias;
 
 	parameter Real k = 1.0;
 
@@ -29,6 +30,8 @@ equation
 	x_delayed = delay(x, 0.1);
 
 	alias = x;
+
+	negative_alias = -x;
 
 	y + x = 3.0;
 

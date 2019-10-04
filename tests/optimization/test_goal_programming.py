@@ -847,6 +847,64 @@ class TestScaleByProblemSize(TestCase):
         self.assertAlmostEqual(1.0, 2 * n_times * obj_value_scale / obj_value_no_scale, self.tolerance)
 
 
+class EmptyGoalOneTimeseries(Goal):
+
+    target_min = np.nan
+    target_max = Timeseries(np.array([0.0, 1.0]),
+                            np.array([np.nan, np.nan]))
+
+    def function(self, optimization_problem, ensemble_member):
+        return optimization_problem.state('x')
+
+
+class EmptyGoalTwoTimeseries(Goal):
+
+    target_min = Timeseries(np.array([0.0, 1.0]),
+                            np.array([np.nan, np.nan]))
+    target_max = Timeseries(np.array([0.0, 1.0]),
+                            np.array([np.nan, np.nan]))
+
+    def function(self, optimization_problem, ensemble_member):
+        return optimization_problem.state('x')
+
+
+class NonEmptyGoalTimeseries(Goal):
+
+    target_min = Timeseries(np.array([0.0, 1.0]),
+                            np.array([1.0, 2.0]))
+    target_max = Timeseries(np.array([0.0, 1.0]),
+                            np.array([np.nan, np.nan]))
+
+    def function(self, optimization_problem, ensemble_member):
+        return optimization_problem.state('x')
+
+
+class NonEmptyGoalMinimization(Goal):
+
+    target_min = np.nan,
+    target_max = np.nan
+
+    def function(self, optimization_problem, ensemble_member):
+        return optimization_problem.state('x')
+
+
+class TestEmptyGoals(TestCase):
+
+    def test_goal_empty(self):
+        g = EmptyGoalOneTimeseries()
+        self.assertTrue(g.is_empty)
+
+        g = EmptyGoalTwoTimeseries()
+        self.assertTrue(g.is_empty)
+
+    def test_goal_non_empty(self):
+        g = NonEmptyGoalTimeseries()
+        self.assertFalse(g.is_empty)
+
+        g = NonEmptyGoalMinimization()
+        self.assertFalse(g.is_empty)
+
+
 class ModelInvalidGoals(Model):
     _goals = []
 

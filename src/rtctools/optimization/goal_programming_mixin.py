@@ -226,8 +226,24 @@ class Goal(metaclass=ABCMeta):
 
     @property
     def is_empty(self) -> bool:
-        min_empty = (isinstance(self.target_min, Timeseries) and not np.any(np.isfinite(self.target_min.values)))
-        max_empty = (isinstance(self.target_max, Timeseries) and not np.any(np.isfinite(self.target_max.values)))
+        target_min_set = isinstance(self.target_min, Timeseries) or np.any(np.isfinite(self.target_min))
+        target_max_set = isinstance(self.target_max, Timeseries) or np.any(np.isfinite(self.target_max))
+
+        if not target_min_set and not target_max_set:
+            # A minimization goal
+            return False
+
+        target_min = self.target_min
+        if isinstance(target_min, Timeseries):
+            target_min = target_min.values
+
+        target_max = self.target_max
+        if isinstance(target_max, Timeseries):
+            target_max = target_max.values
+
+        min_empty = not np.any(np.isfinite(target_min))
+        max_empty = not np.any(np.isfinite(target_max))
+
         return min_empty and max_empty
 
     def get_function_key(self, optimization_problem: OptimizationProblem, ensemble_member: int) -> str:

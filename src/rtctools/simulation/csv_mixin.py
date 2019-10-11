@@ -200,13 +200,13 @@ class CSVMixin(SimulationProblem):
         times = self.__simulation_times
 
         # Write output
-        names = ['time'] + sorted(set(self.__output.keys()))
+        names = ['time'] + sorted(set(self.__output_variables))
         formats = ['O'] + (len(names) - 1) * ['f8']
         dtype = {'names': names, 'formats': formats}
         data = np.zeros(len(times), dtype=dtype)
         data['time'] = self.__sec_to_datetime(times)
-        for variable, values in self.__output.items():
-            data[variable] = values
+        for variable in self.__output_variables:
+            data[variable] = self.__output[variable]
 
         fname = os.path.join(self.__output_folder, self.timeseries_export_basename + '.csv')
         csv.save(fname, data, delimiter=self.csv_delimiter, with_time=True)

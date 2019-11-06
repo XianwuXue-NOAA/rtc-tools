@@ -25,14 +25,13 @@ class HomotopyMixin(OptimizationProblem):
 
     def seed(self, ensemble_member):
         seed = super().seed(ensemble_member)
-        if self.__theta > 0:
-            # Add previous results to seed
-            # Do not override any previously seeded values, such as goal programming results.
+        # Overwrite the seed only when the results of the latest run are
+        # stored within this class. That is, when the GoalProgrammingMixin
+        # class is not used or at the first run of the goal programming loop.
+        if self.__theta > 0 and getattr(self, '_GoalProgrammingMixin__first_run', True):
             for key, result in self.__results[ensemble_member].items():
                 times = self.times(key)
-                if key in seed:
-                    continue
-                elif ((result.ndim == 1 and len(result) == len(times))
+                if ((result.ndim == 1 and len(result) == len(times))
                         or (result.ndim == 2 and result.shape[0] == len(times))):
                     # Only include seed timeseries which are consistent
                     # with the specified time stamps.

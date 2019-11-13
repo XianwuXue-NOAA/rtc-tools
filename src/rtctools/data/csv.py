@@ -1,3 +1,4 @@
+import csv
 import logging
 import sys
 from datetime import datetime
@@ -5,6 +6,8 @@ from datetime import datetime
 import numpy as np
 
 logger = logging.getLogger("rtctools")
+
+csv.field_size_limit(1000000)
 
 
 def load(fname, delimiter=',', with_time=False):
@@ -17,53 +20,69 @@ def load(fname, delimiter=',', with_time=False):
 
     :returns: A named numpy array with the contents of the file.
     """
-    c = {}
-    if with_time:
-        c.update({0: lambda str: datetime.strptime(
-            str.decode("utf-8"), '%Y-%m-%d %H:%M:%S')})
 
     # Check delimiter of csv file. If semicolon, check if decimal separator is
     # a comma.
+    comma_decimal = False
     if delimiter == ';':
         with open(fname, 'rb') as csvfile:
-            # Read the first line, this should be a header. Count columns by
-            # counting separator.
+            # Read the first line, this should be a header.
             sample_csvfile = csvfile.readline()
-            n_semicolon = sample_csvfile.count(b';')
             # We actually only need one number to evaluate if commas are used as decimal separator, but
             # certain csv writers don't use a decimal when the value has no meaningful decimal
             # (e.g. 12.0 becomes 12) so we read the next 1024 bytes to make sure we catch a number.
             sample_csvfile = csvfile.read(1024)
             # Count the commas
-            n_comma_decimal = sample_csvfile.count(b',')
-            # If commas are used as decimal separator, we need additional
-            # converters.
-            if n_comma_decimal:
-                c.update({i + len(c): lambda str: float(str.decode("utf-8").replace(',', '.'))
-                          for i in range(1 + n_semicolon - len(c))})
+            comma_decimal = sample_csvfile.count(b',') > 0
 
     # Read the csv file and convert to array
     try:
-        if len(c):  # Converters exist, so use them.
-            try:
-                return np.genfromtxt(fname, delimiter=delimiter, deletechars='', dtype=None, names=True, converters=c)
-            except np.lib._iotools.ConverterError:  # value does not conform to expected date-time format
-                type, value, traceback = sys.exc_info()
-                logger.error(
-                    'CSVMixin: converter of csv reader failed on {}: {}'.format(fname, value))
-                raise ValueError(
-                    'CSVMixin: wrong date time or value format in {}. '
-                    'Should be %Y-%m-%d %H:%M:%S and numerical values everywhere.'.format(fname))
+        # We do not use NumPy's genfromtxt, as it is difficult to read in data
+        # with different dtype (str, float). Using dtype=None does not work,
+        # as that will result in empty columns being read in as boolean.
+        with open(fname, 'r', encoding='utf-8') as csvfile:
+            csvreader = csv.reader(csvfile, delimiter=delimiter, quotechar='#')
+
+            column_names = next(csvreader)
+
+            data = []
+            for r, row in enumerate(csvreader):
+                if not len(row) == len(column_names):
+                    raise ValueError("Row {} has {} values, but header has {} names".format(
+                        r + 1, len(row), len(column_names)))
+
+                # Convert elements to correct type
+                if with_time:
+                    row[0] = datetime.strptime(row[0], '%Y-%m-%d %H:%M:%S')
+
+                for i in range(int(with_time), len(row)):
+                    val = row[i].strip()
+
+                    if comma_decimal:
+                        val = val.replace(',', '.')
+
+                    row[i] = np.nan if not val else float(val)
+
+                data.append(tuple(row))
+
+        dtypes = ['f8'] * len(column_names)
+        if with_time:
+            dtypes[0] = 'O'
+
+        ret = np.array(data, dtype=list(zip(column_names, dtypes)))
+
+        # Make sure we are compatible in return type with np.genfromtxt. That
+        # is, we do not return an array when there is only a single row.
+        if len(data) == 1:
+            return ret[0]
         else:
-            return np.genfromtxt(fname, delimiter=delimiter, deletechars='', dtype=None, names=True)
-    except ValueError:  # can occur when delimiter changes after first 1024 bytes of file, or delimiter is not , or ;
+            return ret
+
+    except ValueError as e:
         type, value, traceback = sys.exc_info()
         logger.error(
-            'CSV: Value reader of csv reader failed on {}: {}'.format(fname, value))
-        raise ValueError(
-            "CSV: could not read all values from {}. Used delimiter '{}'. "
-            "Please check delimiter (should be ',' or ';' throughout the file) "
-            "and if all values are numbers.".format(fname, delimiter))
+            'CSVMixin: converter of csv reader failed on {}: {}'.format(fname, value))
+        raise ValueError("Error converting value or datetime in {}".format(fname)) from e
 
 
 def save(fname, data, delimiter=',', with_time=False):

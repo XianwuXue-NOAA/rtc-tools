@@ -46,39 +46,10 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
         self.dae_variables['free_variables'] = self.dae_variables[
             'states'] + self.dae_variables['algebraics'] + self.dae_variables['control_inputs']
 
-        # Cache names of states
-        self.__differentiated_states = [variable.name() for variable in self.dae_variables['states']]
-        self.__differentiated_states_map = {v: i for i, v in enumerate(self.__differentiated_states)}
-
-        self.__algebraic_states = [variable.name()
-                                   for variable in self.dae_variables['algebraics']]
-        self.__algebraic_states_map = {v: i for i, v in enumerate(self.__algebraic_states)}
-
-        self.__controls = [variable.name()
-                           for variable in self.dae_variables['control_inputs']]
-        self.__controls_map = {v: i for i, v in enumerate(self.__controls)}
-
-        self.__derivative_names = [variable.name() for variable in self.dae_variables['derivatives']]
-
-        self.__initial_derivative_names = ["initial_" + variable for variable in self.__derivative_names]
-
-        self.__initial_derivative_nominals = {}
-
         # DAE cache
         self.__integrator_step_function = None
         self.__dae_residual_function_collocated = None
         self.__initial_residual_with_params_fun_map = None
-
-        # Create dictionary of variables so that we have O(1) state lookup available
-        self.__variables = AliasDict(self.alias_relation)
-        for var in itertools.chain(
-                self.dae_variables['states'],
-                self.dae_variables['algebraics'],
-                self.dae_variables['control_inputs'],
-                self.dae_variables['constant_inputs'],
-                self.dae_variables['parameters'],
-                self.dae_variables['time']):
-            self.__variables[var.name()] = var
 
         # Call super
         super().__init__(**kwargs)
@@ -156,6 +127,37 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
         return 1.0
 
     def transcribe(self):
+        # TODO: Cache me!!!!!
+
+        # Cache names of states
+        self.__differentiated_states = [variable.name() for variable in self.dae_variables['states']]
+        self.__differentiated_states_map = {v: i for i, v in enumerate(self.__differentiated_states)}
+
+        self.__algebraic_states = [variable.name()
+                                   for variable in self.dae_variables['algebraics']]
+        self.__algebraic_states_map = {v: i for i, v in enumerate(self.__algebraic_states)}
+
+        self.__controls = [variable.name()
+                           for variable in self.dae_variables['control_inputs']]
+        self.__controls_map = {v: i for i, v in enumerate(self.__controls)}
+
+        self.__derivative_names = [variable.name() for variable in self.dae_variables['derivatives']]
+
+        self.__initial_derivative_names = ["initial_" + variable for variable in self.__derivative_names]
+
+        self.__initial_derivative_nominals = {}
+
+        # Create dictionary of variables so that we have O(1) state lookup available
+        self.__variables = AliasDict(self.alias_relation)
+        for var in itertools.chain(
+                self.dae_variables['states'],
+                self.dae_variables['algebraics'],
+                self.dae_variables['control_inputs'],
+                self.dae_variables['constant_inputs'],
+                self.dae_variables['parameters'],
+                self.dae_variables['time']):
+            self.__variables[var.name()] = var
+
         # DAE residual
         dae_residual = self.dae_residual
 
@@ -222,7 +224,10 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
             except KeyError:
                 dt = times[1] - times[0]
 
-            self.__initial_derivative_nominals[initial_der_name] = self.variable_nominal(variable) / dt
+            try:
+                self.__initial_derivative_nominals[initial_der_name] = self.derivative_nominal(variable)
+            except (KeyError, AttributeError):
+                self.__initial_derivative_nominals[initial_der_name] = self.variable_nominal(variable) / dt
 
         if self.integrated_states:
             warnings.warn("Integrated states are deprecated and support will be removed in a future version.",

@@ -74,6 +74,7 @@ def run_optimization_problem(optimization_problem_class,
         'HomotopyMixin',
         'MinAbsGoalProgrammingMixin', 'LinearizedOrderGoalProgrammingMixin',
         'SinglePassGoalProgrammingMixin', 'GoalProgrammingMixin',
+        'RescaleDerivativesMixin',
         'PIMixin', 'CSVMixin', 'ModelicaMixin',
         'ControlTreeMixin', 'CollocatedIntegratedOptimizationProblem', 'OptimizationProblem'])
     base_names = OrderedSet([b.__name__ for b in optimization_problem_class.__bases__])

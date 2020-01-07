@@ -19,6 +19,7 @@
 
 import os
 import re
+from pathlib import Path
 
 from rtctools._version import get_versions
 
@@ -374,6 +375,7 @@ MODELICA_EXAMPLES = [
     "basic",
     "ensemble",
     "goal_programming",
+    "pareto_optimality",
     "mixed_integer",
     "lookup_table",
     "simulation",
@@ -387,12 +389,11 @@ MODELICA_STRIPPED_EXAMPLE_FOLDER = '_build/mo'
 os.makedirs(MODELICA_STRIPPED_EXAMPLE_FOLDER, exist_ok=True)
 
 for example in MODELICA_EXAMPLES:
-    mo_in = os.path.join(MODELICA_EXAMPLE_BASE_FOLDER, example, 'model', 'Example.mo')
-    mo_out = os.path.join(MODELICA_STRIPPED_EXAMPLE_FOLDER, example + '.mo')
-
-    with open(mo_in, 'r') as f_in:
-        with open(mo_out, 'w') as f_out:
-            s = f_in.read()
-            s = re.sub(r'[\r\n]+[ \t]*annotation\(.*\);([\r\n]+)', r'\1', s)
-            s = re.sub(r' annotation\(.*\)', '', s)
-            f_out.write(s)
+    for mo in Path(os.path.join(MODELICA_EXAMPLE_BASE_FOLDER, example, 'model')).rglob('*.mo'):
+        mo_out = os.path.join(MODELICA_STRIPPED_EXAMPLE_FOLDER, mo.name)
+        with open(mo, 'r') as f_in:
+            with open(mo_out, 'w') as f_out:
+                s = f_in.read()
+                s = re.sub(r'[\r\n]+[ \t]*annotation\(.*\);([\r\n]+)', r'\1', s)
+                s = re.sub(r' annotation\(.*\)', '', s)
+                f_out.write(s)

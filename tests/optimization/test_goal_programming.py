@@ -17,6 +17,7 @@ from test_case import TestCase
 
 from .data_path import data_path
 
+
 logger = logging.getLogger("rtctools")
 logger.setLevel(logging.WARNING)
 
@@ -1006,7 +1007,22 @@ class TestGoalProgrammingInvalidGoals(TestCase):
     def test_goal_weight_targets(self):
         self.problem._goals = [InvalidGoal(function_range=(-2.0, 2.0), target_max=1.0, weight=-1.0)]
 
-        with self.assertRaisesRegex(Exception, "Goal weight should be positive"):
+        with self.assertRaisesRegex(Exception, "Scalar goal weight should be positive"):
+            self.problem.optimize()
+
+    def test_weights_as_negative_timeseries(self):
+        invalid_weight = Timeseries(self.problem.times(), np.linspace(1.0, -1.0, 21))
+        self.problem._goals = [InvalidGoal(function_range=(-2.0, 2.0), target_max=1.0, weight=invalid_weight)]
+
+        with self.assertRaisesRegex(Exception, "Goal weight timeseries of goal .* should be non-negative."):
+            self.problem.optimize()
+
+    def test_weights_as_too_short_timeseries(self):
+        invalid_weight = Timeseries(self.problem.times(), np.linspace(1.0, 0.0, 10))
+        self.problem._goals = [InvalidGoal(function_range=(-2.0, 2.0), target_max=1.0, weight=invalid_weight)]
+
+        with self.assertRaisesRegex(Exception, "Goal weight timeseries of goal .* should be of equal \
+length as the number of colocation points in time"):
             self.problem.optimize()
 
 

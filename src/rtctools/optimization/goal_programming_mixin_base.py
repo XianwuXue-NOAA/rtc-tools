@@ -550,8 +550,16 @@ class _GoalProgrammingMixinBase(OptimizationProblem, metaclass=ABCMeta):
                 if np.any(m >= M):
                     raise Exception("Invalid function range for goal {}".format(goal))
 
-                if goal.weight <= 0:
-                    raise Exception("Goal weight should be positive for goal {}".format(goal))
+                if isinstance(goal.weight, Timeseries):
+                    if (len(goal.weight.times) != len(self.times())) or \
+                       (len(goal.weight.values) != len(self.times())):
+                        raise Exception("Goal weight timeseries of goal {} should be of equal \
+length as the number of colocation points in time.".format(goal))
+                    if any(goal.weight.values < 0):
+                        raise Exception("Goal weight timeseries of goal {} should be non-negative.".format(goal))
+                else:
+                    if goal.weight <= 0:
+                        raise Exception("Scalar goal weight should be positive for goal {}".format(goal))
             else:
                 if goal.function_range != (np.nan, np.nan):
                     raise Exception("Specifying function range not allowed for goal {}".format(goal))
@@ -764,7 +772,10 @@ class _GoalProgrammingMixinBase(OptimizationProblem, metaclass=ABCMeta):
                         else:
                             epsilon = problem.extra_variable(epsilon.name(), ensemble_member)
 
-                        return goal.weight * ca.constpow(epsilon, goal.order) / n_active
+                        if isinstance(goal.weight, Timeseries):
+                            return np.multiply(goal.weight.values, ca.constpow(epsilon, goal.order) / n_active)
+                        else:
+                            return goal.weight * ca.constpow(epsilon, goal.order) / n_active
                 else:
                     if is_path_goal and options['scale_by_problem_size']:
                         n_active = len(self.times())
@@ -774,7 +785,10 @@ class _GoalProgrammingMixinBase(OptimizationProblem, metaclass=ABCMeta):
                     def _objective_func(problem, ensemble_member, goal=goal, is_path_goal=is_path_goal,
                                         n_active=n_active):
                         f = goal.function(problem, ensemble_member) / goal.function_nominal
-                        return goal.weight * ca.constpow(f, goal.order) / n_active
+                        if isinstance(goal.weight, Timeseries):
+                            return np.multiply(goal.weight.values, ca.constpow(f, goal.order) / n_active)
+                        else:
+                            return goal.weight * ca.constpow(f, goal.order) / n_active
 
                 objectives.append(_objective_func)
 

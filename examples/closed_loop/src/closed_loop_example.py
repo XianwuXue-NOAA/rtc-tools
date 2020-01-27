@@ -14,8 +14,8 @@ from rtctools._internal.alias_tools import AliasDict
 from rtctools.optimization.timeseries import Timeseries
 from rtctools.util import run_optimization_problem
 
-# copies necessary files from the BlueRiver example if set to True
-copy_from_BlueRiver_example = True
+# copies necessary files from the pareto optimality example if set to True
+copy_from_pareto_optimality_example = True
 
 # hardcoded IO paths:
 dirpath = os.path.dirname(os.path.realpath(__file__))
@@ -24,7 +24,8 @@ outputfolder = os.path.join(dirpath, '..', 'output')
 
 class BlueRiver_closed_loop(BlueRiver):
 
-    # The modelica file in this example uses the name BlueRiver (not BlueRiverClosedLoop)
+    # The modelica file in this example uses the name BlueRiver
+    # (not BlueRiver_closed_loop)
     model_name = 'BlueRiver'
 
     # There will be no available history in the first optimization.
@@ -154,7 +155,7 @@ if __name__ == "__main__":
 
     cwd = os.getcwd()
     os.chdir(dirpath)
-    if copy_from_BlueRiver_example:
+    if copy_from_pareto_optimality_example:
         # copy BlueRiver files when True (and necessary)
         runpy.run_path('copy_BlueRiver.py')
     # load Model Predictive Control settings from file

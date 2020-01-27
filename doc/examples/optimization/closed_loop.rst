@@ -31,7 +31,7 @@ prediction horizon or receding horizon. MPC settings used in this example can be
 length of the time-span of implemented control are called `len_MPC_horizon` and
 `len_MPC_timestep` respectively.
 
-For convenience, a script, `copy_BlueRiver.py`, is added
+For convenience, a script, `copy_from_pareto_optimality.py`, is added
 which copies and renames the necessary files when they are not encountered in this example. This
 behaviour can be turned of by modifying
 

@@ -44,7 +44,8 @@ axarr[0].plot(input_times, [Vlimits_b[0]]*len_itimes, label="$V_{min}$ (boating)
               linewidth=2, linestyle=':', color="g")
 axarr[0].plot(input_times, [Vlimits_b[1]]*len_itimes, label="$V_{max}$ (boating)",
               linewidth=2, linestyle=':', color="g")
-axarr[0].plot(times, results["troutlake_v"], label="$V$ (reservoir)", linewidth=2, marker='.', color="b")
+axarr[0].plot(times, results["troutlake_v"], label="$V$ (reservoir)",
+              linewidth=2, marker='.', color="b")
 
 # Lower Subplot
 axarr[1].set_ylabel("Flow Rate [m³/s]")
@@ -58,9 +59,10 @@ axarr[1].plot(input_times, input_data["rafting_qmin"], label="$Q_{min}$ (rafting
               linestyle=':', linewidth=2, color="g")
 axarr[1].plot(input_times, input_data["rafting_qmax"], label="$Q_{max}$ (rafting)",
               linestyle=':', linewidth=2, color="g")
-axarr[1].plot(times, results["rivercity_q"], label="$Q$ (River City)", linewidth=2, marker='.', color="orange")
-axarr[1].plot(times, results["troutlake_q_out"], label="$Q$ (Trout Lake)", linestyle='-.',
-              linewidth=2, marker='.', color="c")
+axarr[1].plot(times, results["rivercity_q"], label="$Q$ (River City)",
+              linewidth=2, marker='.', color="orange")
+axarr[1].plot(times, results["troutlake_q_out"], label="$Q$ (Trout Lake)",
+              linestyle='-.', linewidth=2, marker='.', color="c")
 
 # Shrink margins
 fig.tight_layout()

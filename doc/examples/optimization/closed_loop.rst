@@ -65,14 +65,14 @@ be seen in
 
 .. literalinclude:: ../../../examples/closed_loop/src/closed_loop_example.py
   :language: python
-  :lines: 25-28
+  :lines: 25-29
   :lineno-match:
 
 Settings such as the MPC timestep and prediction horizon are set while initializing the class with
 
 .. literalinclude:: ../../../examples/closed_loop/src/closed_loop_example.py
   :language: python
-  :lines: 33-49
+  :lines: 34-50
   :lineno-match:
 
 These settings are used to modify the behaviour of the open loop system such that it will optimise
@@ -82,7 +82,7 @@ optimisation.
 
 .. literalinclude:: ../../../examples/closed_loop/src/closed_loop_example.py
   :language: python
-  :lines: 51-59
+  :lines: 52-60
   :lineno-match:
 
 In this example, indices of the timepoints are used explicitly because the measurement points are
@@ -92,7 +92,7 @@ results as initial state in the new optimisation problem.
 
 .. literalinclude:: ../../../examples/closed_loop/src/closed_loop_example.py
   :language: python
-  :lines: 61-71
+  :lines: 62-72
   :lineno-match:
 
 
@@ -104,7 +104,7 @@ Based on the chosen MPC settings, the number of optimisations is computed in
 
 .. literalinclude:: ../../../examples/closed_loop/src/closed_loop_example.py
   :language: python
-  :lines: 77-80
+  :lines: 78-81
   :lineno-match:
 
 A loop is started in which the new `BlueRiver_closed_loop` class is used in optimisation
@@ -112,7 +112,7 @@ by RTC-Tools.
 
 .. literalinclude:: ../../../examples/closed_loop/src/closed_loop_example.py
   :language: python
-  :lines: 90-93
+  :lines: 91-94
   :lineno-match:
 
 The initial conditions of each optimisation together with the first `len_MPC_timestep` datapoints
@@ -128,14 +128,14 @@ are appended to a pandas dataframe.
 
 .. literalinclude:: ../../../examples/closed_loop/src/closed_loop_example.py
   :language: python
-  :lines: 115-139
+  :lines: 116-140
   :lineno-match:
 
 Finally, after completing the accumulated results are stored in a csv file
 
 .. literalinclude:: ../../../examples/closed_loop/src/closed_loop_example.py
   :language: python
-  :lines: 143-144
+  :lines: 145-148
   :lineno-match:
 
 The Whole Script

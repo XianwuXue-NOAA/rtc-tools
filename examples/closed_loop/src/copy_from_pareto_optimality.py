@@ -29,6 +29,9 @@ if copy_from_pareto_optimality_example:
         path_in = os.path.join(ol_path, path_parts[0],  path_parts[1])
         path_out = os.path.join(cl_path, path_parts[0],  path_parts[2])
         if not os.path.isfile(path_out):
+            folder_path = os.path.join(cl_path, path_parts[0])
+            if not os.path.exists(folder_path):
+                os.makedirs(folder_path)
             copyfile(path_in, path_out)
             print('copied {} from the open loop implementation.'.format(
                 files_in[n]))

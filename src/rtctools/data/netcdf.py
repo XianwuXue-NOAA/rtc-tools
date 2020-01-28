@@ -1,7 +1,7 @@
 import os
 from collections import OrderedDict
 from datetime import datetime, timedelta
-from typing import Iterable, List, Union
+from typing import Dict, Iterable, List, OrderedDict as OrderedDictType, Union
 
 try:
     from netCDF4 import Dataset, Variable, chartostring, num2date
@@ -184,6 +184,21 @@ class ImportDataset:
                 timeseries_variables.append(var_key)
 
         return timeseries_variables
+
+    def read_variable_attributes(self, variable_name: str) -> Dict:
+        """
+        Reads the specified timeseries attributes.
+
+        :param variable_name: The name of the variable for which the attributes should be read
+        :return: a dictionary of attributes
+        """
+        # TODO: unit test
+
+        attribute_dict = OrderedDict()
+        for attr in self.__dataset.variables[variable_name].ncattrs():
+            attribute_dict[attr] = getattr(self.__dataset.variables[variable_name], attr)
+
+        return attribute_dict
 
     def read_timeseries_values(self, station_index: int, variable_name: str, ensemble_member: int = 0) -> np.ndarray:
         """
@@ -386,6 +401,21 @@ class ExportDataset:
             for variable_name in variable_names:
                 self.__dataset.createVariable(variable_name,
                                               'f8', ('time', 'station'), fill_value=np.nan)
+
+    def write_output_units(self, variable_names: List[str], output_units: OrderedDictType) -> None:
+        """
+        Adds units as attribute to previously created variables
+
+        :param variable_names: The parameter ids for which variables were created
+        :param output_units: The units associated to the variables.
+        """
+        # TODO: write unit test
+
+        assert len(set(variable_names)) == len(output_units.keys())
+        # assumes variables and their parameter_ids are given in the same order
+
+        for n, unit in enumerate(output_units.values()):
+            self.__dataset.variables[variable_names[n]].units = unit
 
     def write_output_values(self, station_id: str, variable_name: str,
                             ensemble_member_index: int, values: np.ndarray,

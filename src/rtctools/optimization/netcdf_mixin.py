@@ -36,6 +36,8 @@ class NetCDFMixin(IOMixin):
 
     #: Check consistency of timeseries.
     netcdf_validate_timeseries = True
+    #: Placeholder for dictionary of units to be set as attribute of variables in output
+    netcdf_output_units = OrderedDict()
 
     def netcdf_id_to_variable(self, station_id: str, parameter: str) -> str:
         """
@@ -109,6 +111,11 @@ class NetCDFMixin(IOMixin):
 
         logger.debug("NetCDFMixin: Read timeseries")
 
+        # TODO: unit test
+        self.__input_attributes = OrderedDict()
+        for var in timeseries_var_keys:
+            self.__input_attributes[var] = dataset.read_variable_attributes(var)
+
     def write(self):
         # Call parent class first for default behaviour
         super().write()
@@ -132,6 +139,7 @@ class NetCDFMixin(IOMixin):
         dataset.write_ensemble_data(self.ensemble_size)
 
         dataset.create_variables(unique_parameter_ids, self.ensemble_size)
+        dataset.write_output_units(unique_parameter_ids, self.netcdf_output_units)
 
         for ensemble_member in range(self.ensemble_size):
             results = self.extract_results(ensemble_member)

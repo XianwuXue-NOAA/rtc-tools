@@ -979,6 +979,9 @@ class Timeseries:
         :param unit:            Unit.
         :param ensemble_member: Ensemble member index.
         """
+        if ensemble_member >= len(self.__units):
+            self.__units.append({})
+
         self.__units[ensemble_member][variable] = unit
 
     def resize(self, start_datetime, end_datetime):

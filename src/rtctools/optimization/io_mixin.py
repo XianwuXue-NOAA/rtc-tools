@@ -49,8 +49,8 @@ class IOMixin(OptimizationProblem, metaclass=ABCMeta):
         # Call parent class first for default behaviour.
         super().post()
 
-        # Add appropriate units to the output series
-        self._add_all_output_units()
+        # Add appropriate units to the output series when possible
+        self._add_output_units()
 
         # Call write method to write all output
         self.write()
@@ -316,13 +316,45 @@ class IOMixin(OptimizationProblem, metaclass=ABCMeta):
         warnings.warn('get_forecast_index() is deprecated and will be removed in the future', FutureWarning)
         return bisect.bisect_left(self.io.datetimes, self.io.reference_datetime)
 
-    def _add_all_output_units(self):
-        # adds units to output variables when they are not known at this point
+    def _add_output_units(self):
+        # Adds units to output variables when they are not known at this point.
+        # First, information of the output unit will be looked for in input information,
+        # otherwise it will be attempted to infer from the variable name.
+        use_PI = hasattr(self, 'timeseries_import')  # assumes use of pi_mixin
+        use_NetCDF = hasattr(self, '_NetCDFMixin__input_attributes')  # assumes use of netcdf_mixin
         for var in (x.name() for x in self.output_variables):
-            if self.timeseries_import.get_unit(var) == 'unit_unknown':
+            aliases = self.alias_relation.aliases(var)
+            new_unit = 'unit_unknown'
+            # output units might be known from the input and can possibly inferred from the variable name
+            if use_PI:
+                if new_unit == 'unit_unknown':
+                    # only checks input aliases based on the first ensemble member
+                    input_aliases = aliases.intersection(x[0] for x in self._PIMixin__timeseries_import.items(0))
+                    for input_alias in input_aliases:
+                        if self.timeseries_import.get_unit(input_alias) and \
+                                self.timeseries_import.get_unit(input_alias) != 'unit_unknown':
+                            new_unit = self.timeseries_import.get_unit(input_alias)
+                            break
+            if use_NetCDF:
+                if new_unit == 'unit_unknown':
+                    input_aliases = aliases.intersection(self._NetCDFMixin__input_attributes.keys())
+                    # output_alias =
+                    for input_alias in input_aliases:
+                        if self._NetCDFMixin__input_attributes[input_alias]['units'] and \
+                                self._NetCDFMixin__input_attributes[input_alias]['units'] != 'unit_unknown':
+                            new_unit = self._NetCDFMixin__input_attributes[input_alias]['units']
+                            break
+            if new_unit == 'unit_unknown':
                 new_unit = self._infer_output_unit(var)
+                logger.debug('unit inferred for {}.'.format(var))
+            if new_unit == 'unit_unknown':
+                logger.debug('no unit found for {}.'.format(var))
+            # set the unit for each output type
+            if use_PI:
                 for ensemble_member in range(self.ensemble_size):
                     self.timeseries_export.set_unit(var, new_unit, ensemble_member)
+            if use_NetCDF:
+                self.netcdf_output_units[var] = new_unit
 
     def _infer_output_unit(self, var):
 

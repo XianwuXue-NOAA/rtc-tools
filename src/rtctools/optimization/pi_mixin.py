@@ -210,7 +210,7 @@ class PIMixin(IOMixin):
                 # we might be outputting more ensembles than we read in.
                 self.__timeseries_export.set(
                     variable, values,
-                    unit=self.__timeseries_import.get_unit(variable, ensemble_member=0),
+                    unit=self.__timeseries_export.get_unit(variable, ensemble_member=0),
                     ensemble_member=ensemble_member)
 
         # Write output file to disk

@@ -49,6 +49,9 @@ class IOMixin(OptimizationProblem, metaclass=ABCMeta):
         # Call parent class first for default behaviour.
         super().post()
 
+        # Add appropriate units to the output series
+        self._add_all_output_units()
+
         # Call write method to write all output
         self.write()
 
@@ -312,3 +315,25 @@ class IOMixin(OptimizationProblem, metaclass=ABCMeta):
         """
         warnings.warn('get_forecast_index() is deprecated and will be removed in the future', FutureWarning)
         return bisect.bisect_left(self.io.datetimes, self.io.reference_datetime)
+
+    def _add_all_output_units(self):
+        # adds units to output variables when they are not known at this point
+        for var in (x.name() for x in self.output_variables):
+            if self.timeseries_import.get_unit(var) == 'unit_unknown':
+                new_unit = self._infer_output_unit(var)
+                for ensemble_member in range(self.ensemble_size):
+                    self.timeseries_export.set_unit(var, new_unit, ensemble_member)
+
+    def _infer_output_unit(self, var):
+
+        unit_dict = {
+            'Q': 'm3/s',
+            'V': 'm3',
+            'H': 'm',
+            'P': 'watt',
+            }
+
+        for key, val in unit_dict.items():
+            if any(x in var for x in ('.'+key, key+'.', '_'+key, key+'_')):
+                return val
+        return 'unit_unknown'

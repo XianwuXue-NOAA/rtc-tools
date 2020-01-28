@@ -32,13 +32,7 @@ length of the time-span of implemented control are called `len_MPC_horizon` and
 `len_MPC_timestep` respectively.
 
 For convenience, a script, `copy_from_pareto_optimality.py`, is added
-which copies and renames the necessary files when they are not encountered in this example. This
-behaviour can be turned of by modifying
-
-.. literalinclude:: ../../../examples/closed_loop/src/closed_loop_example.py
-  :language: python
-  :lines: 17-18
-  :lineno-match:
+which copies and renames the necessary files when they are not encountered in this example.
 
 The Model
 ---------
@@ -65,14 +59,14 @@ be seen in
 
 .. literalinclude:: ../../../examples/closed_loop/src/closed_loop_example.py
   :language: python
-  :lines: 25-29
+  :lines: 25-27
   :lineno-match:
 
 Settings such as the MPC timestep and prediction horizon are set while initializing the class with
 
 .. literalinclude:: ../../../examples/closed_loop/src/closed_loop_example.py
   :language: python
-  :lines: 34-50
+  :lines: 32-48
   :lineno-match:
 
 These settings are used to modify the behaviour of the open loop system such that it will optimise
@@ -82,7 +76,7 @@ optimisation.
 
 .. literalinclude:: ../../../examples/closed_loop/src/closed_loop_example.py
   :language: python
-  :lines: 52-60
+  :lines: 50-58
   :lineno-match:
 
 In this example, indices of the timepoints are used explicitly because the measurement points are
@@ -92,7 +86,7 @@ results as initial state in the new optimisation problem.
 
 .. literalinclude:: ../../../examples/closed_loop/src/closed_loop_example.py
   :language: python
-  :lines: 62-72
+  :lines: 60-70
   :lineno-match:
 
 
@@ -104,7 +98,7 @@ Based on the chosen MPC settings, the number of optimisations is computed in
 
 .. literalinclude:: ../../../examples/closed_loop/src/closed_loop_example.py
   :language: python
-  :lines: 78-81
+  :lines: 76-79
   :lineno-match:
 
 A loop is started in which the new `BlueRiver_closed_loop` class is used in optimisation
@@ -112,7 +106,7 @@ by RTC-Tools.
 
 .. literalinclude:: ../../../examples/closed_loop/src/closed_loop_example.py
   :language: python
-  :lines: 91-94
+  :lines: 89-92
   :lineno-match:
 
 The initial conditions of each optimisation together with the first `len_MPC_timestep` datapoints
@@ -120,7 +114,7 @@ of the results are stored into a history variable.
 
 .. literalinclude:: ../../../examples/closed_loop/src/closed_loop_example.py
   :language: python
-  :lines: 97-113
+  :lines: 95-111
   :lineno-match:
 
 Conversions in the representation of time and the variables-names are performed and the results
@@ -128,14 +122,14 @@ are appended to a pandas dataframe.
 
 .. literalinclude:: ../../../examples/closed_loop/src/closed_loop_example.py
   :language: python
-  :lines: 116-140
+  :lines: 114-138
   :lineno-match:
 
 Finally, after completing the accumulated results are stored in a csv file
 
 .. literalinclude:: ../../../examples/closed_loop/src/closed_loop_example.py
   :language: python
-  :lines: 145-148
+  :lines: 143-146
   :lineno-match:
 
 The Whole Script

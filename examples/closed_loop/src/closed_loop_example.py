@@ -1,8 +1,9 @@
 import os
-import runpy
 from datetime import datetime, timedelta
 
-from blue_river import BlueRiver
+import copy_from_pareto_optimality  # noqa: F401
+
+from blue_river import BlueRiver  # noqa: I100
 
 from load_MPC_settings import load_MPC_settings
 
@@ -13,9 +14,6 @@ import pandas as pd
 from rtctools._internal.alias_tools import AliasDict
 from rtctools.optimization.timeseries import Timeseries
 from rtctools.util import run_optimization_problem
-
-# copies necessary files from the pareto optimality example if set to True
-copy_from_pareto_optimality_example = True
 
 # hardcoded IO paths:
 dirpath = os.path.dirname(os.path.realpath(__file__))
@@ -153,14 +151,9 @@ def run_closed_loop_implementation(len_forecastperiod, len_MPC_timestep, len_MPC
 
 if __name__ == "__main__":
 
-    cwd = os.getcwd()
-    os.chdir(dirpath)
-    if copy_from_pareto_optimality_example:
-        # copy BlueRiver files when True (and necessary)
-        runpy.run_path('copy_BlueRiver.py')
     # load Model Predictive Control settings from file
     (len_forecastperiod, len_MPC_timestep, len_MPC_horizon) = \
         load_MPC_settings()
-    os.chdir(cwd)
+    # run the closed loop system with the loaded settings
     run_closed_loop_implementation(
         len_forecastperiod, len_MPC_timestep, len_MPC_horizon)

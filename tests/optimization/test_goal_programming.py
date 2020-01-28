@@ -17,7 +17,6 @@ from test_case import TestCase
 
 from .data_path import data_path
 
-
 logger = logging.getLogger("rtctools")
 logger.setLevel(logging.WARNING)
 

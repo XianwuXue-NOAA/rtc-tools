@@ -1055,3 +1055,113 @@ class TestGoalProgrammingSeed(TestCase):
     def test_seed(self):
         self.assertTrue(np.array_equal(self.problem._results[0], self.problem._x0[1]))
         self.assertTrue(np.array_equal(self.problem._results[1], self.problem._x0[2]))
+
+
+class Model2(
+    GoalProgrammingMixin, ModelicaMixin, CollocatedIntegratedOptimizationProblem
+):
+
+    def __init__(self):
+        super().__init__(
+            input_folder=data_path(),
+            output_folder=data_path(),
+            model_name="ModelWithInitial",
+            model_folder=data_path(),
+        )
+        self._goals = []
+
+    def times(self, variable=None):
+        # Collocation points
+        return np.linspace(0.0, 1.0, 21)
+
+    def parameters(self, ensemble_member):
+        parameters = super().parameters(ensemble_member)
+        parameters["u_max"] = 2.0
+        return parameters
+
+    def constant_inputs(self, ensemble_member):
+        constant_inputs = super().constant_inputs(ensemble_member)
+        constant_inputs["constant_input"] = Timeseries(
+            np.hstack(([self.initial_time, self.times()])),
+            np.hstack(([1.0], np.linspace(1.0, 0.0, 21))),
+        )
+        return constant_inputs
+
+    def bounds(self):
+        bounds = super().bounds()
+        bounds["u"] = (-2.0, 2.0)
+        return bounds
+
+    def goals(self):
+        return self._goals
+
+    def set_timeseries(self, timeseries_id, timeseries, ensemble_member, **kwargs):
+        # Do nothing
+        pass
+
+    def compiler_options(self):
+        compiler_options = super().compiler_options()
+        compiler_options["cache"] = False
+        compiler_options['library_folders'] = []
+        return compiler_options
+
+class Goal4(Goal):
+
+    def function(self, optimization_problem, ensemble_member):
+        return optimization_problem.integral(
+            "x", 0.1, 1.0, ensemble_member=ensemble_member
+        )
+
+    function_range = (-1e1, 1e1)
+    priority = 1
+    target_max = 1.0
+    weigth = 1.0
+
+
+class Goal5(Goal):
+
+    def function(self, optimization_problem, ensemble_member):
+        return optimization_problem.integral(
+            "x", 0.1, 1.0, ensemble_member=ensemble_member
+        )
+
+    function_range = (-1e1, 1e1)
+    priority = 1
+    target_max = 1.0
+    weight = Timeseries(np.linspace(0.0, 1.0, 21), 1.0)
+
+
+class Goal6(Goal):
+
+    def function(self, optimization_problem, ensemble_member):
+        return optimization_problem.integral(
+            "x", 0.1, 1.0, ensemble_member=ensemble_member
+        )
+
+    function_range = (-1e1, 1e1)
+    priority = 1
+    target_max = 1.0
+    weight = Timeseries(np.linspace(0.0, 1.0, 21), np.linspace(1.0, 3.0, 21))
+
+
+class TestGoalProgrammingVariousGoalWeigths(TestCase):
+
+    def setUp(self):
+        self.problem1 = Model2()
+        self.problem1._goals = [Goal4()]
+        self.problem1.optimize()
+        self.problem2 = Model2()
+        self.problem2._goals = [Goal5()]
+        self.problem2.optimize()
+        self.problem3 = Model2()
+        self.problem3._goals = [Goal6()]
+        self.problem3.optimize()
+
+    def test_weights_as_series(self):
+         vars = list(self.problem1.extract_results().keys())
+         for var in vars:
+             self.assertAlmostEqual(self.problem1.extract_results()[var],
+                                    self.problem2.extract_results()[var], 1e-3)
+             self.assertFalse(
+                 self.assertAlmostEqual(self.problem1.extract_results()[var],
+                                        self.problem3.extract_results()[var], 1e-3))

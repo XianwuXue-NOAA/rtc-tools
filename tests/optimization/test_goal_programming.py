@@ -907,9 +907,13 @@ class TestEmptyGoals(TestCase):
 
 class ModelInvalidGoals(Model):
     _goals = []
+    _pathgoals = []
 
     def goals(self):
         return self._goals
+
+    def path_goals(self):
+        return self._pathgoals
 
 
 class InvalidGoal(Goal):
@@ -921,13 +925,13 @@ class InvalidGoal(Goal):
         return optimization_problem.state_at("x", 0.5, ensemble_member=ensemble_member)
 
 
-# class InvalidPathGoal(Goal):
-#
-#     def __init__(self, **kwargs):
-#         self.__dict__.update(kwargs)
-#
-#     def function(self, optimization_problem, ensemble_member):
-#         return optimization_problem.state_at("x", 0.5, ensemble_member=ensemble_member)
+class InvalidPathGoal(Goal):
+
+    def __init__(self, **kwargs):
+        self.__dict__.update(kwargs)
+
+    def function(self, optimization_problem, ensemble_member):
+        return optimization_problem.state("x", ensemble_member=ensemble_member)
 
 
 class TestGoalProgrammingInvalidGoals(TestCase):
@@ -1020,14 +1024,16 @@ class TestGoalProgrammingInvalidGoals(TestCase):
 
     def test_weights_as_negative_timeseries(self):
         invalid_weight = Timeseries(self.problem.times(), np.linspace(1.0, -1.0, 21))
-        self.problem._goals = [InvalidGoal(function_range=(-2.0, 2.0), target_max=1.0, weight=invalid_weight)]
+        self.problem._pathgoals = [
+            InvalidGoal(function_range=(-2.0, 2.0), target_max=1.0, weight=invalid_weight)]
 
         with self.assertRaisesRegex(Exception, "Goal weight timeseries of goal .* should be non-negative."):
             self.problem.optimize()
 
     def test_weights_as_too_short_timeseries(self):
         invalid_weight = Timeseries(self.problem.times(), np.linspace(1.0, 0.0, 10))
-        self.problem._goals = [InvalidGoal(function_range=(-2.0, 2.0), target_max=1.0, weight=invalid_weight)]
+        self.problem._pathgoals = [
+            InvalidPathGoal(function_range=(-2.0, 2.0), target_max=1.0, weight=invalid_weight)]
 
         with self.assertRaisesRegex(Exception, "Goal weight timeseries of goal .* should be of equal \
 length as the number of colocation points in time"):
@@ -1082,6 +1088,7 @@ class Model2(
             model_folder=data_path(),
         )
         self._goals = []
+        self._pathgoals = []
 
     def times(self, variable=None):
         # Collocation points
@@ -1108,9 +1115,8 @@ class Model2(
     def goals(self):
         return self._goals
 
-    def set_timeseries(self, timeseries_id, timeseries, ensemble_member, **kwargs):
-        # Do nothing
-        pass
+    def path_goals(self):
+        return self._pathgoals
 
     def compiler_options(self):
         compiler_options = super().compiler_options()
@@ -1118,63 +1124,49 @@ class Model2(
         compiler_options['library_folders'] = []
         return compiler_options
 
-class Goal4(Goal):
+
+class ModelValidPathGoal(Goal):
+
+    def __init__(self, **kwargs):
+        self.__dict__.update(kwargs)
 
     def function(self, optimization_problem, ensemble_member):
-        return optimization_problem.integral(
-            "x", 0.1, 1.0, ensemble_member=ensemble_member
-        )
-
-    function_range = (-1e1, 1e1)
-    priority = 1
-    target_max = 1.0
-    weigth = 1.0
-
-
-class Goal5(Goal):
-
-    def function(self, optimization_problem, ensemble_member):
-        return optimization_problem.integral(
-            "x", 0.1, 1.0, ensemble_member=ensemble_member
-        )
-
-    function_range = (-1e1, 1e1)
-    priority = 1
-    target_max = 1.0
-    weight = Timeseries(np.linspace(0.0, 1.0, 21), 1.0)
-
-
-class Goal6(Goal):
-
-    def function(self, optimization_problem, ensemble_member):
-        return optimization_problem.integral(
-            "x", 0.1, 1.0, ensemble_member=ensemble_member
-        )
-
-    function_range = (-1e1, 1e1)
-    priority = 1
-    target_max = 1.0
-    weight = Timeseries(np.linspace(0.0, 1.0, 21), np.linspace(1.0, 3.0, 21))
+        return optimization_problem.state("x")
 
 
 class TestGoalProgrammingVariousGoalWeigths(TestCase):
 
     def setUp(self):
         self.problem1 = Model2()
-        self.problem1._goals = [Goal4()]
+        self.problem1._pathgoals = [ModelValidPathGoal(
+            function_range=(-1e1, 1e1),
+            priority=1,
+            target_min=0.0,
+            weight=1.0
+        )]
         self.problem1.optimize()
         self.problem2 = Model2()
-        self.problem2._goals = [Goal5()]
+        self.problem2._pathgoals = [ModelValidPathGoal(
+            function_range=(-1e1, 1e1),
+            priority=1,
+            target_min=0.0,
+            weight=Timeseries(np.linspace(0.0, 1.0, 21), 1.0)
+        )]
         self.problem2.optimize()
         self.problem3 = Model2()
-        self.problem3._goals = [Goal6()]
+        self.problem3._pathgoals = [ModelValidPathGoal(
+            function_range=(-1e1, 1e1),
+            priority=1,
+            target_min=0.0,
+            weight=Timeseries(np.linspace(0.0, 1.0, 21), np.linspace(1.0, 3.0, 21))
+        )]
         self.problem3.optimize()
 
     def test_weights_as_series(self):
-         vars = list(self.problem1.extract_results().keys())
-         for var in vars:
-             self.assertAlmostEqual(self.problem1.extract_results()[var],
-                                    self.problem2.extract_results()[var], 1e-3)
-             self.assertFalse(
-                 self.assertAlmostEqual(self.problem1.extract_results()[var],
-                                        self.problem3.extract_results()[var], 1e-3))
+        vars = list(self.problem1.extract_results().keys())
+        for var in vars:
+            self.assertAlmostEqual(self.problem1.extract_results()[var],
+                                   self.problem2.extract_results()[var], 1e-3)
+            self.assertFalse(
+                self.assertAlmostEqual(self.problem1.extract_results()[var],
+                                       self.problem3.extract_results()[var], 1e-3))

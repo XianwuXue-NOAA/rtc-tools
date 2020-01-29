@@ -551,6 +551,9 @@ class _GoalProgrammingMixinBase(OptimizationProblem, metaclass=ABCMeta):
                     raise Exception("Invalid function range for goal {}".format(goal))
 
                 if isinstance(goal.weight, Timeseries):
+                    if len(goal.weight.times) > 1 and not is_path_goal:
+                        raise Exception("Non path goals require a scalar weight.")
+
                     if (len(goal.weight.times) != len(self.times())) or \
                        (len(goal.weight.values) != len(self.times())):
                         raise Exception("Goal weight timeseries of goal {} should be of equal \

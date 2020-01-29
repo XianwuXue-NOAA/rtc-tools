@@ -921,6 +921,15 @@ class InvalidGoal(Goal):
         return optimization_problem.state_at("x", 0.5, ensemble_member=ensemble_member)
 
 
+# class InvalidPathGoal(Goal):
+#
+#     def __init__(self, **kwargs):
+#         self.__dict__.update(kwargs)
+#
+#     def function(self, optimization_problem, ensemble_member):
+#         return optimization_problem.state_at("x", 0.5, ensemble_member=ensemble_member)
+
+
 class TestGoalProgrammingInvalidGoals(TestCase):
 
     def setUp(self):
@@ -1023,6 +1032,10 @@ class TestGoalProgrammingInvalidGoals(TestCase):
         with self.assertRaisesRegex(Exception, "Goal weight timeseries of goal .* should be of equal \
 length as the number of colocation points in time"):
             self.problem.optimize()
+
+    def test_nonscalar_weigth_with_nonpathgoal(self):
+        invalid_weight = Timeseries(self.problem.times(), np.linspace(1.0, 0.0, 10))
+        self.problem._goals = [InvalidGoal(function_range=(-2.0, 2.0), target_max=1.0, weight=invalid_weight)]
 
 
 class ModelPathGoalsSeed(ModelPathGoals):

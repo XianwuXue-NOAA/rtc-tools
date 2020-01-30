@@ -1165,8 +1165,8 @@ class TestGoalProgrammingVariousGoalWeigths(TestCase):
     def test_weights_as_series(self):
         vars = list(self.problem1.extract_results().keys())
         for var in vars:
-            self.assertAlmostEqual(self.problem1.extract_results()[var],
-                                   self.problem2.extract_results()[var], 1e-3)
+            self.assertEqual(self.problem1.extract_results()[var],
+                             self.problem2.extract_results()[var])
             self.assertFalse(
-                self.assertAlmostEqual(self.problem1.extract_results()[var],
-                                       self.problem3.extract_results()[var], 1e-3))
+                self.assertEqual(self.problem1.extract_results()[var],
+                                 self.problem3.extract_results()[var]))

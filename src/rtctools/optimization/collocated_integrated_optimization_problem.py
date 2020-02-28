@@ -361,9 +361,9 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
 
         # Initialize bound and seed vectors
         count = control_size + state_size
-        discrete = self._get_discrete(count, self.__indices)
-        lbx, ubx = self._get_lbx_ubx(count, self.__indices)
-        x0 = self._get_x0(count, self.__indices)
+        discrete = self._collint_get_discrete(count, self.__indices)
+        lbx, ubx = self._collint_get_lbx_ubx(count, self.__indices)
+        x0 = self._collint_get_x0(count, self.__indices)
 
         # Provide a state for self.state_at() and self.der() to work with.
         self.__control_size = control_size

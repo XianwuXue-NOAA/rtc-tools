@@ -19,7 +19,7 @@ class Example(CSVMixin, ModelicaMixin, CollocatedIntegratedOptimizationProblem):
         # Minimize water pumped. The total water pumped is the integral of the
         # water pumped from the starting time until the stoping time. In
         # practice, self.integral() is a summation of all the discrete states.
-        return self.integral('Q_pump', ensemble_member)
+        return self.integral('Q_pump', ensemble_member=ensemble_member)
 
     # A path constraint is a constraint where the values in the constraint are a
     # Timeseries rather than a single number.

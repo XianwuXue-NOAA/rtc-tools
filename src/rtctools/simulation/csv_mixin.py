@@ -86,9 +86,9 @@ class CSVMixin(IOMixin):
         except IOError:
             self.__initial_state = {}
 
-        # Check for collisions in __initial_state and __timeseries
-        for collision in set(self.__initial_state) & set(self.get_variables()):
-            if self.__initial_state[collision] == self.get_timeseries_values(collision)[0]:
+        # Check for collisions in __initial_state and timeseries import (CSV)
+        for collision in set(self.__initial_state) & set(_timeseries.dtype.names[1:]):
+            if self.__initial_state[collision] == _timeseries[collision][0]:
                 continue
             else:
                 logger.warning(

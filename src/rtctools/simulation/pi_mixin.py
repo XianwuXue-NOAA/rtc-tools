@@ -173,7 +173,7 @@ class PIMixin(IOMixin):
 
         The time stamps are in seconds since t0, and may be negative.
         """
-        return self.io.times_sec()
+        return self.io.times_sec
 
     @property
     def timeseries_export(self):

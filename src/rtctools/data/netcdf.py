@@ -4,9 +4,14 @@ from datetime import datetime, timedelta
 from typing import Iterable, List, Union
 
 try:
-    from netCDF4 import Dataset, Variable, chartostring, num2date
+    from netCDF4 import Dataset, Variable, chartostring
 except ImportError:
     raise ImportError("NetCDF4 is required when using NetCDF/NetCDFMixin")
+
+try:
+    from cftime import num2pydate as num2date
+except ImportError:
+    from cftime import num2date
 
 import numpy as np
 

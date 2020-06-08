@@ -566,7 +566,7 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
 
         # Aggregate ensemble data
         ensemble_aggregate = {}
-        ensemble_aggregate["parameters"] = ca.horzcat(*[nullvertcat(*l) for l in ensemble_parameter_values])
+        ensemble_aggregate["parameters"] = ca.horzcat(*[nullvertcat(*p) for p in ensemble_parameter_values])
         ensemble_aggregate["initial_constant_inputs"] = ca.horzcat(*[
             nullvertcat(*[
                 float(d["constant_inputs"][variable.name()][0])

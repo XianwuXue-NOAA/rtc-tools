@@ -19,6 +19,26 @@ logger = logging.getLogger("rtctools")
 BT = Union[float, np.ndarray, Timeseries]
 
 
+class LookupTable(metaclass=ABCMeta):
+    """
+    Base class for LookupTables.
+    """
+
+    @property
+    def inputs(self) -> List[ca.MX]:
+        """
+        List of lookup table input variables.
+        """
+        raise NotImplementedError
+
+    @property
+    def function(self) -> ca.Function:
+        """
+        Lookup table CasADi :class:`Function`.
+        """
+        raise NotImplementedError
+
+
 class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
     """
     Base class for all optimization problems.
@@ -389,7 +409,7 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
         """
         return AliasDict(self.alias_relation)
 
-    def lookup_tables(self, ensemble_member: int) -> AliasDict[str, 'LookupTable']:
+    def lookup_tables(self, ensemble_member: int) -> AliasDict[str, LookupTable]:
         """
         Returns a dictionary of lookup tables.
 

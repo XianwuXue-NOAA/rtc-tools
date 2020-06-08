@@ -18,12 +18,13 @@ from rtctools.optimization.timeseries import Timeseries
 from scipy.interpolate import bisplev, bisplrep, splev
 from scipy.optimize import brentq
 
+from .optimization_problem import LookupTable as LookupTableBase
 from .optimization_problem import OptimizationProblem
 
 logger = logging.getLogger("rtctools")
 
 
-class LookupTable:
+class LookupTable(LookupTableBase):
     """
     Lookup table.
     """

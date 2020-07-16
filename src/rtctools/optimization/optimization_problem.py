@@ -366,7 +366,7 @@ class OptimizationProblem(metaclass=ABCMeta):
         """
         return AliasDict(self.alias_relation)
 
-    def lookup_tables(self, ensemble_member: int) -> AliasDict[str, 'LookupTable']:
+    def lookup_tables(self, ensemble_member: int) -> AliasDict[str, 'LookupTable']:  # noqa: F821
         """
         Returns a dictionary of lookup tables.
 

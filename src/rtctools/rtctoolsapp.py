@@ -92,16 +92,23 @@ def download_examples(*args):
 
     path = Path(path)
 
+    import urllib.request
     from urllib.error import HTTPError
-    from urllib.request import urlretrieve
     from zipfile import ZipFile
+
+    # GitLab is blocking requests unless we specify a user agent
+    user_agent = 'Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:47.0) Gecko/20100101 Firefox/47.0'
 
     version = rtctools.__version__
     rtc_full_name = 'rtc-tools-{}'.format(version)
     try:
-        local_filename, _ = urlretrieve(
-            'https://gitlab.com/deltares/rtc-tools/-/archive/'
-            '{}/{}.zip'.format(version, rtc_full_name))
+        url = 'https://gitlab.com/deltares/rtc-tools/-/archive/' \
+            '{}/{}.zip'.format(version, rtc_full_name)
+
+        opener = urllib.request.build_opener()
+        opener.addheaders = [('User-agent', user_agent)]
+        urllib.request.install_opener(opener)
+        local_filename, _ = urllib.request.urlretrieve(url)
     except HTTPError:
         sys.exit("Could not found examples for RTC-Tools version {}.".format(version))
 

@@ -106,7 +106,7 @@ class TestCSVMixin(TestCase):
                 self.assertAlmostEqual(a, b, self.tolerance)
 
 
-class TestPIMixinEnsemble(TestCase):
+class TestCSVMixinEnsemble(TestCase):
     def setUp(self):
         self.problem = ModelEnsemble()
         self.problem.optimize()

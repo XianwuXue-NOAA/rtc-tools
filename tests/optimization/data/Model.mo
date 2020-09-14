@@ -13,7 +13,7 @@ model Model
 
 	output Real z;
 
-	input Real x_delayed(fixed=false);
+	output Real x_delayed;
 
 	output Real switched;
 

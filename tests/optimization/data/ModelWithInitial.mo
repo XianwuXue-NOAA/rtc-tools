@@ -14,6 +14,7 @@ model ModelWithInitial
 	output Real z;
 
 	Real x_delayed;
+	Real x_delayed_extra;
 
 	output Real switched;
 
@@ -28,6 +29,7 @@ equation
 	der(w) = x;
 
 	x_delayed = delay(x, 0.1);
+	x_delayed_extra = delay(x, 0.125);
 
 	alias = x;
 

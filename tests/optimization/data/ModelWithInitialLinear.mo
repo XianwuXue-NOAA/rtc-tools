@@ -12,6 +12,7 @@ model ModelWithInitialLinear
 	output Real y;
 
 	Real x_delayed;
+	Real x_delayed_extra;
 
 	input Real constant_input(fixed=true);
 	output Real constant_output;
@@ -24,6 +25,7 @@ equation
 	der(w) = x;
 
 	x_delayed = delay(x, 0.1);
+	x_delayed_extra = delay(x, 0.125);
 
 	alias = x;
 

@@ -14,6 +14,7 @@ model Model
 	output Real z;
 
 	output Real x_delayed;
+	Real x_delayed_extra;
 
 	output Real switched;
 
@@ -32,6 +33,7 @@ equation
 	z = alias^2 + sin(time);
 
 	x_delayed = delay(x, 0.1);
+	x_delayed_extra = delay(x, 0.125);
 
 	if x > 0.5 then
 		switched = 1.0;

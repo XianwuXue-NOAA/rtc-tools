@@ -1317,7 +1317,7 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
             if len(delayed_feedback_expressions) > 0:
                 delayed_feedback_history = np.zeros((history_times.shape[0], len(delayed_feedback_expressions)))
                 for i, time in enumerate(history_times):
-                    [history_delayed_feedback_res] = delayed_feedback_function.call(
+                    history_delayed_feedback_res = delayed_feedback_function.call(
                         [parameters, ca.veccat(
                             ca.transpose(history_values[i, :]),
                             ca.transpose(history_derivatives[i, :]),

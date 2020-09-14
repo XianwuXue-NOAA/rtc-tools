@@ -608,6 +608,20 @@ class TestModelicaMixinHistory(TestCase, unittest.TestCase):
             self.results['initial_der(w)'], (self.results['w'][0] - 0.9) / 0.1, self.tolerance
         )
 
+    def test_delayed_feedback(self):
+        np.testing.assert_allclose(
+            self.results["x_delayed"],
+            [0.9, 1.0, *self.results["x"][:-2]],
+            rtol=self.tolerance,
+            atol=self.tolerance
+        )
+        np.testing.assert_allclose(
+            self.results["x_delayed_extra"],
+            [0.85, 0.95, 1.05, *((self.results["x"][1:-2] + self.results["x"][:-3]) / 2)],
+            rtol=self.tolerance,
+            atol=self.tolerance
+        )
+
 
 class TestModelicaMixinSymbolicParameters(TestCase, unittest.TestCase):
 

@@ -46,7 +46,18 @@ def run_optimization_problem(optimization_problem_class,
 
     if not os.path.isabs(base_folder):
         # Resolve base folder relative to script folder
-        base_folder = os.path.join(sys.path[0], base_folder)
+        if os.path.isabs(sys.argv[0]):
+            script_path = sys.argv[0]
+        else:
+            script_path = os.path.join(sys.path[0], sys.argv[0])
+            if not os.path.exists(script_path):
+                # sys.path[0] not set correctly to folder containing script.
+                # Try current working directory instead as a last resort.
+                script_path = os.path.join(os.getcwd(), sys.argv[0])
+            if not os.path.exists(script_path):
+                raise Exception("Could not resolve path to base folder")
+
+        base_folder = os.path.abspath(os.path.join(os.path.dirname(script_path), base_folder))
 
     model_folder = _resolve_folder(kwargs, base_folder, 'model_folder', 'model')
     input_folder = _resolve_folder(kwargs, base_folder, 'input_folder', 'input')
@@ -149,7 +160,18 @@ def run_simulation_problem(simulation_problem_class,
     else:
         if not os.path.isabs(base_folder):
             # Resolve base folder relative to script folder
-            base_folder = os.path.join(sys.path[0], base_folder)
+            if os.path.isabs(sys.argv[0]):
+                script_path = sys.argv[0]
+            else:
+                script_path = os.path.join(sys.path[0], sys.argv[0])
+                if not os.path.exists(script_path):
+                    # sys.path[0] not set correctly to folder containing script.
+                    # Try current working directory instead as a last resort.
+                    script_path = os.path.join(os.getcwd(), sys.argv[0])
+                if not os.path.exists(script_path):
+                    raise Exception("Could not resolve path to base folder")
+
+            base_folder = os.path.abspath(os.path.join(os.path.dirname(script_path), base_folder))
 
     model_folder = _resolve_folder(kwargs, base_folder, 'model_folder', 'model')
     input_folder = _resolve_folder(kwargs, base_folder, 'input_folder', 'input')

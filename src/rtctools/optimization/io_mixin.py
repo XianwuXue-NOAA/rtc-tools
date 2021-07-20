@@ -91,7 +91,7 @@ class IOMixin(OptimizationProblem, metaclass=ABCMeta):
         def stretch_values(values, t_pos):
             # Construct a values range with preceding and possibly following nans
             new_values = np.full(self.io.times_sec.shape, np.nan)
-            new_values[t_pos:] = values
+            new_values[t_pos:t_pos + len(values)] = values
             return new_values
 
         if output:

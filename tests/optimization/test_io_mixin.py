@@ -224,3 +224,33 @@ class TestOptimizationProblem(TestCase):
     def test_constant_inputs(self):
         constant_inputs = self.problem.constant_inputs(0)
         self.assertTrue(np.array_equal(constant_inputs['constant_input'].values, [1.1, 1.4, 0.9, 1.2, 1.5, 1.7]))
+
+
+class ModelSubTimes(Model):
+
+    def times(self, variable=None):
+        return super().times(variable)[:-1]
+
+
+class TestOptimizationProblemSubTimes(TestCase):
+
+    def setUp(self):
+        self.problem = ModelSubTimes()
+        self.problem.read()
+        self.tolerance = 1e-6
+
+    def test_set_timeseries_slice(self):
+        full_times = self.problem.io.times_sec
+
+        slice_times = self.problem.times()
+        slice_values = np.zeros_like(slice_times)
+
+        # Make sure our slice is somewhere in the middle
+        self.assertGreater(slice_times[0], full_times[0])
+        self.assertLess(slice_times[-1], full_times[-1])
+
+        self.problem.set_timeseries("subslice_timeseries", Timeseries(slice_times, slice_values))
+
+        times, values = self.problem.io.get_timeseries("subslice_timeseries")
+        ref_values = [np.nan, np.nan, 0.0, 0.0, 0.0, np.nan]
+        np.testing.assert_allclose(values, ref_values, equal_nan=True)

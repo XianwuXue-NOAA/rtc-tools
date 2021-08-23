@@ -1408,7 +1408,7 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                         # We need an earlier value to interpolate with
                         hist_start_ind -= 1
 
-                    if np.any(np.isnan(delayed_feedback_history[hist_start_ind:, i])):
+                    if hist_start_ind < 0 or np.any(np.isnan(delayed_feedback_history[hist_start_ind:, i])):
                         logger.warning(
                             'Incomplete history for delayed expression {}. '
                             'Extrapolating t0 value backwards in time.'.format(

@@ -3,7 +3,7 @@ import logging
 import numpy as np
 
 from rtctools.optimization.collocated_integrated_optimization_problem import (
-    CollocatedIntegratedOptimizationProblem
+    CollocatedIntegratedOptimizationProblem,
 )
 from rtctools.optimization.control_tree_mixin import ControlTreeMixin
 from rtctools.optimization.modelica_mixin import ModelicaMixin
@@ -17,10 +17,7 @@ logger = logging.getLogger("rtctools")
 logger.setLevel(logging.DEBUG)
 
 
-class Model(
-    ControlTreeMixin, ModelicaMixin, CollocatedIntegratedOptimizationProblem
-):
-
+class Model(ControlTreeMixin, ModelicaMixin, CollocatedIntegratedOptimizationProblem):
     def __init__(self, branching_times):
         super().__init__(model_name="ModelWithInitial", model_folder=data_path())
         self._branching_times = branching_times
@@ -52,17 +49,11 @@ class Model(
     def constant_inputs(self, ensemble_member):
         # Constant inputs
         if ensemble_member == 0:
-            return {
-                "constant_input": Timeseries(self.times(), np.linspace(1.0, 0.0, 21))
-            }
+            return {"constant_input": Timeseries(self.times(), np.linspace(1.0, 0.0, 21))}
         elif ensemble_member == 1:
-            return {
-                "constant_input": Timeseries(self.times(), np.linspace(0.99, 0.5, 21))
-            }
+            return {"constant_input": Timeseries(self.times(), np.linspace(0.99, 0.5, 21))}
         else:
-            return {
-                "constant_input": Timeseries(self.times(), np.linspace(0.98, 1.0, 21))
-            }
+            return {"constant_input": Timeseries(self.times(), np.linspace(0.98, 1.0, 21))}
 
     def bounds(self):
         # Variable bounds
@@ -88,12 +79,11 @@ class Model(
     def compiler_options(self):
         compiler_options = super().compiler_options()
         compiler_options["cache"] = False
-        compiler_options['library_folders'] = []
+        compiler_options["library_folders"] = []
         return compiler_options
 
 
 class TestControlTreeMixin1(TestCase):
-
     @property
     def branching_times(self):
         return [0.1, 0.2]
@@ -118,37 +108,30 @@ class TestControlTreeMixin1(TestCase):
 
 
 class TestControlTreeMixin2(TestControlTreeMixin1):
-
     @property
     def branching_times(self):
         return [0.0, 0.1, 0.2]
 
 
 class TestControlTreeMixin3(TestControlTreeMixin1):
-
     @property
     def branching_times(self):
         return np.linspace(0.0, 1.0, 21)[:-1]
 
 
 class TestControlTreeMixin4(TestControlTreeMixin1):
-
     @property
     def branching_times(self):
         return np.linspace(0.0, 1.0, 21)[1:-1]
 
 
 class TestControlTreeMixin5(TestControlTreeMixin1):
-
     @property
     def branching_times(self):
         return np.linspace(0.0, 1.0, 21)[1:]
 
 
-class ModelDijkverruiming(
-    ControlTreeMixin, ModelicaMixin, CollocatedIntegratedOptimizationProblem
-):
-
+class ModelDijkverruiming(ControlTreeMixin, ModelicaMixin, CollocatedIntegratedOptimizationProblem):
     def __init__(self):
         super().__init__(model_name="ModelWithInitial", model_folder=data_path())
 
@@ -228,12 +211,11 @@ class ModelDijkverruiming(
     def compiler_options(self):
         compiler_options = super().compiler_options()
         compiler_options["cache"] = False
-        compiler_options['library_folders'] = []
+        compiler_options["library_folders"] = []
         return compiler_options
 
 
 class TestDijkverruiming(TestCase):
-
     def setUp(self):
         self.problem = ModelDijkverruiming()
         self.problem.optimize()
@@ -275,6 +257,4 @@ class TestDijkverruiming(TestCase):
         # t = 0.75
         for ensemble_member_1 in range(self.problem.ensemble_size):
             for ensemble_member_2 in range(ensemble_member_1):
-                self.assertTrue(
-                    repr(v[ensemble_member_1][3]) != repr(v[ensemble_member_2][3])
-                )
+                self.assertTrue(repr(v[ensemble_member_1][3]) != repr(v[ensemble_member_2][3]))

@@ -42,12 +42,8 @@ for idx, forecast in enumerate(forecast_names):
     # Upper Subplot
     results = forcasts[forecast]
     if idx == 0:
-        axarr[0].plot(
-            times, results["v_max"], label="Max", linewidth=2, color="r", linestyle="--"
-        )
-        axarr[0].plot(
-            times, results["v_min"], label="Min", linewidth=2, color="g", linestyle="--"
-        )
+        axarr[0].plot(times, results["v_max"], label="Max", linewidth=2, color="r", linestyle="--")
+        axarr[0].plot(times, results["v_min"], label="Min", linewidth=2, color="g", linestyle="--")
     axarr[0].plot(
         times,
         results["v_storage"],

@@ -44,7 +44,7 @@ class NetCDFMixin(IOMixin):
 
         :return: The variable name used in RTC-Tools
         """
-        return f'{station_id}__{parameter}'
+        return f"{station_id}__{parameter}"
 
     def netcdf_id_from_variable(self, variable_name: str) -> Tuple[str, str]:
         """
@@ -79,7 +79,7 @@ class NetCDFMixin(IOMixin):
             # check if strictly increasing
             for i in range(len(times) - 1):
                 if times[i] >= times[i + 1]:
-                    raise Exception('NetCDFMixin: Time stamps must be strictly increasing.')
+                    raise Exception("NetCDFMixin: Time stamps must be strictly increasing.")
 
         # store the station data for later use
         self.__stations = dataset.read_station_data()
@@ -91,21 +91,30 @@ class NetCDFMixin(IOMixin):
                 name = self.netcdf_id_to_variable(station_id, parameter)
 
                 if dataset.ensemble_member_variable is not None:
-                    if dataset.ensemble_member_variable.dimensions[0] in dataset.variable_dimensions(parameter):
+                    if dataset.ensemble_member_variable.dimensions[
+                        0
+                    ] in dataset.variable_dimensions(parameter):
                         for ensemble_member_index in range(self.__timeseries_import.ensemble_size):
-                            values = dataset.read_timeseries_values(i, parameter, ensemble_member_index)
-                            self.io.set_timeseries(name, self.__timeseries_times, values, ensemble_member_index)
+                            values = dataset.read_timeseries_values(
+                                i, parameter, ensemble_member_index
+                            )
+                            self.io.set_timeseries(
+                                name, self.__timeseries_times, values, ensemble_member_index
+                            )
                     else:
                         values = dataset.read_timeseries_values(i, parameter, 0)
                         for ensemble_member_index in range(self.__timeseries_import.ensemble_size):
-                            self.io.set_timeseries(name, self.__timeseries_times, values, ensemble_member_index)
+                            self.io.set_timeseries(
+                                name, self.__timeseries_times, values, ensemble_member_index
+                            )
                 else:
                     values = dataset.read_timeseries_values(i, parameter, 0)
                     self.io.set_timeseries(name, self.__timeseries_times, values, 0)
 
-                logger.debug('Read timeseries data for station id "{}" and parameter "{}", '
-                             'stored under variable name "{}"'
-                             .format(station_id, parameter, name))
+                logger.debug(
+                    'Read timeseries data for station id "{}" and parameter "{}", '
+                    'stored under variable name "{}"'.format(station_id, parameter, name)
+                )
 
         logger.debug("NetCDFMixin: Read timeseries")
 
@@ -120,8 +129,9 @@ class NetCDFMixin(IOMixin):
 
         output_variables = [sym.name() for sym in self.output_variables]
 
-        output_station_ids, output_parameter_ids = zip(*(
-            self.netcdf_id_from_variable(var_name) for var_name in output_variables))
+        output_station_ids, output_parameter_ids = zip(
+            *(self.netcdf_id_from_variable(var_name) for var_name in output_variables)
+        )
 
         # Make sure that output_station_ids and output_parameter_ids are
         # unique, but make sure to avoid non-deterministic ordering.
@@ -137,27 +147,31 @@ class NetCDFMixin(IOMixin):
             results = self.extract_results(ensemble_member)
 
             for var_name, station_id, parameter_id in zip(
-                    output_variables, output_station_ids, output_parameter_ids):
+                output_variables, output_station_ids, output_parameter_ids
+            ):
                 # determine the output values
                 try:
                     values = results[var_name]
                     if len(values) != len(times):
                         values = self.interpolate(
-                            times, self.times(var_name), values, self.interpolation_method(var_name))
+                            times, self.times(var_name), values, self.interpolation_method(var_name)
+                        )
                 except KeyError:
                     try:
                         ts = self.get_timeseries(var_name, ensemble_member)
                         if len(ts.times) != len(times):
-                            values = self.interpolate(
-                                times, ts.times, ts.values)
+                            values = self.interpolate(times, ts.times, ts.values)
                         else:
                             values = ts.values
                     except KeyError:
                         logger.error(
-                            'NetCDFMixin: Output requested for non-existent variable {}. '
-                            'Will not be in output file.'.format(var_name))
+                            "NetCDFMixin: Output requested for non-existent variable {}. "
+                            "Will not be in output file.".format(var_name)
+                        )
                         continue
 
-                dataset.write_output_values(station_id, parameter_id, ensemble_member, values, self.ensemble_size)
+                dataset.write_output_values(
+                    station_id, parameter_id, ensemble_member, values, self.ensemble_size
+                )
 
         dataset.close()

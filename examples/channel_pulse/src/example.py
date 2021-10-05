@@ -7,18 +7,16 @@ from rtctools.optimization.modelica_mixin import ModelicaMixin
 from rtctools.util import run_optimization_problem
 
 
-class Example(
-    HomotopyMixin, CSVMixin, ModelicaMixin, CollocatedIntegratedOptimizationProblem
-):
+class Example(HomotopyMixin, CSVMixin, ModelicaMixin, CollocatedIntegratedOptimizationProblem):
     def parameters(self, ensemble_member):
         p = super().parameters(ensemble_member)
         times = self.times()
         if self.use_semi_implicit:
-            p['step_size'] = times[1] - times[0]
+            p["step_size"] = times[1] - times[0]
         else:
-            p['step_size'] = 0.0
-        p['Channel.use_convective_acceleration'] = self.use_convective_acceleration
-        p['Channel.use_upwind'] = self.use_upwind
+            p["step_size"] = 0.0
+        p["Channel.use_convective_acceleration"] = self.use_convective_acceleration
+        p["Channel.use_upwind"] = self.use_upwind
         return p
 
     def constraints(self, ensemble_member):
@@ -41,7 +39,7 @@ class Example(
 class ExampleInertialWave(Example):
     """Inertial wave equation (no convective acceleration)"""
 
-    model_name = 'Example'
+    model_name = "Example"
 
     use_semi_implicit = False
     use_convective_acceleration = False
@@ -53,7 +51,7 @@ class ExampleInertialWave(Example):
 class ExampleInertialWaveSemiImplicit(Example):
     """Inertial wave equation (no convective acceleration)"""
 
-    model_name = 'Example'
+    model_name = "Example"
 
     use_semi_implicit = True
     use_convective_acceleration = False
@@ -65,7 +63,7 @@ class ExampleInertialWaveSemiImplicit(Example):
 class ExampleSaintVenant(Example):
     """Saint Venant equation. Convective acceleration discretized with central differences"""
 
-    model_name = 'Example'
+    model_name = "Example"
 
     use_semi_implicit = False
     use_convective_acceleration = True
@@ -77,7 +75,7 @@ class ExampleSaintVenant(Example):
 class ExampleSaintVenantUpwind(Example):
     """Saint Venant equation. Convective acceleration discretized with upwind scheme"""
 
-    model_name = 'Example'
+    model_name = "Example"
 
     use_semi_implicit = False
     use_convective_acceleration = True

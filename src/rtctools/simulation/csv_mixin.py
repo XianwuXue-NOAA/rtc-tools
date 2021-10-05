@@ -24,7 +24,7 @@ class CSVMixin(IOMixin):
     """
 
     #: Column delimiter used in CSV files
-    csv_delimiter = ','
+    csv_delimiter = ","
 
     #: Check consistency of timeseries
     csv_validate_timeseries = True
@@ -45,30 +45,32 @@ class CSVMixin(IOMixin):
             """
             if initial_state.shape:
                 raise Exception(
-                    'CSVMixin: Initial state file {} contains more than one row of data. '
-                    'Please remove the data row(s) that do not describe the initial '
-                    'state.'.format(os.path.join(self._input_folder, 'initial_state.csv')))
+                    "CSVMixin: Initial state file {} contains more than one row of data. "
+                    "Please remove the data row(s) that do not describe the initial "
+                    "state.".format(os.path.join(self._input_folder, "initial_state.csv"))
+                )
 
         # Read CSV files
         _timeseries = csv.load(
-            os.path.join(self._input_folder, self.timeseries_import_basename + '.csv'),
-            delimiter=self.csv_delimiter, with_time=True)
+            os.path.join(self._input_folder, self.timeseries_import_basename + ".csv"),
+            delimiter=self.csv_delimiter,
+            with_time=True,
+        )
         self.__timeseries_times = _timeseries[_timeseries.dtype.names[0]]
 
         self.io.reference_datetime = self.__timeseries_times[0]
 
         for key in _timeseries.dtype.names[1:]:
             self.io.set_timeseries(
-                key,
-                self.__timeseries_times,
-                np.asarray(_timeseries[key], dtype=np.float64))
+                key, self.__timeseries_times, np.asarray(_timeseries[key], dtype=np.float64)
+            )
 
         logger.debug("CSVMixin: Read timeseries.")
 
         try:
             _parameters = csv.load(
-                os.path.join(self._input_folder, 'parameters.csv'),
-                delimiter=self.csv_delimiter)
+                os.path.join(self._input_folder, "parameters.csv"), delimiter=self.csv_delimiter
+            )
             for key in _parameters.dtype.names:
                 self.io.set_parameter(key, float(_parameters[key]))
             logger.debug("CSVMixin: Read parameters.")
@@ -77,12 +79,13 @@ class CSVMixin(IOMixin):
 
         try:
             _initial_state = csv.load(
-                os.path.join(self._input_folder, 'initial_state.csv'),
-                delimiter=self.csv_delimiter)
+                os.path.join(self._input_folder, "initial_state.csv"), delimiter=self.csv_delimiter
+            )
             logger.debug("CSVMixin: Read initial state.")
             check_initial_state_array(_initial_state)
             self.__initial_state = {
-                key: float(_initial_state[key]) for key in _initial_state.dtype.names}
+                key: float(_initial_state[key]) for key in _initial_state.dtype.names
+            }
         except OSError:
             self.__initial_state = {}
 
@@ -92,16 +95,16 @@ class CSVMixin(IOMixin):
                 continue
             else:
                 logger.warning(
-                    'CSVMixin: Entry {} in initial_state.csv conflicts with '
-                    'timeseries_import.csv'.format(collision))
+                    "CSVMixin: Entry {} in initial_state.csv conflicts with "
+                    "timeseries_import.csv".format(collision)
+                )
 
         # Timestamp check
         if self.csv_validate_timeseries:
             times = self.__timeseries_times
             for i in range(len(times) - 1):
                 if times[i] >= times[i + 1]:
-                    raise Exception(
-                        'CSVMixin: Time stamps must be strictly increasing.')
+                    raise Exception("CSVMixin: Time stamps must be strictly increasing.")
 
         times = self.__timeseries_times
         dt = times[1] - times[0]
@@ -111,10 +114,10 @@ class CSVMixin(IOMixin):
             for i in range(len(times) - 1):
                 if times[i + 1] - times[i] != dt:
                     raise Exception(
-                        'CSVMixin: Expecting equidistant timeseries, the time step '
-                        'towards {} is not the same as the time step(s) before. '
-                        'Set equidistant=False if this is intended.'.format(
-                            times[i + 1]))
+                        "CSVMixin: Expecting equidistant timeseries, the time step "
+                        "towards {} is not the same as the time step(s) before. "
+                        "Set equidistant=False if this is intended.".format(times[i + 1])
+                    )
 
     def write(self):
         # Call parent class first for default behaviour.
@@ -123,15 +126,15 @@ class CSVMixin(IOMixin):
         times = self._simulation_times
 
         # Write output
-        names = ['time'] + sorted(set(self._io_output_variables))
-        formats = ['O'] + (len(names) - 1) * ['f8']
-        dtype = {'names': names, 'formats': formats}
+        names = ["time"] + sorted(set(self._io_output_variables))
+        formats = ["O"] + (len(names) - 1) * ["f8"]
+        dtype = {"names": names, "formats": formats}
         data = np.zeros(len(times), dtype=dtype)
-        data['time'] = self.io.sec_to_datetime(times, self.io.reference_datetime)
+        data["time"] = self.io.sec_to_datetime(times, self.io.reference_datetime)
         for variable in self._io_output_variables:
             data[variable] = np.array(self._io_output[variable])
 
-        fname = os.path.join(self._output_folder, self.timeseries_export_basename + '.csv')
+        fname = os.path.join(self._output_folder, self.timeseries_export_basename + ".csv")
         csv.save(fname, data, delimiter=self.csv_delimiter, with_time=True)
 
     @cached
@@ -160,5 +163,7 @@ class CSVMixin(IOMixin):
                 if logger.getEffectiveLevel() == logging.DEBUG:
                     logger.debug(f"CSVMixin: Read initial state {variable} = {value}")
             else:
-                logger.warning(f"CSVMixin: In initial_state.csv, {variable} is not an input or state variable.")
+                logger.warning(
+                    f"CSVMixin: In initial_state.csv, {variable} is not an input or state variable."
+                )
         return initial_state

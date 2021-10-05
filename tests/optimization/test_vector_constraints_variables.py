@@ -5,8 +5,9 @@ import casadi as ca
 
 import numpy as np
 
-from rtctools.optimization.collocated_integrated_optimization_problem import \
-    CollocatedIntegratedOptimizationProblem
+from rtctools.optimization.collocated_integrated_optimization_problem import (
+    CollocatedIntegratedOptimizationProblem,
+)
 from rtctools.optimization.modelica_mixin import ModelicaMixin
 from rtctools.optimization.timeseries import Timeseries
 
@@ -19,7 +20,6 @@ logger.setLevel(logging.WARNING)
 
 
 class Model(ModelicaMixin, CollocatedIntegratedOptimizationProblem):
-
     def __init__(self):
         super().__init__(
             input_folder=data_path(),
@@ -57,16 +57,18 @@ class Model(ModelicaMixin, CollocatedIntegratedOptimizationProblem):
     def compiler_options(self):
         compiler_options = super().compiler_options()
         compiler_options["cache"] = False
-        compiler_options['library_folders'] = []
+        compiler_options["library_folders"] = []
         return compiler_options
 
     def constraints(self, ensemble_member):
-        return [(self.state_at("x", 0.5, ensemble_member=ensemble_member), 1.0, np.inf),
-                (self.state_at("x", 0.7, ensemble_member=ensemble_member), -np.inf, 0.8),
-                (self.integral("x", 0.1, 1.0, ensemble_member=ensemble_member), -np.inf, 1.0)]
+        return [
+            (self.state_at("x", 0.5, ensemble_member=ensemble_member), 1.0, np.inf),
+            (self.state_at("x", 0.7, ensemble_member=ensemble_member), -np.inf, 0.8),
+            (self.integral("x", 0.1, 1.0, ensemble_member=ensemble_member), -np.inf, 1.0),
+        ]
 
     def path_objective(self, ensemble_member):
-        return self.state('u')**2
+        return self.state("u") ** 2
 
 
 class ModelConstraints(Model):
@@ -74,7 +76,6 @@ class ModelConstraints(Model):
 
 
 class ModelConstraintsVector(ModelConstraints):
-
     def constraints(self, ensemble_member):
         constraints = super().constraints(ensemble_member)
 
@@ -85,7 +86,6 @@ class ModelConstraintsVector(ModelConstraints):
 
 
 class ModelPathConstraintsSimple(Model):
-
     def constraints(self, ensemble_member):
         return []
 
@@ -96,7 +96,6 @@ class ModelPathConstraintsSimple(Model):
 
 
 class ModelPathConstraintsSimpleVector(ModelPathConstraintsSimple):
-
     def path_constraints(self, ensemble_member):
         constraints = super().path_constraints(ensemble_member)
 
@@ -108,7 +107,6 @@ class ModelPathConstraintsSimpleVector(ModelPathConstraintsSimple):
 
 
 class ModelPathConstraintsTimeseries(Model):
-
     def constraints(self, ensemble_member):
         return []
 
@@ -125,7 +123,6 @@ class ModelPathConstraintsTimeseries(Model):
 
 
 class ModelPathConstraintsTimeseriesVector(ModelPathConstraintsTimeseries):
-
     def constraints(self, ensemble_member):
         return []
 
@@ -152,7 +149,6 @@ class ModelPathConstraintsTimeseriesVector(ModelPathConstraintsTimeseries):
 
 
 class ModelAdditionalVariables(Model):
-
     def pre(self):
         super().pre()
 
@@ -167,7 +163,7 @@ class ModelAdditionalVariables(Model):
 
         for sym, t in zip(self._additional_vars, self.times()):
             x_sym = self.extra_variable(sym.name(), ensemble_member)
-            constraints.append((x_sym - self.state_at('u', t)**2, 0, np.inf))
+            constraints.append((x_sym - self.state_at("u", t) ** 2, 0, np.inf))
 
         return constraints
 
@@ -175,7 +171,11 @@ class ModelAdditionalVariables(Model):
         return ca.MX(0)
 
     def objective(self, ensemble_member):
-        return ca.sum1(ca.vertcat(*[self.extra_variable(x.name(), ensemble_member) for x in self._additional_vars]))
+        return ca.sum1(
+            ca.vertcat(
+                *[self.extra_variable(x.name(), ensemble_member) for x in self._additional_vars]
+            )
+        )
 
     @property
     def extra_variables(self):
@@ -224,7 +224,7 @@ class ModelAdditionalVariablesVector(Model):
     def constraints(self, ensemble_member):
         constraints = super().constraints(ensemble_member).copy()
 
-        all_u = ca.vertcat(*[self.state_at('u', t) for t in self.times()])
+        all_u = ca.vertcat(*[self.state_at("u", t) for t in self.times()])
 
         sym1, sym2, sym3 = self._additional_vars
         size1 = sym1.size1()
@@ -235,9 +235,9 @@ class ModelAdditionalVariablesVector(Model):
 
         assert s1.size1() == size1
 
-        constraints.append((s1 - all_u[:size1]**2, 0, np.inf))
-        constraints.append((s2 - all_u[size1]**2, 0, np.inf))
-        constraints.append((s3 - all_u[size1+1:]**2, 0, np.inf))
+        constraints.append((s1 - all_u[:size1] ** 2, 0, np.inf))
+        constraints.append((s2 - all_u[size1] ** 2, 0, np.inf))
+        constraints.append((s3 - all_u[size1 + 1 :] ** 2, 0, np.inf))
 
         return constraints
 
@@ -245,7 +245,11 @@ class ModelAdditionalVariablesVector(Model):
         return ca.MX(0)
 
     def objective(self, ensemble_member):
-        return ca.sum1(ca.vertcat(*[self.extra_variable(x.name(), ensemble_member) for x in self._additional_vars]))
+        return ca.sum1(
+            ca.vertcat(
+                *[self.extra_variable(x.name(), ensemble_member) for x in self._additional_vars]
+            )
+        )
 
     @property
     def extra_variables(self):
@@ -279,7 +283,6 @@ class ModelAdditionalVariablesVector(Model):
 
 
 class ModelParameters(Model):
-
     def pre(self):
         super().pre()
 
@@ -293,7 +296,7 @@ class ModelParameters(Model):
             t = self.extra_variable(t_sym.name(), ensemble_member)
             p = self.parameters(ensemble_member)[p_name]
 
-            constraints.append((t - p**2, 0.0, 0.0))
+            constraints.append((t - p ** 2, 0.0, 0.0))
 
         return constraints
 
@@ -311,7 +314,6 @@ class ModelParameters(Model):
 
 
 class ModelParametersVector(Model):
-
     def pre(self):
         super().pre()
         self._param_var = "par_x5"
@@ -323,7 +325,7 @@ class ModelParametersVector(Model):
         t = self.extra_variable(self._additional_var.name(), ensemble_member)
         p = self.parameters(ensemble_member)[self._param_var]
 
-        constraints.append((t - p**2, 0.0, 0.0))
+        constraints.append((t - p ** 2, 0.0, 0.0))
 
         return constraints
 
@@ -338,7 +340,6 @@ class ModelParametersVector(Model):
 
 
 class ModelAdditionalPathVariables(Model):
-
     def pre(self):
         super().pre()
 
@@ -357,13 +358,12 @@ class ModelAdditionalPathVariables(Model):
 
         for x in self._additional_path_vars:
             p = int(x.name()[-1])
-            constraints.append((self.state(x.name()) - self.state('u')**p, 0.0, 0.0))
+            constraints.append((self.state(x.name()) - self.state("u") ** p, 0.0, 0.0))
 
         return constraints
 
 
 class ModelAdditionalPathVariablesVector(Model):
-
     def pre(self):
         super().pre()
 
@@ -377,16 +377,19 @@ class ModelAdditionalPathVariablesVector(Model):
         constraints = super().path_constraints(ensemble_member)
 
         x = self._additional_path_var
-        constraints.append((self.state(x.name()) - ca.vertcat(self.state('u')**1,
-                                                              self.state('u')**2,
-                                                              self.state('u')**3),
-                            0.0, 0.0))
+        constraints.append(
+            (
+                self.state(x.name())
+                - ca.vertcat(self.state("u") ** 1, self.state("u") ** 2, self.state("u") ** 3),
+                0.0,
+                0.0,
+            )
+        )
 
         return constraints
 
 
 class ModelAdditionalPathVariablesStatetAt(Model):
-
     def pre(self):
         super().pre()
 
@@ -406,13 +409,14 @@ class ModelAdditionalPathVariablesStatetAt(Model):
         for t in self.times():
             for x in self._additional_path_vars:
                 p = int(x.name()[-1])
-                constraints.append((self.state_at(x.name(), t) - self.state_at('u', t)**p, 0.0, 0.0))
+                constraints.append(
+                    (self.state_at(x.name(), t) - self.state_at("u", t) ** p, 0.0, 0.0)
+                )
 
         return constraints
 
 
 class ModelAdditionalPathVariablesStatetAtVector(Model):
-
     def pre(self):
         super().pre()
 
@@ -427,16 +431,23 @@ class ModelAdditionalPathVariablesStatetAtVector(Model):
 
         x = self._additional_path_var
         for t in self.times():
-            constraints.append((self.state_at(x.name(), t) - ca.vertcat(self.state_at('u', t)**1,
-                                                                        self.state_at('u', t)**2,
-                                                                        self.state_at('u', t)**3),
-                                0.0, 0.0))
+            constraints.append(
+                (
+                    self.state_at(x.name(), t)
+                    - ca.vertcat(
+                        self.state_at("u", t) ** 1,
+                        self.state_at("u", t) ** 2,
+                        self.state_at("u", t) ** 3,
+                    ),
+                    0.0,
+                    0.0,
+                )
+            )
 
         return constraints
 
 
 class ModelConstantInputs(Model):
-
     def pre(self):
         super().pre()
 
@@ -447,7 +458,7 @@ class ModelConstantInputs(Model):
         constraints = super().path_constraints(ensemble_member)
 
         for t, p in zip(self._additional_vars, self._input_vars):
-            constraints.append((self.state(t.name()) - self.state(p.name())**2, 0.0, 0.0))
+            constraints.append((self.state(t.name()) - self.state(p.name()) ** 2, 0.0, 0.0))
 
         return constraints
 
@@ -455,7 +466,9 @@ class ModelConstantInputs(Model):
         constant_inputs = super().constant_inputs(ensemble_member)
 
         for i, p in enumerate(self._input_vars):
-            constant_inputs[p.name()] = Timeseries(self.times(), (i+1) * np.arange(len(self.times())))
+            constant_inputs[p.name()] = Timeseries(
+                self.times(), (i + 1) * np.arange(len(self.times()))
+            )
 
         return constant_inputs
 
@@ -465,7 +478,6 @@ class ModelConstantInputs(Model):
 
 
 class ModelConstantInputsVector(Model):
-
     def pre(self):
         super().pre()
 
@@ -476,17 +488,18 @@ class ModelConstantInputsVector(Model):
         constraints = super().path_constraints(ensemble_member)
         t = self.state(self._additional_var.name())
         p = self.state(self._input_var.name())
-        constraints.append((t - p**2, np.zeros(3), np.zeros(3)))
+        constraints.append((t - p ** 2, np.zeros(3), np.zeros(3)))
         return constraints
 
     def constant_inputs(self, ensemble_member):
         constant_inputs = super().constant_inputs(ensemble_member)
         n_times = len(self.times())
-        constant_inputs[self._input_var.name()] = \
-            Timeseries(self.times(), np.stack((1 * np.arange(n_times),
-                                               2 * np.arange(n_times),
-                                               3 * np.arange(n_times)),
-                                              axis=1))
+        constant_inputs[self._input_var.name()] = Timeseries(
+            self.times(),
+            np.stack(
+                (1 * np.arange(n_times), 2 * np.arange(n_times), 3 * np.arange(n_times)), axis=1
+            ),
+        )
         return constant_inputs
 
     @property
@@ -560,7 +573,7 @@ class TestVectorConstraints(TestCase):
 
         self.assertTrue(np.array_equal(v1, v2))
 
-        ref = np.arange(len(self.problem1._additional_vars))**2
+        ref = np.arange(len(self.problem1._additional_vars)) ** 2
         self.assertAlmostEqual(v1[0, :].flatten(), ref, 1e-6)
 
     def test_additional_path_variables(self):
@@ -574,9 +587,11 @@ class TestVectorConstraints(TestCase):
         results1 = self.problem1.extract_results()
         results2 = self.problem2.extract_results()
 
-        ref = np.stack((results1['u'], results1['u']**2, results1['u']**3), axis=1)
+        ref = np.stack((results1["u"], results1["u"] ** 2, results1["u"] ** 3), axis=1)
 
-        v1 = np.stack(tuple(results1[p.name()] for p in self.problem1._additional_path_vars), axis=1)
+        v1 = np.stack(
+            tuple(results1[p.name()] for p in self.problem1._additional_path_vars), axis=1
+        )
         v2 = results2[self.problem2._additional_path_var.name()]
 
         self.assertTrue(np.array_equal(v1, v2))
@@ -604,10 +619,14 @@ class TestVectorConstraints(TestCase):
         results2 = self.problem2.extract_results()
         results3 = self.problem3.extract_results()
 
-        ref = np.stack((results1['u'], results1['u']**2, results1['u']**3), axis=1)
+        ref = np.stack((results1["u"], results1["u"] ** 2, results1["u"] ** 3), axis=1)
 
-        v1 = np.stack(tuple(results1[p.name()] for p in self.problem1._additional_path_vars), axis=1)
-        v2 = np.stack(tuple(results2[p.name()] for p in self.problem2._additional_path_vars), axis=1)
+        v1 = np.stack(
+            tuple(results1[p.name()] for p in self.problem1._additional_path_vars), axis=1
+        )
+        v2 = np.stack(
+            tuple(results2[p.name()] for p in self.problem2._additional_path_vars), axis=1
+        )
         v3 = results3[self.problem3._additional_path_var.name()]
 
         self.assertTrue(np.array_equal(v1, v2))
@@ -628,7 +647,7 @@ class TestVectorConstraints(TestCase):
         refs = []
         for s in self.problem1._input_vars:
             refs.append(self.problem1.constant_inputs(0)[s.name()].values)
-        ref = np.stack(refs, axis=1)**2
+        ref = np.stack(refs, axis=1) ** 2
 
         v1 = np.stack(tuple(results1[p.name()] for p in self.problem1._additional_vars), axis=1)
         v2 = results2[self.problem2._additional_var.name()]
@@ -638,7 +657,6 @@ class TestVectorConstraints(TestCase):
 
 
 class AdditionalNominals:
-
     def pre(self):
         super().pre()
 
@@ -652,7 +670,6 @@ class AdditionalNominals:
 
 
 class ModelAdditionalVariablesNominals(AdditionalNominals, ModelAdditionalVariables):
-
     def pre(self):
         super().pre()
 
@@ -663,7 +680,6 @@ class ModelAdditionalVariablesNominals(AdditionalNominals, ModelAdditionalVariab
 
 
 class ModelAdditionalVariablesVectorNominals(AdditionalNominals, ModelAdditionalVariablesVector):
-
     def pre(self):
         super().pre()
 
@@ -671,12 +687,11 @@ class ModelAdditionalVariablesVectorNominals(AdditionalNominals, ModelAdditional
 
         offset = 0
         for v in self._additional_vars:
-            self._additional_vars_nominals[v.name()] = nominals[offset:offset + v.size1()]
+            self._additional_vars_nominals[v.name()] = nominals[offset : offset + v.size1()]
             offset += v.size1()
 
 
 class ModelAdditionalPathVariablesNominals(AdditionalNominals, ModelAdditionalPathVariables):
-
     def pre(self):
         super().pre()
 
@@ -684,8 +699,9 @@ class ModelAdditionalPathVariablesNominals(AdditionalNominals, ModelAdditionalPa
             self._additional_vars_nominals[v.name()] = float(2 + i)
 
 
-class ModelAdditionalPathVariablesVectorNominals(AdditionalNominals, ModelAdditionalPathVariablesVector):
-
+class ModelAdditionalPathVariablesVectorNominals(
+    AdditionalNominals, ModelAdditionalPathVariablesVector
+):
     def pre(self):
         super().pre()
 
@@ -693,7 +709,6 @@ class ModelAdditionalPathVariablesVectorNominals(AdditionalNominals, ModelAdditi
 
 
 class TestVectorNominals(TestCase):
-
     def test_additional_variables(self):
         self.problem1 = ModelAdditionalVariablesNominals()
         self.problem2 = ModelAdditionalVariablesVectorNominals()
@@ -723,9 +738,11 @@ class TestVectorNominals(TestCase):
         results1 = self.problem1.extract_results()
         results2 = self.problem2.extract_results()
 
-        ref = np.stack((results1['u'], results1['u']**2, results1['u']**3), axis=1)
+        ref = np.stack((results1["u"], results1["u"] ** 2, results1["u"] ** 3), axis=1)
 
-        v1 = np.stack(tuple(results1[p.name()] for p in self.problem1._additional_path_vars), axis=1)
+        v1 = np.stack(
+            tuple(results1[p.name()] for p in self.problem1._additional_path_vars), axis=1
+        )
         v2 = results2[self.problem2._additional_path_var.name()]
 
         self.assertTrue(np.array_equal(v1, v2))
@@ -733,7 +750,6 @@ class TestVectorNominals(TestCase):
 
 
 class InvalidVectorConstraintLbg(ModelAdditionalVariablesVector):
-
     def constraints(self, ensemble_member):
         constraints = super().constraints(ensemble_member)
 
@@ -749,7 +765,6 @@ class InvalidVectorConstraintLbg(ModelAdditionalVariablesVector):
 
 
 class InvalidVectorConstraintUbg(ModelAdditionalVariablesVector):
-
     def constraints(self, ensemble_member):
         constraints = super().constraints(ensemble_member)
 
@@ -765,7 +780,6 @@ class InvalidVectorConstraintUbg(ModelAdditionalVariablesVector):
 
 
 class TestInvalidVectorConstraints(TestCase):
-
     def test_vector_constraint_lbg(self):
         self.problem = InvalidVectorConstraintLbg()
 

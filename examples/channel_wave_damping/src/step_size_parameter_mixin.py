@@ -12,5 +12,5 @@ class StepSizeParameterMixin(OptimizationProblem):
 
     def parameters(self, ensemble_member):
         p = super().parameters(ensemble_member)
-        p['step_size'] = self.step_size
+        p["step_size"] = self.step_size
         return p

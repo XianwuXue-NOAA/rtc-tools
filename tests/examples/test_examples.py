@@ -6,14 +6,13 @@ import sys
 from unittest import TestCase
 
 
-class ExamplesCollection():
-
+class ExamplesCollection:
     def __init__(self):
         self.errors_detected = {}
         for example_folder in self.examples_folders:
             for example in self.subexamples(example_folder):
                 # initialize with failures
-                example_path = os.path.join(self.examples_path, example_folder, 'src', example)
+                example_path = os.path.join(self.examples_path, example_folder, "src", example)
                 self.errors_detected[example_path] = True
 
     def local_function(self):
@@ -22,7 +21,10 @@ class ExamplesCollection():
     @property
     def examples_path(self):
         return os.path.join(
-            os.path.dirname(os.path.abspath(inspect.getsourcefile(self.local_function))), '..', '..', 'examples'
+            os.path.dirname(os.path.abspath(inspect.getsourcefile(self.local_function))),
+            "..",
+            "..",
+            "examples",
         )
 
     @property
@@ -30,8 +32,8 @@ class ExamplesCollection():
         return [f.name for f in os.scandir(self.examples_path) if f.is_dir()]
 
     def subexamples(self, example_folder):
-        example_folder = os.path.join(self.examples_path, example_folder, 'src')
-        return [f for f in os.listdir(example_folder) if fnmatch.fnmatch(f, '*example*.py')]
+        example_folder = os.path.join(self.examples_path, example_folder, "src")
+        return [f for f in os.listdir(example_folder) if fnmatch.fnmatch(f, "*example*.py")]
 
 
 class TestExamples(TestCase):
@@ -60,10 +62,16 @@ class TestExamples(TestCase):
             file = os.path.basename(path)
             folder = os.path.relpath(example_path, ec.examples_path).split(os.sep)[0]
             if error_detected:
-                print("An error occured while running '{}' in example folder '{}'.".format(
-                        file, folder))
+                print(
+                    "An error occured while running '{}' in example folder '{}'.".format(
+                        file, folder
+                    )
+                )
             else:
-                print("No errors occured while running '{}' in example folder '{}'.".format(
-                        file, folder))
+                print(
+                    "No errors occured while running '{}' in example folder '{}'.".format(
+                        file, folder
+                    )
+                )
 
         self.assertFalse(any(ec.errors_detected.values()))

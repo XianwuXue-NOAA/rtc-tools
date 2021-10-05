@@ -3,7 +3,7 @@ import bisect
 import numpy as np
 
 from rtctools.optimization.collocated_integrated_optimization_problem import (
-    CollocatedIntegratedOptimizationProblem
+    CollocatedIntegratedOptimizationProblem,
 )
 from rtctools.optimization.modelica_mixin import ModelicaMixin
 from rtctools.optimization.pi_mixin import PIMixin
@@ -42,12 +42,11 @@ class Model(PIMixin, ModelicaMixin, CollocatedIntegratedOptimizationProblem):
     def compiler_options(self):
         compiler_options = super().compiler_options()
         compiler_options["cache"] = False
-        compiler_options['library_folders'] = []
+        compiler_options["library_folders"] = []
         return compiler_options
 
 
 class TestPIMixin(TestCase):
-
     def setUp(self):
         self.problem = Model()
         self.problem.optimize()
@@ -97,27 +96,15 @@ class TestPIMixin(TestCase):
         t_idx = bisect.bisect_left(self.problem.io.times_sec, 0.0)
 
         t = (
-            self.problem.get_timeseries("x", 0).times[
-                t_idx + 1
-            ]
+            self.problem.get_timeseries("x", 0).times[t_idx + 1]
             + (
-                self.problem.get_timeseries("x", 0).times[
-                    t_idx + 2
-                ]
-                - self.problem.get_timeseries("x", 0).times[
-                    t_idx + 1
-                ]
+                self.problem.get_timeseries("x", 0).times[t_idx + 2]
+                - self.problem.get_timeseries("x", 0).times[t_idx + 1]
             )
             / 2
         )
         x_ref = (
-            self.problem.get_timeseries("x", 0).values[
-                t_idx + 1
-            ]
-            + self.problem.get_timeseries("x", 0).values[
-                t_idx + 2
-            ]
+            self.problem.get_timeseries("x", 0).values[t_idx + 1]
+            + self.problem.get_timeseries("x", 0).values[t_idx + 2]
         ) / 2
-        self.assertAlmostEqual(
-            self.problem.timeseries_at("x", t), x_ref, self.tolerance
-        )
+        self.assertAlmostEqual(self.problem.timeseries_at("x", t), x_ref, self.tolerance)

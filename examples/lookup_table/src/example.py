@@ -1,11 +1,11 @@
 import numpy as np
 
-from rtctools.optimization.collocated_integrated_optimization_problem \
-    import CollocatedIntegratedOptimizationProblem
+from rtctools.optimization.collocated_integrated_optimization_problem import (
+    CollocatedIntegratedOptimizationProblem,
+)
 from rtctools.optimization.csv_lookup_table_mixin import CSVLookupTableMixin
 from rtctools.optimization.csv_mixin import CSVMixin
-from rtctools.optimization.goal_programming_mixin \
-    import GoalProgrammingMixin, StateGoal
+from rtctools.optimization.goal_programming_mixin import GoalProgrammingMixin, StateGoal
 from rtctools.optimization.modelica_mixin import ModelicaMixin
 from rtctools.util import run_optimization_problem
 
@@ -18,24 +18,30 @@ class WaterVolumeRangeGoal(StateGoal):
     # this goal.
     def __init__(self, optimization_problem):
         # Assign V_min and V_max the the target range
-        self.target_min = optimization_problem.get_timeseries('V_min')
-        self.target_max = optimization_problem.get_timeseries('V_max')
+        self.target_min = optimization_problem.get_timeseries("V_min")
+        self.target_max = optimization_problem.get_timeseries("V_max")
         super().__init__(optimization_problem)
-    state = 'storage.V'
+
+    state = "storage.V"
     priority = 1
 
 
 class MinimizeQreleaseGoal(StateGoal):
     # GoalProgrammingMixin will try to minimize the following state:
-    state = 'Q_release'
+    state = "Q_release"
     # The lower the number returned by this function, the higher the priority.
     priority = 2
     # The penalty variable is taken to the order'th power.
     order = 1
 
 
-class Example(GoalProgrammingMixin, CSVLookupTableMixin, CSVMixin,
-              ModelicaMixin, CollocatedIntegratedOptimizationProblem):
+class Example(
+    GoalProgrammingMixin,
+    CSVLookupTableMixin,
+    CSVMixin,
+    ModelicaMixin,
+    CollocatedIntegratedOptimizationProblem,
+):
     """
     An extention of the goal programming example that shows how to incorporate
     non-linear storage elements in the model.
@@ -48,20 +54,18 @@ class Example(GoalProgrammingMixin, CSVLookupTableMixin, CSVMixin,
 
         # Cache lookup tables for convenience and legibility
         _lookup_tables = self.lookup_tables(ensemble_member=0)
-        self.lookup_storage_V = _lookup_tables['storage_V']
+        self.lookup_storage_V = _lookup_tables["storage_V"]
 
         # Non-varrying goals can be implemented as a timeseries like this:
-        self.set_timeseries('H_min', np.ones_like(self.times()) * 0.44, output=False)
+        self.set_timeseries("H_min", np.ones_like(self.times()) * 0.44, output=False)
 
         # Q_in is a varying input and is defined in timeseries_import.csv
         # However, if we set it again here, it will be added to the output file
-        self.set_timeseries('Q_in', self.get_timeseries('Q_in'))
+        self.set_timeseries("Q_in", self.get_timeseries("Q_in"))
 
         # Convert our water level constraints into volume constraints
-        self.set_timeseries('V_max',
-                            self.lookup_storage_V(self.get_timeseries('H_max')))
-        self.set_timeseries('V_min',
-                            self.lookup_storage_V(self.get_timeseries('H_min')))
+        self.set_timeseries("V_max", self.lookup_storage_V(self.get_timeseries("H_max")))
+        self.set_timeseries("V_min", self.lookup_storage_V(self.get_timeseries("H_min")))
 
     def path_goals(self):
         g = []
@@ -74,36 +78,37 @@ class Example(GoalProgrammingMixin, CSVLookupTableMixin, CSVMixin,
     # our run (see post() method below).
     def priority_completed(self, priority):
         results = self.extract_results()
-        self.set_timeseries('storage_V', results['storage.V'])
+        self.set_timeseries("storage_V", results["storage.V"])
 
-        _max = self.get_timeseries('V_max').values
-        _min = self.get_timeseries('V_min').values
-        storage_V = self.get_timeseries('storage_V').values
+        _max = self.get_timeseries("V_max").values
+        _min = self.get_timeseries("V_min").values
+        storage_V = self.get_timeseries("storage_V").values
 
         # A little bit of tolerance when checking for acceptance.
         tol = 10
         _max += tol
         _min -= tol
-        n_level_satisfied = sum(
-            np.logical_and(_min <= storage_V, storage_V <= _max))
-        q_release_integral = sum(results['Q_release'])
-        self.intermediate_results.append(
-            (priority, n_level_satisfied, q_release_integral))
+        n_level_satisfied = sum(np.logical_and(_min <= storage_V, storage_V <= _max))
+        q_release_integral = sum(results["Q_release"])
+        self.intermediate_results.append((priority, n_level_satisfied, q_release_integral))
 
     def post(self):
         # Call super() class to not overwrite default behaviour
         super().post()
         for priority, n_level_satisfied, q_release_integral in self.intermediate_results:
             print(f"\nAfter finishing goals of priority {priority}:")
-            print("Volume goal satisfied at {} of {} time steps".format(
-                n_level_satisfied, len(self.times())))
+            print(
+                "Volume goal satisfied at {} of {} time steps".format(
+                    n_level_satisfied, len(self.times())
+                )
+            )
             print(f"Integral of Q_release = {q_release_integral:.2f}")
 
     # Any solver options can be set here
     def solver_options(self):
         options = super().solver_options()
-        solver = options['solver']
-        options[solver]['print_level'] = 1
+        solver = options["solver"]
+        options[solver]["print_level"] = 1
         return options
 
 

@@ -8,7 +8,6 @@ from rtctools.optimization.timeseries import Timeseries
 
 
 class TestTimeseries(unittest.TestCase):
-
     def test_dm(self):
         ts = Timeseries([1, 2, 3], ca.DM([1, 2, 3]))
         self.assertTrue(np.array_equal(ts.values, np.array([1, 2, 3])))

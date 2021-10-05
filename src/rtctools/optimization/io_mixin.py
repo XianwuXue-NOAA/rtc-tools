@@ -54,7 +54,7 @@ class IOMixin(OptimizationProblem, metaclass=ABCMeta):
 
     @abstractmethod
     def write(self) -> None:
-        """"
+        """ "
         Writes output data to files
         """
         pass
@@ -81,17 +81,17 @@ class IOMixin(OptimizationProblem, metaclass=ABCMeta):
         return Timeseries(*self.io.get_timeseries_sec(variable, ensemble_member))
 
     def set_timeseries(
-            self,
-            variable: str,
-            timeseries: Timeseries,
-            ensemble_member: int = 0,
-            output: bool = True,
-            check_consistency: bool = True):
-
+        self,
+        variable: str,
+        timeseries: Timeseries,
+        ensemble_member: int = 0,
+        output: bool = True,
+        check_consistency: bool = True,
+    ):
         def stretch_values(values, t_pos):
             # Construct a values range with preceding and possibly following nans
             new_values = np.full(self.io.times_sec.shape, np.nan)
-            new_values[t_pos:t_pos + len(values)] = values
+            new_values[t_pos : t_pos + len(values)] = values
             return new_values
 
         if output:
@@ -99,9 +99,12 @@ class IOMixin(OptimizationProblem, metaclass=ABCMeta):
 
         if isinstance(timeseries, Timeseries):
             if len(timeseries.values) != len(timeseries.times):
-                raise ValueError('IOMixin: Trying to set timeseries {} with times and values that are of '
-                                 'different length (lengths of {} and {}, respectively).'
-                                 .format(variable, len(timeseries.times), len(timeseries.values)))
+                raise ValueError(
+                    "IOMixin: Trying to set timeseries {} with times and values that are of "
+                    "different length (lengths of {} and {}, respectively).".format(
+                        variable, len(timeseries.times), len(timeseries.values)
+                    )
+                )
 
             timeseries_times_sec = self.io.times_sec
 
@@ -109,10 +112,10 @@ class IOMixin(OptimizationProblem, metaclass=ABCMeta):
                 if check_consistency:
                     if not set(timeseries_times_sec).issuperset(timeseries.times):
                         raise ValueError(
-                            'IOMixin: Trying to set timeseries {} with different times '
-                            '(in seconds) than the imported timeseries. Please make sure the '
-                            'timeseries covers all timesteps of the longest '
-                            'imported timeseries.'.format(variable)
+                            "IOMixin: Trying to set timeseries {} with different times "
+                            "(in seconds) than the imported timeseries. Please make sure the "
+                            "timeseries covers all timesteps of the longest "
+                            "imported timeseries.".format(variable)
                         )
 
                 # Determine position of first times of added timeseries within the
@@ -131,15 +134,18 @@ class IOMixin(OptimizationProblem, metaclass=ABCMeta):
 
             if check_consistency:
                 if len(self.times()) != len(timeseries):
-                    raise ValueError('IOMixin: Trying to set values for {} with a different '
-                                     'length ({}) than the forecast length ({}).'
-                                     .format(variable, len(timeseries), len(self.times())))
+                    raise ValueError(
+                        "IOMixin: Trying to set values for {} with a different "
+                        "length ({}) than the forecast length ({}).".format(
+                            variable, len(timeseries), len(self.times())
+                        )
+                    )
                 elif not set(timeseries_times_sec).issuperset(self.times()):
                     raise ValueError(
-                        'IOMixin: Trying to set timeseries {} with different times '
-                        '(in seconds) than the imported timeseries. Please make sure the '
-                        'timeseries covers all timesteps of the longest '
-                        'imported timeseries.'.format(variable)
+                        "IOMixin: Trying to set timeseries {} with different times "
+                        "(in seconds) than the imported timeseries. Please make sure the "
+                        "timeseries covers all timesteps of the longest "
+                        "imported timeseries.".format(variable)
                     )
 
             # If times is not supplied with the timeseries, we add the
@@ -158,7 +164,7 @@ class IOMixin(OptimizationProblem, metaclass=ABCMeta):
 
         :param variable: Variable name.
         """
-        return '_'.join((variable, 'Min'))
+        return "_".join((variable, "Min"))
 
     def max_timeseries_id(self, variable: str) -> str:
         """
@@ -166,7 +172,7 @@ class IOMixin(OptimizationProblem, metaclass=ABCMeta):
 
         :param variable: Variable name.
         """
-        return '_'.join((variable, 'Max'))
+        return "_".join((variable, "Max"))
 
     @cached
     def bounds(self):
@@ -177,7 +183,7 @@ class IOMixin(OptimizationProblem, metaclass=ABCMeta):
         t_pos = bisect.bisect_left(io_times, self.initial_time)
 
         # Load bounds from timeseries
-        for variable in self.dae_variables['free_variables']:
+        for variable in self.dae_variables["free_variables"]:
             variable_name = variable.name()
 
             m, M = None, None
@@ -222,17 +228,18 @@ class IOMixin(OptimizationProblem, metaclass=ABCMeta):
 
         end_index = bisect.bisect_left(self.io.times_sec, self.initial_time) + 1
 
-        variable_list = self.dae_variables['states'] + self.dae_variables['algebraics'] + \
-            self.dae_variables['control_inputs'] + self.dae_variables['constant_inputs']
+        variable_list = (
+            self.dae_variables["states"]
+            + self.dae_variables["algebraics"]
+            + self.dae_variables["control_inputs"]
+            + self.dae_variables["constant_inputs"]
+        )
 
         for variable in variable_list:
             variable = variable.name()
             try:
                 times, values = self.io.get_timeseries_sec(variable, ensemble_member)
-                history[variable] = Timeseries(
-                    times[:end_index],
-                    values[:end_index]
-                )
+                history[variable] = Timeseries(times[:end_index], values[:end_index])
             except KeyError:
                 pass
             else:
@@ -246,12 +253,10 @@ class IOMixin(OptimizationProblem, metaclass=ABCMeta):
         seed = super().seed(ensemble_member)
 
         # Load seeds
-        for variable in self.dae_variables['free_variables']:
+        for variable in self.dae_variables["free_variables"]:
             variable = variable.name()
             try:
-                s = Timeseries(
-                    *self.io.get_timeseries_sec(variable, ensemble_member)
-                )
+                s = Timeseries(*self.io.get_timeseries_sec(variable, ensemble_member))
             except KeyError:
                 pass
             else:
@@ -279,12 +284,10 @@ class IOMixin(OptimizationProblem, metaclass=ABCMeta):
         constant_inputs = super().constant_inputs(ensemble_member)
 
         # Load inputs from timeseries
-        for variable in self.dae_variables['constant_inputs']:
+        for variable in self.dae_variables["constant_inputs"]:
             variable = variable.name()
             try:
-                timeseries = Timeseries(
-                    *self.io.get_timeseries_sec(variable, ensemble_member)
-                )
+                timeseries = Timeseries(*self.io.get_timeseries_sec(variable, ensemble_member))
             except KeyError:
                 pass
             else:
@@ -310,5 +313,7 @@ class IOMixin(OptimizationProblem, metaclass=ABCMeta):
         Deprecated, use `io.reference_datetime` and `io.datetimes`, or override behavior using
         :py:meth:`OptimizationProblem.times` and/or :py:attr:`OptimizationProblem.initial_time`.
         """
-        warnings.warn('get_forecast_index() is deprecated and will be removed in the future', FutureWarning)
+        warnings.warn(
+            "get_forecast_index() is deprecated and will be removed in the future", FutureWarning
+        )
         return bisect.bisect_left(self.io.datetimes, self.io.reference_datetime)

@@ -22,9 +22,9 @@ def _resolve_folder(kwargs, base_folder, subfolder_kw, default):
         return os.path.join(base_folder, subfolder)
 
 
-def run_optimization_problem(optimization_problem_class,
-                             base_folder='..', log_level=logging.INFO, profile=False,
-                             **kwargs):
+def run_optimization_problem(
+    optimization_problem_class, base_folder="..", log_level=logging.INFO, profile=False, **kwargs
+):
     """
     Sets up and solves an optimization problem.
 
@@ -48,23 +48,26 @@ def run_optimization_problem(optimization_problem_class,
         # Resolve base folder relative to script folder
         base_folder = os.path.join(sys.path[0], base_folder)
 
-    model_folder = _resolve_folder(kwargs, base_folder, 'model_folder', 'model')
-    input_folder = _resolve_folder(kwargs, base_folder, 'input_folder', 'input')
-    output_folder = _resolve_folder(kwargs, base_folder, 'output_folder', 'output')
+    model_folder = _resolve_folder(kwargs, base_folder, "model_folder", "model")
+    input_folder = _resolve_folder(kwargs, base_folder, "input_folder", "input")
+    output_folder = _resolve_folder(kwargs, base_folder, "output_folder", "output")
 
     # Set up logging
     logger = logging.getLogger("rtctools")
 
     # Add stream handler if it does not already exist.
-    if not logger.hasHandlers() and not any(isinstance(h, logging.StreamHandler) for h in logger.handlers):
+    if not logger.hasHandlers() and not any(
+        isinstance(h, logging.StreamHandler) for h in logger.handlers
+    ):
         handler = logging.StreamHandler()
-        formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
+        formatter = logging.Formatter("%(asctime)s %(levelname)s %(message)s")
         handler.setFormatter(formatter)
         logger.addHandler(handler)
 
     # Add pi.DiagHandler, if using PIMixin. Only add it if it does not already exist.
-    if (issubclass(optimization_problem_class, OptimizationPIMixin) and
-            not any(isinstance(h, pi.DiagHandler) for h in logger.handlers)):
+    if issubclass(optimization_problem_class, OptimizationPIMixin) and not any(
+        isinstance(h, pi.DiagHandler) for h in logger.handlers
+    ):
         handler = pi.DiagHandler(output_folder)
         logger.addHandler(handler)
 
@@ -72,29 +75,39 @@ def run_optimization_problem(optimization_problem_class,
     logger.setLevel(log_level)
 
     # Log version info
-    logger.info(
-        f"Using RTC-Tools {__version__}.")
-    logger.debug(
-        f"Using CasADi {casadi.__version__}.")
+    logger.info(f"Using RTC-Tools {__version__}.")
+    logger.debug(f"Using CasADi {casadi.__version__}.")
 
     # Check for some common mistakes in inheritance order
-    suggested_order = OrderedSet([
-        'HomotopyMixin',
-        'MinAbsGoalProgrammingMixin', 'LinearizedOrderGoalProgrammingMixin',
-        'SinglePassGoalProgrammingMixin', 'GoalProgrammingMixin',
-        'PIMixin', 'CSVMixin', 'ModelicaMixin',
-        'ControlTreeMixin', 'CollocatedIntegratedOptimizationProblem', 'OptimizationProblem'])
+    suggested_order = OrderedSet(
+        [
+            "HomotopyMixin",
+            "MinAbsGoalProgrammingMixin",
+            "LinearizedOrderGoalProgrammingMixin",
+            "SinglePassGoalProgrammingMixin",
+            "GoalProgrammingMixin",
+            "PIMixin",
+            "CSVMixin",
+            "ModelicaMixin",
+            "ControlTreeMixin",
+            "CollocatedIntegratedOptimizationProblem",
+            "OptimizationProblem",
+        ]
+    )
     base_names = OrderedSet([b.__name__ for b in optimization_problem_class.__bases__])
     if suggested_order & base_names != base_names & suggested_order:
-        msg = f'Please inherit from base classes in the following order: {list(base_names & suggested_order)}'
+        msg = f"Please inherit from base classes in the following order: {list(base_names & suggested_order)}"
         logger.error(msg)
         raise Exception(msg)
 
     # Run
     try:
         prob = optimization_problem_class(
-            model_folder=model_folder, input_folder=input_folder, output_folder=output_folder,
-            **kwargs)
+            model_folder=model_folder,
+            input_folder=input_folder,
+            output_folder=output_folder,
+            **kwargs,
+        )
         if profile:
             filename = os.path.join(base_folder, "profile.prof")
 
@@ -112,13 +125,15 @@ def run_optimization_problem(optimization_problem_class,
             value = exc_info[1]
             try:
                 failed_class = re.search(
-                    "Can't instantiate (.*) with abstract methods", str(value)).group(1)
-                abstract_method = re.search(
-                    ' with abstract methods (.*)', str(value)).group(1)
+                    "Can't instantiate (.*) with abstract methods", str(value)
+                ).group(1)
+                abstract_method = re.search(" with abstract methods (.*)", str(value)).group(1)
                 logger.error(
-                    'The {} is missing a mixin. Please add a mixin that instantiates '
-                    'abstract method {}, so that the optimizer can run.'.format(
-                        failed_class, abstract_method))
+                    "The {} is missing a mixin. Please add a mixin that instantiates "
+                    "abstract method {}, so that the optimizer can run.".format(
+                        failed_class, abstract_method
+                    )
+                )
             except Exception:
                 pass
         for handler in logger.handlers:
@@ -126,9 +141,9 @@ def run_optimization_problem(optimization_problem_class,
         raise
 
 
-def run_simulation_problem(simulation_problem_class,
-                           base_folder='..', log_level=logging.INFO,
-                           **kwargs):
+def run_simulation_problem(
+    simulation_problem_class, base_folder="..", log_level=logging.INFO, **kwargs
+):
     """
     Sets up and runs a simulation problem.
 
@@ -151,34 +166,35 @@ def run_simulation_problem(simulation_problem_class,
             # Resolve base folder relative to script folder
             base_folder = os.path.join(sys.path[0], base_folder)
 
-    model_folder = _resolve_folder(kwargs, base_folder, 'model_folder', 'model')
-    input_folder = _resolve_folder(kwargs, base_folder, 'input_folder', 'input')
-    output_folder = _resolve_folder(kwargs, base_folder, 'output_folder', 'output')
+    model_folder = _resolve_folder(kwargs, base_folder, "model_folder", "model")
+    input_folder = _resolve_folder(kwargs, base_folder, "input_folder", "input")
+    output_folder = _resolve_folder(kwargs, base_folder, "output_folder", "output")
 
     # Set up logging
     logger = logging.getLogger("rtctools")
-    if not logger.hasHandlers() and not any(isinstance(h, logging.StreamHandler) for h in logger.handlers):
+    if not logger.hasHandlers() and not any(
+        isinstance(h, logging.StreamHandler) for h in logger.handlers
+    ):
         handler = logging.StreamHandler()
-        formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
+        formatter = logging.Formatter("%(asctime)s %(levelname)s %(message)s")
         handler.setFormatter(formatter)
         logger.addHandler(handler)
 
     # Add pi.DiagHandler, if using PIMixin. Only add it if it does not already exist.
-    if (issubclass(simulation_problem_class, SimulationPIMixin) and
-            not any(isinstance(h, pi.DiagHandler) for h in logger.handlers)):
+    if issubclass(simulation_problem_class, SimulationPIMixin) and not any(
+        isinstance(h, pi.DiagHandler) for h in logger.handlers
+    ):
         handler = pi.DiagHandler(output_folder)
         logger.addHandler(handler)
 
     logger.setLevel(log_level)
 
-    logger.info(
-        f'Using RTC-Tools {__version__}')
-    logger.debug(
-        f'Using CasADi {casadi.__version__}.')
+    logger.info(f"Using RTC-Tools {__version__}")
+    logger.debug(f"Using CasADi {casadi.__version__}.")
 
     # Run
     prob = simulation_problem_class(
-        model_folder=model_folder, input_folder=input_folder, output_folder=output_folder,
-        **kwargs)
+        model_folder=model_folder, input_folder=input_folder, output_folder=output_folder, **kwargs
+    )
     prob.simulate()
     return prob

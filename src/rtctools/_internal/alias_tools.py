@@ -13,8 +13,8 @@ class OrderedSet(MutableSet):
 
     def __init__(self, iterable=None):
         self.end = end = []
-        end += [None, end, end]         # sentinel node for doubly linked list
-        self.map = {}                   # key --> [key, prev, next]
+        end += [None, end, end]  # sentinel node for doubly linked list
+        self.map = {}  # key --> [key, prev, next]
         if iterable is not None:
             self |= iterable
 
@@ -25,11 +25,11 @@ class OrderedSet(MutableSet):
         return key in self.map
 
     def __getstate__(self):
-        """ Avoids max depth RecursionError when using pickle """
+        """Avoids max depth RecursionError when using pickle"""
         return list(self)
 
     def __setstate__(self, state):
-        """ Tells pickle how to restore instance """
+        """Tells pickle how to restore instance"""
         self.__init__(state)
 
     def __getitem__(self, index):
@@ -45,7 +45,7 @@ class OrderedSet(MutableSet):
                     return curr[0]
                 curr = curr[2]
                 i += 1
-            raise IndexError(f'set index {index} out of range with length {len(self)}')
+            raise IndexError(f"set index {index} out of range with length {len(self)}")
 
     def add(self, key):
         if key not in self.map:
@@ -75,25 +75,27 @@ class OrderedSet(MutableSet):
 
     def pop(self, last=True):
         if not self:
-            raise KeyError('set is empty')
+            raise KeyError("set is empty")
         key = self.end[1][0] if last else self.end[2][0]
         self.discard(key)
         return key
 
     def __repr__(self):
         if not self:
-            return f'{self.__class__.__name__}()'
-        return f'{self.__class__.__name__}({list(self)!r})'
+            return f"{self.__class__.__name__}()"
+        return f"{self.__class__.__name__}({list(self)!r})"
 
     def __eq__(self, other):
         if isinstance(other, OrderedSet):
             return len(self) == len(other) and list(self) == list(other)
         return set(self) == set(other)
+
+
 # End snippet
 
 
-KT = TypeVar('KT')
-VT = TypeVar('VT')
+KT = TypeVar("KT")
+VT = TypeVar("VT")
 
 
 class AliasDict(Generic[KT, VT]):

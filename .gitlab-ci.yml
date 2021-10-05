@@ -12,12 +12,12 @@ stages:
   - deploy
 
 # style
-flake8:
+style:
   stage: style
   script:
     - tox -vv
   variables:
-    TOXENV: flake8
+    TOXENV: flake8,black
   tags:
     - docker
 

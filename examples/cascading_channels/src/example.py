@@ -1,7 +1,7 @@
 import itertools
 
 from rtctools.optimization.collocated_integrated_optimization_problem import (
-    CollocatedIntegratedOptimizationProblem
+    CollocatedIntegratedOptimizationProblem,
 )
 from rtctools.optimization.csv_mixin import CSVMixin
 from rtctools.optimization.goal_programming_mixin import GoalProgrammingMixin, StateGoal
@@ -47,8 +47,7 @@ class Example(
         # Generate handy tuples to iterate over
         self.channel_node_indices = tuple(range(1, self.channel_n_level_nodes + 1))
         self.channel_level_nodes = tuple(
-            f"{c}.H[{n}]"
-            for c, n in itertools.product(self.channels, self.channel_node_indices)
+            f"{c}.H[{n}]" for c, n in itertools.product(self.channels, self.channel_node_indices)
         )
         # Expand channel water level goals to all nodes
         for channel in self.channels:
@@ -67,7 +66,7 @@ class Example(
     def parameters(self, ensemble_member):
         p = super().parameters(ensemble_member)
         times = self.times()
-        p['step_size'] = times[1] - times[0]
+        p["step_size"] = times[1] - times[0]
         return p
 
     def path_goals(self):

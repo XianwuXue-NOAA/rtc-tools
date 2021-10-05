@@ -7,19 +7,21 @@ logger = logging.getLogger("rtctools")
 try:
     from casadi import interp1d
 except ImportError:
-    logger.warning('interp1d not available in this version of CasADi.  Linear interpolation will not work.')
+    logger.warning(
+        "interp1d not available in this version of CasADi.  Linear interpolation will not work."
+    )
     interp1d = None
 
 
 def is_affine(e, v):
     try:
-        Af = ca.Function('f', [v], [ca.jacobian(e, v)]).expand()
+        Af = ca.Function("f", [v], [ca.jacobian(e, v)]).expand()
     except RuntimeError as e:
         if "'eval_sx' not defined for" in str(e):
-            Af = ca.Function('f', [v], [ca.jacobian(e, v)])
+            Af = ca.Function("f", [v], [ca.jacobian(e, v)])
         else:
             raise
-    return (Af.sparsity_jac(0, 0).nnz() == 0)
+    return Af.sparsity_jac(0, 0).nnz() == 0
 
 
 def nullvertcat(*L):
@@ -38,7 +40,7 @@ def reduce_matvec(e, v):
 
     This reduces the number of nodes required to represent the linear operations.
     """
-    Af = ca.Function('Af', [ca.MX()], [ca.jacobian(e, v)])
+    Af = ca.Function("Af", [ca.MX()], [ca.jacobian(e, v)])
     A = Af(ca.DM())
     return ca.reshape(ca.mtimes(A, v), e.shape)
 
@@ -47,18 +49,18 @@ def substitute_in_external(expr, symbols, values):
     if len(symbols) == 0 or all(isinstance(x, ca.DM) for x in expr):
         return expr
     else:
-        f = ca.Function('f', symbols, expr)
+        f = ca.Function("f", symbols, expr)
         return f.call(values, True, False)
 
 
 def interpolate(ts, xs, t, equidistant, mode=0):
     if interp1d is not None:
         if mode == 0:
-            mode_str = 'linear'
+            mode_str = "linear"
         elif mode == 1:
-            mode_str = 'floor'
+            mode_str = "floor"
         else:
-            mode_str = 'ceil'
+            mode_str = "ceil"
         return interp1d(ts, xs, t, mode_str, equidistant)
     else:
         if mode == 1:
@@ -67,10 +69,14 @@ def interpolate(ts, xs, t, equidistant, mode=0):
             xs = xs[1:]  # block-backward
         t = ca.MX(t)
         if t.size1() > 1:
-            t_ = ca.MX.sym('t')
-            xs_ = ca.MX.sym('xs', xs.size1())
-            f = ca.Function('interpolant', [t_, xs_], [ca.mtimes(ca.transpose((t_ >= ts[:-1]) * (t_ < ts[1:])), xs_)])
-            f = f.map(t.size1(), 'serial')
+            t_ = ca.MX.sym("t")
+            xs_ = ca.MX.sym("xs", xs.size1())
+            f = ca.Function(
+                "interpolant",
+                [t_, xs_],
+                [ca.mtimes(ca.transpose((t_ >= ts[:-1]) * (t_ < ts[1:])), xs_)],
+            )
+            f = f.map(t.size1(), "serial")
             return ca.transpose(f(ca.transpose(t), ca.repmat(xs, 1, t.size1())))
         else:
             return ca.mtimes(ca.transpose((t >= ts[:-1]) * (t < ts[1:])), xs)

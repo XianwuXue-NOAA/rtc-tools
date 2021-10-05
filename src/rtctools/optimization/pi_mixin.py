@@ -36,8 +36,8 @@ class PIMixin(IOMixin):
     pi_binary_timeseries = False
 
     #: Location of rtcParameterConfig files
-    pi_parameter_config_basenames = ['rtcParameterConfig']
-    pi_parameter_config_numerical_basename = 'rtcParameterConfig_Numerical'
+    pi_parameter_config_basenames = ["rtcParameterConfig"]
+    pi_parameter_config_numerical_basename = "rtcParameterConfig_Numerical"
 
     #: Check consistency of timeseries
     pi_validate_timeseries = True
@@ -61,29 +61,44 @@ class PIMixin(IOMixin):
         self.__parameter_config = []
         try:
             for pi_parameter_config_basename in self.pi_parameter_config_basenames:
-                self.__parameter_config.append(pi.ParameterConfig(
-                    self._input_folder, pi_parameter_config_basename))
+                self.__parameter_config.append(
+                    pi.ParameterConfig(self._input_folder, pi_parameter_config_basename)
+                )
         except OSError:
             raise Exception(
-                f"PIMixin: {pi_parameter_config_basename}.xml not found in {self._input_folder}.")
+                f"PIMixin: {pi_parameter_config_basename}.xml not found in {self._input_folder}."
+            )
 
         try:
             self.__parameter_config_numerical = pi.ParameterConfig(
-                  self._input_folder, self.pi_parameter_config_numerical_basename)
+                self._input_folder, self.pi_parameter_config_numerical_basename
+            )
         except OSError:
             self.__parameter_config_numerical = None
 
         try:
             self.__timeseries_import = pi.Timeseries(
-                self.__data_config, self._input_folder, self.timeseries_import_basename,
-                binary=self.pi_binary_timeseries, pi_validate_times=self.pi_validate_timeseries)
+                self.__data_config,
+                self._input_folder,
+                self.timeseries_import_basename,
+                binary=self.pi_binary_timeseries,
+                pi_validate_times=self.pi_validate_timeseries,
+            )
         except OSError:
-            raise Exception("PIMixin: {}.xml not found in {}.".format(
-                self.timeseries_import_basename, self._input_folder))
+            raise Exception(
+                "PIMixin: {}.xml not found in {}.".format(
+                    self.timeseries_import_basename, self._input_folder
+                )
+            )
 
         self.__timeseries_export = pi.Timeseries(
-            self.__data_config, self._output_folder, self.timeseries_export_basename,
-            binary=self.pi_binary_timeseries, pi_validate_times=False, make_new_file=True)
+            self.__data_config,
+            self._output_folder,
+            self.timeseries_export_basename,
+            binary=self.pi_binary_timeseries,
+            pi_validate_times=False,
+            make_new_file=True,
+        )
 
         # Convert timeseries timestamps to seconds since t0 for internal use
         timeseries_import_times = self.__timeseries_import.times
@@ -92,8 +107,7 @@ class PIMixin(IOMixin):
         if self.pi_validate_timeseries:
             for i in range(len(timeseries_import_times) - 1):
                 if timeseries_import_times[i] >= timeseries_import_times[i + 1]:
-                    raise Exception(
-                        'PIMixin: Time stamps must be strictly increasing.')
+                    raise Exception("PIMixin: Time stamps must be strictly increasing.")
 
         if self.__timeseries_import.dt:
             # Check if the timeseries are truly equidistant
@@ -102,10 +116,12 @@ class PIMixin(IOMixin):
                 for i in range(len(timeseries_import_times) - 1):
                     if timeseries_import_times[i + 1] - timeseries_import_times[i] != dt:
                         raise Exception(
-                            'PIMixin: Expecting equidistant timeseries, the time step '
-                            'towards {} is not the same as the time step(s) before. Set '
-                            'unit to nonequidistant if this is intended.'.format(
-                                timeseries_import_times[i + 1]))
+                            "PIMixin: Expecting equidistant timeseries, the time step "
+                            "towards {} is not the same as the time step(s) before. Set "
+                            "unit to nonequidistant if this is intended.".format(
+                                timeseries_import_times[i + 1]
+                            )
+                        )
 
         # Offer input timeseries to IOMixin
         self.io.reference_datetime = self.__timeseries_import.forecast_datetime
@@ -120,12 +136,18 @@ class PIMixin(IOMixin):
             for parameter_config in self.__parameter_config:
                 for location_id, model_id, parameter_id, value in parameter_config:
                     try:
-                        parameter = self.__data_config.parameter(parameter_id, location_id, model_id)
+                        parameter = self.__data_config.parameter(
+                            parameter_id, location_id, model_id
+                        )
                     except KeyError:
                         parameter = parameter_id
 
-                    self.io.set_parameter(parameter, value, ensemble_member,
-                                          check_duplicates=self.pi_check_for_duplicate_parameters)
+                    self.io.set_parameter(
+                        parameter,
+                        value,
+                        ensemble_member,
+                        check_duplicates=self.pi_check_for_duplicate_parameters,
+                    )
 
     def solver_options(self):
         # Call parent
@@ -157,7 +179,9 @@ class PIMixin(IOMixin):
         # Write the time range for the export file.
         self.__timeseries_export.times = [
             self.__timeseries_import.times[self.__timeseries_import.forecast_index]
-            + timedelta(seconds=s) for s in times]
+            + timedelta(seconds=s)
+            for s in times
+        ]
 
         # Write other time settings
         self.__timeseries_export.forecast_datetime = self.__timeseries_import.forecast_datetime
@@ -168,7 +192,7 @@ class PIMixin(IOMixin):
         if self.ensemble_size > 1:
             self.__timeseries_export.contains_ensemble = True
         self.__timeseries_export.ensemble_size = self.ensemble_size
-        self.__timeseries_export.contains_ensemble = (self.ensemble_size > 1)
+        self.__timeseries_export.contains_ensemble = self.ensemble_size > 1
 
         # Start looping over the ensembles for extraction of the output values.
         for ensemble_member in range(self.ensemble_size):
@@ -181,19 +205,20 @@ class PIMixin(IOMixin):
                     values = results[variable]
                     if len(values) != len(times):
                         values = self.interpolate(
-                            times, self.times(variable), values, self.interpolation_method(variable))
+                            times, self.times(variable), values, self.interpolation_method(variable)
+                        )
                 except KeyError:
                     try:
                         ts = self.get_timeseries(variable, ensemble_member)
                         if len(ts.times) != len(times):
-                            values = self.interpolate(
-                                times, ts.times, ts.values)
+                            values = self.interpolate(times, ts.times, ts.values)
                         else:
                             values = ts.values
                     except KeyError:
                         logger.error(
-                            'PIMixin: Output requested for non-existent variable {}. '
-                            'Will not be in output file.'.format(variable))
+                            "PIMixin: Output requested for non-existent variable {}. "
+                            "Will not be in output file.".format(variable)
+                        )
                         continue
 
                 # Check if ID mapping is present
@@ -201,17 +226,20 @@ class PIMixin(IOMixin):
                     self.__data_config.pi_variable_ids(variable)
                 except KeyError:
                     logger.debug(
-                        'PIMixin: variable {} has no mapping defined in rtcDataConfig '
-                        'so cannot be added to the output file.'.format(variable))
+                        "PIMixin: variable {} has no mapping defined in rtcDataConfig "
+                        "so cannot be added to the output file.".format(variable)
+                    )
                     continue
 
                 # Add series to output file.
                 # NOTE: We use the unit of the zeroth ensemble member, as
                 # we might be outputting more ensembles than we read in.
                 self.__timeseries_export.set(
-                    variable, values,
+                    variable,
+                    values,
                     unit=self.__timeseries_import.get_unit(variable, ensemble_member=0),
-                    ensemble_member=ensemble_member)
+                    ensemble_member=ensemble_member,
+                )
 
         # Write output file to disk
         self.__timeseries_export.write()

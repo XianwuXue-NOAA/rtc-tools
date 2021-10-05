@@ -47,14 +47,12 @@ class Model(
     def path_constraints(self, ensemble_member):
         # Symbolically constrain x_prime to x
         lookup_table_x_prime = self.lookup_tables(0)["x_prime"].function
-        return [
-            (lookup_table_x_prime(self.state("x")) - self.state("x_prime"), 0.0, 0.0)
-        ]
+        return [(lookup_table_x_prime(self.state("x")) - self.state("x_prime"), 0.0, 0.0)]
 
     def compiler_options(self):
         compiler_options = super().compiler_options()
         compiler_options["cache"] = False
-        compiler_options['library_folders'] = []
+        compiler_options["library_folders"] = []
         return compiler_options
 
 
@@ -84,9 +82,7 @@ class TestCSVLookupMixin(TestCase):
             equal_nan=True,
         )
         np.testing.assert_allclose(
-            lt_x_prime.reverse_call(
-                Timeseries([0, 1, 2, 3], [1.0, 4.0, np.nan, 16.0])
-            ).values,
+            lt_x_prime.reverse_call(Timeseries([0, 1, 2, 3], [1.0, 4.0, np.nan, 16.0])).values,
             np.array([0.1, 0.2, np.nan, 0.4]),
             equal_nan=True,
         )
@@ -95,8 +91,6 @@ class TestCSVLookupMixin(TestCase):
         x_results = self.results["x"]
         x_prime_desired_results = self.problem.lookup_tables(0)["x_prime"](x_results)
         x_prime_results = self.results["x_prime"]
-        np.testing.assert_allclose(
-            x_prime_results, x_prime_desired_results, equal_nan=True
-        )
+        np.testing.assert_allclose(x_prime_results, x_prime_desired_results, equal_nan=True)
         # x_prime min is 4.0, so x should be 0.2 when minimized
         np.testing.assert_allclose(x_results, 0.2, equal_nan=True)

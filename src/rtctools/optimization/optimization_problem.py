@@ -53,8 +53,12 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
 
         self.__mixed_integer = False
 
-    def optimize(self, preprocessing: bool = True, postprocessing: bool = True,
-                 log_solver_failure_as_error: bool = True) -> bool:
+    def optimize(
+        self,
+        preprocessing: bool = True,
+        postprocessing: bool = True,
+        log_solver_failure_as_error: bool = True,
+    ) -> bool:
         """
         Perform one initialize-transcribe-solve-finalize cycle.
 
@@ -65,8 +69,10 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
         """
 
         # Deprecations / removals
-        if hasattr(self, 'initial_state'):
-            raise RuntimeError("Support for `initial_state()` has been removed. Please use `history()` instead.")
+        if hasattr(self, "initial_state"):
+            raise RuntimeError(
+                "Support for `initial_state()` has been removed. Please use `history()` instead."
+            )
 
         logger.info("Entering optimize()")
 
@@ -78,8 +84,7 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
             # Check if control inputs are bounded
             self.__check_bounds_control_input()
         else:
-            logger.debug(
-                'Skipping Preprocessing in OptimizationProblem.optimize()')
+            logger.debug("Skipping Preprocessing in OptimizationProblem.optimize()")
 
         # Transcribe problem
         discrete, lbx, ubx, lbg, ubg, x0, nlp = self.transcribe()
@@ -93,19 +98,19 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
 
         logger.debug("Creating solver")
 
-        if options.pop('expand', False):
+        if options.pop("expand", False):
             # NOTE: CasADi only supports the "expand" option for nlpsol. To
             # also be able to expand with e.g. qpsol, we do the expansion
             # ourselves here.
             logger.debug("Expanding objective and constraints to SX")
 
-            expand_f_g = ca.Function('f_g', [nlp['x']], [nlp['f'], nlp['g']]).expand()
-            X_sx = ca.SX.sym('X', *nlp['x'].shape)
+            expand_f_g = ca.Function("f_g", [nlp["x"]], [nlp["f"], nlp["g"]]).expand()
+            X_sx = ca.SX.sym("X", *nlp["x"].shape)
             f_sx, g_sx = expand_f_g(X_sx)
 
-            nlp['f'] = f_sx
-            nlp['g'] = g_sx
-            nlp['x'] = X_sx
+            nlp["f"] = f_sx
+            nlp["g"] = g_sx
+            nlp["x"] = X_sx
 
         # Debug check for non-linearity in constraints
         self.__debug_check_linearity_constraints(nlp)
@@ -114,34 +119,34 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
         self.__debug_check_linear_independence(lbx, ubx, lbg, ubg, nlp)
 
         # Solver option
-        my_solver = options['solver']
-        del options['solver']
+        my_solver = options["solver"]
+        del options["solver"]
 
         # Already consumed
-        del options['optimized_num_dir']
+        del options["optimized_num_dir"]
 
         # Iteration callback
-        iteration_callback = options.pop('iteration_callback', None)
+        iteration_callback = options.pop("iteration_callback", None)
 
         # CasADi solver to use
-        casadi_solver = options.pop('casadi_solver')
+        casadi_solver = options.pop("casadi_solver")
         if isinstance(casadi_solver, str):
             casadi_solver = getattr(ca, casadi_solver)
 
         nlpsol_options = {**options}
 
         if self.__mixed_integer:
-            nlpsol_options['discrete'] = discrete
+            nlpsol_options["discrete"] = discrete
         if iteration_callback:
-            nlpsol_options['iteration_callback'] = iteration_callback
+            nlpsol_options["iteration_callback"] = iteration_callback
 
         # Remove ipopt and bonmin defaults if they are not used
-        if my_solver != 'ipopt':
-            nlpsol_options.pop('ipopt', None)
-        if my_solver != 'bonmin':
-            nlpsol_options.pop('bonmin', None)
+        if my_solver != "ipopt":
+            nlpsol_options.pop("ipopt", None)
+        if my_solver != "bonmin":
+            nlpsol_options.pop("bonmin", None)
 
-        solver = casadi_solver('nlp', my_solver, nlp, nlpsol_options)
+        solver = casadi_solver("nlp", my_solver, nlp, nlpsol_options)
 
         # Solve NLP
         logger.info("Calling solver")
@@ -149,25 +154,28 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
         results = solver(x0=x0, lbx=lbx, ubx=ubx, lbg=ca.veccat(*lbg), ubg=ca.veccat(*ubg))
 
         # Extract relevant stats
-        self.__objective_value = float(results['f'])
-        self.__solver_output = np.array(results['x']).ravel()
+        self.__objective_value = float(results["f"])
+        self.__solver_output = np.array(results["x"]).ravel()
         self.__solver_stats = solver.stats()
 
         success, log_level = self.solver_success(self.__solver_stats, log_solver_failure_as_error)
 
         if success:
-            logger.log(log_level, "Solver succeeded with status {}".format(
-                self.__solver_stats['return_status']))
+            logger.log(
+                log_level,
+                "Solver succeeded with status {}".format(self.__solver_stats["return_status"]),
+            )
         else:
-            logger.log(log_level, "Solver failed with status {}".format(
-                self.__solver_stats['return_status']))
+            logger.log(
+                log_level,
+                "Solver failed with status {}".format(self.__solver_stats["return_status"]),
+            )
 
         # Do any postprocessing
         if postprocessing:
             self.post()
         else:
-            logger.debug(
-                'Skipping Postprocessing in OptimizationProblem.optimize()')
+            logger.debug("Skipping Postprocessing in OptimizationProblem.optimize()")
 
         # Done
         logger.info("Done with optimize()")
@@ -178,15 +186,17 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
         # Checks if at the control inputs have bounds, log warning when a control input is not bounded.
         bounds = self.bounds()
 
-        for variable in self.dae_variables['control_inputs']:
+        for variable in self.dae_variables["control_inputs"]:
             variable = variable.name()
             if variable not in bounds:
-                logger.warning(
-                    f"OptimizationProblem: control input {variable} has no bounds.")
+                logger.warning(f"OptimizationProblem: control input {variable} has no bounds.")
 
     @abstractmethod
-    def transcribe(self) -> Tuple[
-            np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, Dict[str, ca.MX]]:
+    def transcribe(
+        self,
+    ) -> Tuple[
+        np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, Dict[str, ca.MX]
+    ]:
         """
         Transcribe the continuous optimization problem to a discretized, solver-ready
         optimization problem.
@@ -203,28 +213,26 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
         :returns: A dictionary of solver options. See the CasADi and
                   respective solver documentation for details.
         """
-        options = {'error_on_fail': False,
-                   'optimized_num_dir': 3,
-                   'casadi_solver': ca.nlpsol}
+        options = {"error_on_fail": False, "optimized_num_dir": 3, "casadi_solver": ca.nlpsol}
 
         if self.__mixed_integer:
-            options['solver'] = 'bonmin'
+            options["solver"] = "bonmin"
 
-            bonmin_options = options['bonmin'] = {}
-            bonmin_options['algorithm'] = 'B-BB'
-            bonmin_options['nlp_solver'] = 'Ipopt'
-            bonmin_options['nlp_log_level'] = 2
-            bonmin_options['linear_solver'] = 'mumps'
+            bonmin_options = options["bonmin"] = {}
+            bonmin_options["algorithm"] = "B-BB"
+            bonmin_options["nlp_solver"] = "Ipopt"
+            bonmin_options["nlp_log_level"] = 2
+            bonmin_options["linear_solver"] = "mumps"
         else:
-            options['solver'] = 'ipopt'
+            options["solver"] = "ipopt"
 
-            ipopt_options = options['ipopt'] = {}
-            ipopt_options['linear_solver'] = 'mumps'
+            ipopt_options = options["ipopt"] = {}
+            ipopt_options["linear_solver"] = "mumps"
         return options
 
-    def solver_success(self,
-                       solver_stats: Dict[str, Union[str, bool]],
-                       log_solver_failure_as_error: bool) -> Tuple[bool, int]:
+    def solver_success(
+        self, solver_stats: Dict[str, Union[str, bool]], log_solver_failure_as_error: bool
+    ) -> Tuple[bool, int]:
         """
         Translates the returned solver statistics into a boolean and log level
         to indicate whether the solve was succesful, and how to log it.
@@ -252,11 +260,12 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
 
         :returns: A tuple indicating whether or not the solver has succeeded, and what level to log it with.
         """
-        success = solver_stats['success']
+        success = solver_stats["success"]
         log_level = logging.INFO if success else logging.ERROR
 
-        if (self.solver_options()['solver'].lower() in ['bonmin', 'ipopt']
-                and solver_stats['return_status'] in ['Not_Enough_Degrees_Of_Freedom']):
+        if self.solver_options()["solver"].lower() in ["bonmin", "ipopt"] and solver_stats[
+            "return_status"
+        ] in ["Not_Enough_Degrees_Of_Freedom"]:
             log_level = logging.WARNING
 
         if log_level == logging.ERROR and not log_solver_failure_as_error:
@@ -475,7 +484,8 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
             elif isinstance(v1, np.ndarray) and isinstance(v2, Timeseries):
                 if v2.values.ndim != 2 or len(v1) != v2.values.shape[1]:
                     raise Exception(
-                        f"Mismatching vector size when upcasting to Timeseries, {v1} vs. {v2}.")
+                        f"Mismatching vector size when upcasting to Timeseries, {v1} vs. {v2}."
+                    )
                 all_bounds[i] = Timeseries(v2.times, np.broadcast_to(v1, v2.values.shape))
             elif isinstance(v1, (int, float)) and isinstance(v2, np.ndarray):
                 all_bounds[i] = np.full_like(v2, v1)
@@ -637,8 +647,9 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
         """
         return ca.MX(0)
 
-    def constraints(self, ensemble_member: int) -> List[
-            Tuple[ca.MX, Union[float, np.ndarray], Union[float, np.ndarray]]]:
+    def constraints(
+        self, ensemble_member: int
+    ) -> List[Tuple[ca.MX, Union[float, np.ndarray], Union[float, np.ndarray]]]:
         """
         Returns a list of constraints for the given ensemble member.
 
@@ -665,8 +676,9 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
         """
         return []
 
-    def path_constraints(self, ensemble_member: int) -> List[
-            Tuple[ca.MX, Union[float, np.ndarray], Union[float, np.ndarray]]]:
+    def path_constraints(
+        self, ensemble_member: int
+    ) -> List[Tuple[ca.MX, Union[float, np.ndarray], Union[float, np.ndarray]]]:
         """
         Returns a list of path constraints.
 
@@ -711,13 +723,14 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
     INTERPOLATION_PIECEWISE_CONSTANT_BACKWARD = 2
 
     def interpolate(
-            self,
-            t: Union[float, np.ndarray],
-            ts: np.ndarray,
-            fs: np.ndarray,
-            f_left: float = np.nan,
-            f_right: float = np.nan,
-            mode: int = INTERPOLATION_LINEAR) -> Union[float, np.ndarray]:
+        self,
+        t: Union[float, np.ndarray],
+        ts: np.ndarray,
+        fs: np.ndarray,
+        f_left: float = np.nan,
+        f_right: float = np.nan,
+        mode: int = INTERPOLATION_LINEAR,
+    ) -> Union[float, np.ndarray]:
         """
         Linear interpolation over time.
 
@@ -739,9 +752,11 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
                 # Early termination; nothing to interpolate
                 return fs.copy()
 
-            fs_int = [self.interpolate(t, ts, fs[:, i], f_left, f_right, mode) for i in range(fs.shape[1])]
+            fs_int = [
+                self.interpolate(t, ts, fs[:, i], f_left, f_right, mode) for i in range(fs.shape[1])
+            ]
             return np.stack(fs_int, axis=1)
-        elif hasattr(t, '__iter__'):
+        elif hasattr(t, "__iter__"):
             if len(t) == len(ts) and np.all(t == ts):
                 # Early termination; nothing to interpolate
                 return fs.copy()
@@ -756,37 +771,37 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
 
     def __interpolate(self, t, ts, fs, f_left=np.nan, f_right=np.nan, mode=INTERPOLATION_LINEAR):
         """
-        Linear interpolation over time.
+                Linear interpolation over time.
 
-        :param t:       Time at which to evaluate the interpolant.
-        :type t:        float or vector of floats
-        :param ts:      Time stamps.
-        :type ts:       numpy array
-        :param fs:      Function values at time stamps ts.
-        :param f_left:  Function value left of leftmost time stamp.
-        :param f_right: Function value right of rightmost time stamp.
-        :param mode:    Interpolation mode.
+                :param t:       Time at which to evaluate the interpolant.
+                :type t:        float or vector of floats
+                :param ts:      Time stamps.
+                :type ts:       numpy array
+                :param fs:      Function values at time stamps ts.
+                :param f_left:  Function value left of leftmost time stamp.
+                :param f_right: Function value right of rightmost time stamp.
+                :param mode:    Interpolation mode.
 
-        Note that it is assumed that `ts` is sorted. No such assumption is made for `t`
-.
-        :returns: The interpolated value.
+                Note that it is assumed that `ts` is sorted. No such assumption is made for `t`
+        .
+                :returns: The interpolated value.
         """
 
         if f_left is None:
-            if (min(t) if hasattr(t, '__iter__') else t) < ts[0]:
+            if (min(t) if hasattr(t, "__iter__") else t) < ts[0]:
                 raise Exception(f"Interpolation: Point {t} left of range")
 
         if f_right is None:
-            if (max(t) if hasattr(t, '__iter__') else t) > ts[-1]:
+            if (max(t) if hasattr(t, "__iter__") else t) > ts[-1]:
                 raise Exception(f"Interpolation: Point {t} right of range")
 
         if mode == self.INTERPOLATION_LINEAR:
             # No need to handle f_left / f_right; NumPy already does this for us
             return np.interp(t, ts, fs, f_left, f_right)
         elif mode == self.INTERPOLATION_PIECEWISE_CONSTANT_FORWARD:
-            v = fs[np.maximum(np.searchsorted(ts, t, side='right') - 1, 0)]
+            v = fs[np.maximum(np.searchsorted(ts, t, side="right") - 1, 0)]
         elif mode == self.INTERPOLATION_PIECEWISE_CONSTANT_BACKWARD:
-            v = fs[np.minimum(np.searchsorted(ts, t, side='left'), len(ts) - 1)]
+            v = fs[np.minimum(np.searchsorted(ts, t, side="left"), len(ts) - 1)]
         else:
             raise NotImplementedError
 
@@ -810,8 +825,9 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def discretize_controls(self, resolved_bounds: AliasDict) -> Tuple[
-            int, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    def discretize_controls(
+        self, resolved_bounds: AliasDict
+    ) -> Tuple[int, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """
         Performs the discretization of the control inputs, filling lower and upper
         bound vectors for the resulting optimization variables, as well as an initial guess.
@@ -874,7 +890,9 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
         return self.variable(variable)
 
     @abstractmethod
-    def control_at(self, variable: str, t: float, ensemble_member: int = 0, scaled: bool = False) -> ca.MX:
+    def control_at(
+        self, variable: str, t: float, ensemble_member: int = 0, scaled: bool = False
+    ) -> ca.MX:
         """
         Returns an :class:`MX` symbol representing the given control input at the given time.
 
@@ -904,8 +922,9 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def discretize_states(self, resolved_bounds: AliasDict) -> Tuple[
-            int, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    def discretize_states(
+        self, resolved_bounds: AliasDict
+    ) -> Tuple[int, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """
         Perform the discretization of the states.
 
@@ -962,7 +981,9 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
         return self.variable(variable)
 
     @abstractmethod
-    def state_at(self, variable: str, t: float, ensemble_member: int = 0, scaled: bool = False) -> ca.MX:
+    def state_at(
+        self, variable: str, t: float, ensemble_member: int = 0, scaled: bool = False
+    ) -> ca.MX:
         """
         Returns an :class:`MX` symbol representing the given variable at the given time.
 
@@ -992,7 +1013,9 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def states_in(self, variable: str, t0: float = None, tf: float = None, ensemble_member: int = 0) -> Iterator[ca.MX]:
+    def states_in(
+        self, variable: str, t0: float = None, tf: float = None, ensemble_member: int = 0
+    ) -> Iterator[ca.MX]:
         """
         Iterates over symbols for states in the interval [t0, tf].
 
@@ -1006,7 +1029,9 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def integral(self, variable: str, t0: float = None, tf: float = None, ensemble_member: int = 0) -> ca.MX:
+    def integral(
+        self, variable: str, t0: float = None, tf: float = None, ensemble_member: int = 0
+    ) -> ca.MX:
         """
         Returns an expression for the integral over the interval [t0, tf].
 
@@ -1064,12 +1089,13 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
         raise NotImplementedError
 
     def set_timeseries(
-            self,
-            variable: str,
-            timeseries: Timeseries,
-            ensemble_member: int = 0,
-            output: bool = True,
-            check_consistency: bool = True) -> None:
+        self,
+        variable: str,
+        timeseries: Timeseries,
+        ensemble_member: int = 0,
+        output: bool = True,
+        check_consistency: bool = True,
+    ) -> None:
         """
         Sets a timeseries in the internal data store.
 
@@ -1109,19 +1135,19 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
 
     @debug_check(DebugLevel.HIGH)
     def __debug_check_linearity_constraints(self, nlp):
-        x = nlp['x']
-        f = nlp['f']
-        g = nlp['g']
+        x = nlp["x"]
+        f = nlp["f"]
+        g = nlp["g"]
 
-        expand_f_g = ca.Function('f_g', [x], [f, g]).expand()
-        X_sx = ca.SX.sym('X', *x.shape)
+        expand_f_g = ca.Function("f_g", [x], [f, g]).expand()
+        X_sx = ca.SX.sym("X", *x.shape)
         f_sx, g_sx = expand_f_g(X_sx)
 
-        jac = ca.Function('j', [X_sx], [ca.jacobian(g_sx, X_sx)]).expand()
+        jac = ca.Function("j", [X_sx], [ca.jacobian(g_sx, X_sx)]).expand()
         if jac(np.nan).is_regular():
             logger.info("The constraints are linear")
         else:
-            hes = ca.Function('j', [X_sx], [ca.jacobian(ca.jacobian(g_sx, X_sx), X_sx)]).expand()
+            hes = ca.Function("j", [X_sx], [ca.jacobian(ca.jacobian(g_sx, X_sx), X_sx)]).expand()
             if hes(np.nan).is_regular():
                 logger.info("The constraints are quadratic")
             else:
@@ -1129,12 +1155,12 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
 
     @debug_check(DebugLevel.VERYHIGH)
     def __debug_check_linear_independence(self, lbx, ubx, lbg, ubg, nlp):
-        x = nlp['x']
-        f = nlp['f']
-        g = nlp['g']
+        x = nlp["x"]
+        f = nlp["f"]
+        g = nlp["g"]
 
-        expand_f_g = ca.Function('f_g', [x], [f, g]).expand()
-        x_sx = ca.SX.sym('X', *x.shape)
+        expand_f_g = ca.Function("f_g", [x], [f, g]).expand()
+        x_sx = ca.SX.sym("X", *x.shape)
         f_sx, g_sx = expand_f_g(x_sx)
 
         x, f, g = x_sx, f_sx, g_sx
@@ -1143,18 +1169,18 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
         ubg = np.array(ca.vertsplit(ca.veccat(*ubg))).ravel()
 
         # Find the linear constraints
-        g_sjac = ca.Function('Af', [x], [ca.jtimes(g, x, x.ones(*x.shape))])
+        g_sjac = ca.Function("Af", [x], [ca.jtimes(g, x, x.ones(*x.shape))])
 
         res = g_sjac(np.nan)
         res = np.array(res).ravel()
         g_is_linear = ~np.isnan(res)
 
         # Find the rows in the jacobian with only a single entry
-        g_jac_csr = ca.DM(ca.Function('tmp', [x], [g]).sparsity_jac(0, 0)).tocsc().tocsr()
-        g_single_variable = (np.diff(g_jac_csr.indptr) == 1)
+        g_jac_csr = ca.DM(ca.Function("tmp", [x], [g]).sparsity_jac(0, 0)).tocsc().tocsr()
+        g_single_variable = np.diff(g_jac_csr.indptr) == 1
 
         # Find the rows which are equality constraints
-        g_eq_constraint = (lbg == ubg)
+        g_eq_constraint = lbg == ubg
 
         # The intersection of all selections are constraints like we want
         g_constant_assignment = g_is_linear & g_single_variable & g_eq_constraint
@@ -1170,7 +1196,9 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
 
         for vi, g_inds in var_index_assignment.items():
             if len(g_inds) > 1:
-                logger.info(f"Variable '{var_names[vi]}' has duplicate constraints setting its value:")
+                logger.info(
+                    f"Variable '{var_names[vi]}' has duplicate constraints setting its value:"
+                )
                 for g_i in g_inds:
                     logger.info(f"row {g_i}: {named_g[g_i]} = {lbg[g_i]}")
 
@@ -1181,7 +1209,10 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
 
         for vi in x_inds:
             if vi in var_index_assignment:
-                logger.info("Variable '{}' has equal bounds (value = {}), but also the following equality constraints:"
-                            .format(var_names[vi], lbx[vi]))
+                logger.info(
+                    "Variable '{}' has equal bounds (value = {}), but also the following equality constraints:".format(
+                        var_names[vi], lbx[vi]
+                    )
+                )
                 for g_i in var_index_assignment[vi]:
                     logger.info(f"row {g_i}: {named_g[g_i]} = {lbg[g_i]}")

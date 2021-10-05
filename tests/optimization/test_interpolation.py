@@ -6,7 +6,7 @@ import numpy as np
 
 from rtctools._internal.alias_tools import AliasDict
 from rtctools.optimization.collocated_integrated_optimization_problem import (
-    CollocatedIntegratedOptimizationProblem
+    CollocatedIntegratedOptimizationProblem,
 )
 from rtctools.optimization.modelica_mixin import ModelicaMixin
 from rtctools.optimization.timeseries import Timeseries
@@ -20,9 +20,8 @@ logger.setLevel(logging.DEBUG)
 
 
 class Model(ModelicaMixin, CollocatedIntegratedOptimizationProblem):
-
     def __init__(self):
-        self._extra_variable = ca.MX.sym('extra')
+        self._extra_variable = ca.MX.sym("extra")
         self._u_copy_mx = ca.MX.sym("u_copy")
 
         super().__init__(
@@ -86,12 +85,8 @@ class Model(ModelicaMixin, CollocatedIntegratedOptimizationProblem):
 
     def path_constraints(self, ensemble_member):
         c = super().path_constraints(ensemble_member)[:]
-        c.append(
-            (self.state('x') - self._extra_variable, -np.inf, 0.0)
-        )
-        c.append(
-            (self._u_copy_mx - self.state('u'), 0.0, 0.0)
-        )
+        c.append((self.state("x") - self._extra_variable, -np.inf, 0.0))
+        c.append((self._u_copy_mx - self.state("u"), 0.0, 0.0))
         return c
 
     def post(self):
@@ -101,7 +96,7 @@ class Model(ModelicaMixin, CollocatedIntegratedOptimizationProblem):
     def compiler_options(self):
         compiler_options = super().compiler_options()
         compiler_options["cache"] = False
-        compiler_options['library_folders'] = []
+        compiler_options["library_folders"] = []
         return compiler_options
 
     @property
@@ -118,7 +113,6 @@ class Model(ModelicaMixin, CollocatedIntegratedOptimizationProblem):
 
 
 class TestNumericalInterpolation(TestCase):
-
     def setUp(self):
         self.problem = Model()
 
@@ -129,7 +123,6 @@ class TestNumericalInterpolation(TestCase):
 
 
 class TestNumericalLinearInterpolation(TestNumericalInterpolation):
-
     def test_linear(self):
         self.problem._equidistant = True
 
@@ -140,8 +133,10 @@ class TestNumericalLinearInterpolation(TestNumericalInterpolation):
                 self.fs,
                 -100.0,
                 100.0,
-                self.problem.INTERPOLATION_LINEAR),
-            [-100.0, 1.0, np.inf, 7.0, 100.0])
+                self.problem.INTERPOLATION_LINEAR,
+            ),
+            [-100.0, 1.0, np.inf, 7.0, 100.0],
+        )
 
     def test_linear_nonequi(self):
         self.problem._equidistant = False
@@ -153,8 +148,10 @@ class TestNumericalLinearInterpolation(TestNumericalInterpolation):
                 self.fs,
                 -100.0,
                 100.0,
-                self.problem.INTERPOLATION_LINEAR),
-            [-100.0, 1.0, np.inf, 6.5, 100.0])
+                self.problem.INTERPOLATION_LINEAR,
+            ),
+            [-100.0, 1.0, np.inf, 6.5, 100.0],
+        )
 
     def test_scalar(self):
         self.problem._equidistant = False
@@ -162,20 +159,17 @@ class TestNumericalLinearInterpolation(TestNumericalInterpolation):
         t = np.array([-1.0, 0.5, 2.0, 3.5, 6.0])
 
         res_arr = self.problem.interpolate(
-                t,
-                self.ts_non_equi,
-                self.fs,
-                -100.0,
-                100.0,
-                self.problem.INTERPOLATION_LINEAR)
+            t, self.ts_non_equi, self.fs, -100.0, 100.0, self.problem.INTERPOLATION_LINEAR
+        )
 
-        res_scalar = np.array([self.problem.interpolate(
-                x,
-                self.ts_non_equi,
-                self.fs,
-                -100.0,
-                100.0,
-                self.problem.INTERPOLATION_LINEAR) for x in t])
+        res_scalar = np.array(
+            [
+                self.problem.interpolate(
+                    x, self.ts_non_equi, self.fs, -100.0, 100.0, self.problem.INTERPOLATION_LINEAR
+                )
+                for x in t
+            ]
+        )
 
         np.testing.assert_array_equal(res_scalar, res_arr)
 
@@ -193,10 +187,13 @@ class TestNumericalLinearInterpolation(TestNumericalInterpolation):
 
         res_2d = self.problem.interpolate(t, ts, fs_2d, -np.inf, np.inf)
 
-        res_1d = np.stack([
-            self.problem.interpolate(t, ts, fs_2d[:, i], -np.inf, np.inf)
-            for i in range(shape[1])
-        ], axis=1)
+        res_1d = np.stack(
+            [
+                self.problem.interpolate(t, ts, fs_2d[:, i], -np.inf, np.inf)
+                for i in range(shape[1])
+            ],
+            axis=1,
+        )
 
         self.assertEqual(res_2d.shape, shape)
         self.assertEqual(res_1d.shape, shape)
@@ -216,62 +213,82 @@ class TestNumericalBlockInterpolation(TestNumericalInterpolation):
         self.problem._equidistant = True
 
         np.testing.assert_array_equal(
-            self.problem.interpolate(self.t, self.ts_equi, self.fs, self.f_left, self.f_right,
-                                     self.problem.INTERPOLATION_PIECEWISE_CONSTANT_FORWARD),
-            self.y_forward)
+            self.problem.interpolate(
+                self.t,
+                self.ts_equi,
+                self.fs,
+                self.f_left,
+                self.f_right,
+                self.problem.INTERPOLATION_PIECEWISE_CONSTANT_FORWARD,
+            ),
+            self.y_forward,
+        )
 
     def test_block_forward_nonequi(self):
         self.problem._equidistant = False
 
         np.testing.assert_array_equal(
-            self.problem.interpolate(self.t, self.ts_non_equi, self.fs, self.f_left, self.f_right,
-                                     self.problem.INTERPOLATION_PIECEWISE_CONSTANT_FORWARD),
-            self.y_forward)
+            self.problem.interpolate(
+                self.t,
+                self.ts_non_equi,
+                self.fs,
+                self.f_left,
+                self.f_right,
+                self.problem.INTERPOLATION_PIECEWISE_CONSTANT_FORWARD,
+            ),
+            self.y_forward,
+        )
 
     def test_block_backward(self):
         self.problem._equidistant = True
 
         np.testing.assert_array_equal(
-            self.problem.interpolate(self.t, self.ts_equi, self.fs, self.f_left, self.f_right,
-                                     self.problem.INTERPOLATION_PIECEWISE_CONSTANT_BACKWARD),
-            self.y_backward)
+            self.problem.interpolate(
+                self.t,
+                self.ts_equi,
+                self.fs,
+                self.f_left,
+                self.f_right,
+                self.problem.INTERPOLATION_PIECEWISE_CONSTANT_BACKWARD,
+            ),
+            self.y_backward,
+        )
 
     def test_block_backward_nonequi(self):
         self.problem._equidistant = False
 
         np.testing.assert_array_equal(
-            self.problem.interpolate(self.t, self.ts_non_equi, self.fs, self.f_left, self.f_right,
-                                     self.problem.INTERPOLATION_PIECEWISE_CONSTANT_BACKWARD),
-            self.y_backward)
+            self.problem.interpolate(
+                self.t,
+                self.ts_non_equi,
+                self.fs,
+                self.f_left,
+                self.f_right,
+                self.problem.INTERPOLATION_PIECEWISE_CONSTANT_BACKWARD,
+            ),
+            self.y_backward,
+        )
 
 
 class TestNumericalInterpolationExceptions(TestNumericalInterpolation):
-
     def test_array_no_fleft(self):
         self.problem._equidistant = False
 
         with self.assertRaisesRegex(Exception, "left of range"):
             self.problem.interpolate(
-                np.array([-1.0, 0.5, 2.0, 3.5, 6.0]),
-                self.ts_non_equi,
-                self.fs,
-                None,
-                np.nan)
+                np.array([-1.0, 0.5, 2.0, 3.5, 6.0]), self.ts_non_equi, self.fs, None, np.nan
+            )
 
     def test_array_no_fright(self):
         self.problem._equidistant = False
 
         with self.assertRaisesRegex(Exception, "right of range"):
             self.problem.interpolate(
-                np.array([-1.0, 0.5, 2.0, 3.5, 6.0]),
-                self.ts_non_equi,
-                self.fs,
-                np.nan,
-                None)
+                np.array([-1.0, 0.5, 2.0, 3.5, 6.0]), self.ts_non_equi, self.fs, np.nan, None
+            )
 
 
 class TestSymbolicInterpolation(TestCase):
-
     def setUp(self):
         self.problem = Model()
         self.problem._equidistant = False
@@ -303,7 +320,8 @@ class TestSymbolicInterpolation(TestCase):
         self.assertAlmostEqual(
             res_state_at,
             [results["x"][0], (results["x"][1] + results["x"][0]) / 2, results["x"][1]],
-            self.tolerance)
+            self.tolerance,
+        )
 
     def test_state_at_block_forward(self):
         self.problem._interpolation_x = self.problem.INTERPOLATION_PIECEWISE_CONSTANT_FORWARD
@@ -313,9 +331,8 @@ class TestSymbolicInterpolation(TestCase):
         res_state_at = self._at_0_half_1(self.problem.state_at, "x")
 
         self.assertAlmostEqual(
-            res_state_at,
-            [results["x"][0], results["x"][0], results["x"][1]],
-            self.tolerance)
+            res_state_at, [results["x"][0], results["x"][0], results["x"][1]], self.tolerance
+        )
 
     def test_state_at_block_backward(self):
         self.problem._interpolation_x = self.problem.INTERPOLATION_PIECEWISE_CONSTANT_BACKWARD
@@ -325,9 +342,8 @@ class TestSymbolicInterpolation(TestCase):
         res_state_at = self._at_0_half_1(self.problem.state_at, "x")
 
         self.assertAlmostEqual(
-            res_state_at,
-            [results["x"][0], results["x"][1], results["x"][1]],
-            self.tolerance)
+            res_state_at, [results["x"][0], results["x"][1], results["x"][1]], self.tolerance
+        )
 
     def test_control_at_linear(self):
         self.problem._interpolation_u = self.problem.INTERPOLATION_LINEAR
@@ -339,7 +355,8 @@ class TestSymbolicInterpolation(TestCase):
         self.assertAlmostEqual(
             res_control_at,
             [results["u"][0], (results["u"][1] + results["u"][0]) / 2, results["u"][1]],
-            self.tolerance)
+            self.tolerance,
+        )
 
     def test_control_at_block_forward(self):
         self.problem._interpolation_u = self.problem.INTERPOLATION_PIECEWISE_CONSTANT_FORWARD
@@ -349,9 +366,8 @@ class TestSymbolicInterpolation(TestCase):
         res_control_at = self._at_0_half_1(self.problem.control_at, "u")
 
         self.assertAlmostEqual(
-            res_control_at,
-            [results["u"][0], results["u"][0], results["u"][1]],
-            self.tolerance)
+            res_control_at, [results["u"][0], results["u"][0], results["u"][1]], self.tolerance
+        )
 
     def test_control_at_block_backward(self):
         self.problem._interpolation_u = self.problem.INTERPOLATION_PIECEWISE_CONSTANT_BACKWARD
@@ -361,9 +377,8 @@ class TestSymbolicInterpolation(TestCase):
         res_control_at = self._at_0_half_1(self.problem.control_at, "u")
 
         self.assertAlmostEqual(
-            res_control_at,
-            [results["u"][0], results["u"][1], results["u"][1]],
-            self.tolerance)
+            res_control_at, [results["u"][0], results["u"][1], results["u"][1]], self.tolerance
+        )
 
     def test_map_linear(self):
         self.problem._interpolation_u = self.problem.INTERPOLATION_LINEAR
@@ -371,8 +386,8 @@ class TestSymbolicInterpolation(TestCase):
 
         results = self.problem.extract_results()
 
-        u = results['u']
-        u_copy = results['u_copy']
+        u = results["u"]
+        u_copy = results["u_copy"]
 
         self.assertAlmostEqual(np.delete(u_copy, 10), u, self.tolerance)
         self.assertAlmostEqual(u_copy[10], (u[10] + u[9]) / 2.0, self.tolerance)
@@ -383,8 +398,8 @@ class TestSymbolicInterpolation(TestCase):
 
         results = self.problem.extract_results()
 
-        u = results['u']
-        u_copy = results['u_copy']
+        u = results["u"]
+        u_copy = results["u_copy"]
 
         self.assertAlmostEqual(np.delete(u_copy, 10), u, self.tolerance)
         self.assertAlmostEqual(u_copy[10], u[9], self.tolerance)
@@ -395,8 +410,8 @@ class TestSymbolicInterpolation(TestCase):
 
         results = self.problem.extract_results()
 
-        u = results['u']
-        u_copy = results['u_copy']
+        u = results["u"]
+        u_copy = results["u_copy"]
 
         self.assertAlmostEqual(np.delete(u_copy, 10), u, self.tolerance)
         self.assertAlmostEqual(u_copy[10], u[10], self.tolerance)

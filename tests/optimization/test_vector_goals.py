@@ -4,10 +4,10 @@ import casadi as ca
 
 import numpy as np
 
-from rtctools.optimization.collocated_integrated_optimization_problem import \
-    CollocatedIntegratedOptimizationProblem
-from rtctools.optimization.goal_programming_mixin import \
-    Goal, GoalProgrammingMixin, StateGoal
+from rtctools.optimization.collocated_integrated_optimization_problem import (
+    CollocatedIntegratedOptimizationProblem,
+)
+from rtctools.optimization.goal_programming_mixin import Goal, GoalProgrammingMixin, StateGoal
 from rtctools.optimization.modelica_mixin import ModelicaMixin
 from rtctools.optimization.timeseries import Timeseries
 
@@ -20,7 +20,6 @@ logger.setLevel(logging.WARNING)
 
 
 class Model(GoalProgrammingMixin, ModelicaMixin, CollocatedIntegratedOptimizationProblem):
-
     def __init__(self):
         super().__init__(
             input_folder=data_path(),
@@ -57,7 +56,7 @@ class Model(GoalProgrammingMixin, ModelicaMixin, CollocatedIntegratedOptimizatio
 
     def goal_programming_options(self):
         options = super().goal_programming_options()
-        options['keep_soft_constraints'] = True
+        options["keep_soft_constraints"] = True
         return options
 
     def set_timeseries(self, timeseries_id, timeseries, ensemble_member, **kwargs):
@@ -67,7 +66,7 @@ class Model(GoalProgrammingMixin, ModelicaMixin, CollocatedIntegratedOptimizatio
     def compiler_options(self):
         compiler_options = super().compiler_options()
         compiler_options["cache"] = False
-        compiler_options['library_folders'] = []
+        compiler_options["library_folders"] = []
         return compiler_options
 
     def priority_completed(self, priority):
@@ -114,7 +113,6 @@ class Goal4(Goal):
 
 
 class ModelGoals(Model):
-
     def goals(self):
         return [Goal1(), Goal2(), Goal3(), Goal4()]
 
@@ -124,7 +122,8 @@ class Goal1_2_3(Goal):
         return ca.vertcat(
             optimization_problem.state_at("x", 0.5, ensemble_member=ensemble_member),
             optimization_problem.state_at("x", 0.7, ensemble_member=ensemble_member),
-            optimization_problem.state_at("x", 1.0, ensemble_member=ensemble_member))
+            optimization_problem.state_at("x", 1.0, ensemble_member=ensemble_member),
+        )
 
     function_range = (-5.0, 5.0)
     size = 3
@@ -135,7 +134,6 @@ class Goal1_2_3(Goal):
 
 
 class ModelGoalsVector(ModelGoals):
-
     def goals(self):
         return [Goal1_2_3(), Goal4()]
 
@@ -172,15 +170,14 @@ class PathGoal3(StateGoal):
 
 
 class ModelPathGoals(Model):
-
     def path_goals(self):
         return [PathGoal1(self), PathGoal2(self), PathGoal3(self)]
 
 
 class PathGoal1_2(Goal):
     def __init__(self, optimization_problem):
-        bounds_x = optimization_problem.bounds()['x']
-        bounds_z = optimization_problem.bounds()['z']
+        bounds_x = optimization_problem.bounds()["x"]
+        bounds_z = optimization_problem.bounds()["z"]
         lb = np.array([bounds_x[0], bounds_z[0]])
         ub = np.array([bounds_x[1], bounds_z[1]])
         self.function_range = (lb, ub)
@@ -188,17 +185,15 @@ class PathGoal1_2(Goal):
         times = optimization_problem.times()
         n_times = len(times)
 
-        self.target_min = Timeseries(times,
-                                     np.stack((np.full(n_times, 0.1),
-                                               np.full(n_times, 0.5)),
-                                              axis=1))
+        self.target_min = Timeseries(
+            times, np.stack((np.full(n_times, 0.1), np.full(n_times, 0.5)), axis=1)
+        )
         self.target_min.values[10, 0] = np.nan
 
         self.target_max = np.array([np.nan, 2.0])
 
     def function(self, optimization_problem, ensemble_member):
-        return ca.vertcat(optimization_problem.state('x'),
-                          optimization_problem.state('z'))
+        return ca.vertcat(optimization_problem.state("x"), optimization_problem.state("z"))
 
     size = 2
     order = 1
@@ -206,7 +201,6 @@ class PathGoal1_2(Goal):
 
 
 class ModelPathGoalsVector(Model):
-
     def path_goals(self):
         return [PathGoal1_2(self), PathGoal3(self)]
 
@@ -229,7 +223,7 @@ class TestVectorGoals(TestCase):
         results2 = self.problem2.extract_results()
 
         self.assertListEqual(self.problem1._objective_values, self.problem2._objective_values)
-        self.assertTrue(np.array_equal(results1['x'], results2['x']))
+        self.assertTrue(np.array_equal(results1["x"], results2["x"]))
 
     def test_path_vector_goals_simple(self):
         self.problem1 = ModelPathGoals()
@@ -241,14 +235,13 @@ class TestVectorGoals(TestCase):
         results2 = self.problem2.extract_results()
 
         self.assertListEqual(self.problem1._objective_values, self.problem2._objective_values)
-        self.assertTrue(np.array_equal(results1['x'], results2['x']))
+        self.assertTrue(np.array_equal(results1["x"], results2["x"]))
 
 
 class ScaleByProblemSizeMixin:
-
     def goal_programming_options(self):
         options = super().goal_programming_options()
-        options['scale_by_problem_size'] = True
+        options["scale_by_problem_size"] = True
         return options
 
 
@@ -269,7 +262,6 @@ class ModelPathGoalsVectorScale(ScaleByProblemSizeMixin, ModelPathGoalsVector):
 
 
 class TestVectorGoalsScaleProblemSize(TestCase):
-
     def test_vector_goals(self):
         self.problem1 = ModelGoalsScale()
         self.problem2 = ModelGoalsVectorScale()
@@ -280,7 +272,7 @@ class TestVectorGoalsScaleProblemSize(TestCase):
         results2 = self.problem2.extract_results()
 
         self.assertListEqual(self.problem1._objective_values, self.problem2._objective_values)
-        self.assertTrue(np.array_equal(results1['x'], results2['x']))
+        self.assertTrue(np.array_equal(results1["x"], results2["x"]))
 
     def test_path_vector_goals_scaled_vs_non_scaled(self):
         self.problem1 = ModelPathGoals()
@@ -309,4 +301,4 @@ class TestVectorGoalsScaleProblemSize(TestCase):
         results2 = self.problem2.extract_results()
 
         self.assertListEqual(self.problem1._objective_values, self.problem2._objective_values)
-        self.assertTrue(np.array_equal(results1['x'], results2['x']))
+        self.assertTrue(np.array_equal(results1["x"], results2["x"]))

@@ -72,7 +72,7 @@ for i, group in enumerate(groups):
         label="Target Level (upstream)",
         # linewidth=1,
         color=plt.get_cmap(cmaps[2])(shades[0]),
-        linestyle='--',
+        linestyle="--",
     )
     axarr[2 * i + 1].plot(
         times,
@@ -83,9 +83,7 @@ for i, group in enumerate(groups):
     )
     axarr[2 * i + 1].plot(
         times,
-        crest_level_from_level_and_discharge(
-            record["h_upstream"], record["q_dam_upstream"]
-        ),
+        crest_level_from_level_and_discharge(record["h_upstream"], record["q_dam_upstream"]),
         label="Crest Level (upstream)",
         # linewidth=1,
         linestyle="--",
@@ -98,7 +96,7 @@ for i, group in enumerate(groups):
         label="Target Level (middle)",
         # linewidth=1,
         color=plt.get_cmap(cmaps[2])(shades[0]),
-        linestyle='--',
+        linestyle="--",
     )
     axarr[2 * i + 1].plot(
         times,
@@ -109,9 +107,7 @@ for i, group in enumerate(groups):
     )
     axarr[2 * i + 1].plot(
         times,
-        crest_level_from_level_and_discharge(
-            record["h_middle"], record["q_dam_middle"]
-        ),
+        crest_level_from_level_and_discharge(record["h_middle"], record["q_dam_middle"]),
         label="Crest Level (middle)",
         # linewidth=1,
         linestyle="--",
@@ -150,9 +146,7 @@ fig.tight_layout()
 for i in range(n_subplots):
     box = axarr[i].get_position()
     axarr[i].set_position([box.x0, box.y0, box.width * 0.75, box.height])
-    axarr[i].legend(
-        loc="center left", bbox_to_anchor=(1, 0.5), frameon=False, prop={"size": 8}
-    )
+    axarr[i].legend(loc="center left", bbox_to_anchor=(1, 0.5), frameon=False, prop={"size": 8})
 
 plt.autoscale(enable=True, axis="x", tight=True)
 

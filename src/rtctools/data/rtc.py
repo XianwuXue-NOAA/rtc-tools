@@ -3,11 +3,10 @@ import os
 import xml.etree.ElementTree as ET
 from collections import namedtuple
 
-ts_ids = namedtuple('ids', 'location_id parameter_id qualifier_id')
-p_ids = namedtuple('ids', 'model_id location_id parameter_id')
+ts_ids = namedtuple("ids", "location_id parameter_id qualifier_id")
+p_ids = namedtuple("ids", "model_id location_id parameter_id")
 
-ns = {'fews': 'http://www.wldelft.nl/fews',
-      'pi': 'http://www.wldelft.nl/fews/PI'}
+ns = {"fews": "http://www.wldelft.nl/fews", "pi": "http://www.wldelft.nl/fews/PI"}
 
 logger = logging.getLogger("rtctools")
 
@@ -35,77 +34,85 @@ class DataConfig:
             tree = ET.parse(path)
             root = tree.getroot()
 
-            timeseriess1 = root.findall('./*/fews:timeSeries', ns)
-            timeseriess2 = root.findall('./fews:timeSeries', ns)
+            timeseriess1 = root.findall("./*/fews:timeSeries", ns)
+            timeseriess2 = root.findall("./fews:timeSeries", ns)
             timeseriess1.extend(timeseriess2)
 
             for timeseries in timeseriess1:
-                pi_timeseries = timeseries.find('fews:PITimeSeries', ns)
+                pi_timeseries = timeseries.find("fews:PITimeSeries", ns)
                 if pi_timeseries is not None:
-                    internal_id = timeseries.get('id')
-                    external_id = self.__pi_timeseries_id(pi_timeseries, 'fews')
+                    internal_id = timeseries.get("id")
+                    external_id = self.__pi_timeseries_id(pi_timeseries, "fews")
 
                     if internal_id in self.__location_parameter_ids:
                         message = (
-                            'Found more than one external timeseries '
-                            'mapped to internal id {} in {}.').format(internal_id, path)
+                            "Found more than one external timeseries "
+                            "mapped to internal id {} in {}."
+                        ).format(internal_id, path)
                         logger.error(message)
                         raise Exception(message)
                     elif external_id in self.__variable_map:
                         message = (
-                            'Found more than one internal timeseries '
-                            'mapped to external id {} in {}.').format(external_id, path)
+                            "Found more than one internal timeseries "
+                            "mapped to external id {} in {}."
+                        ).format(external_id, path)
                         logger.error(message)
                         raise Exception(message)
                     else:
-                        self.__location_parameter_ids[internal_id] = \
-                            self.__pi_location_parameter_id(pi_timeseries, 'fews')
+                        self.__location_parameter_ids[
+                            internal_id
+                        ] = self.__pi_location_parameter_id(pi_timeseries, "fews")
                         self.__variable_map[external_id] = internal_id
 
-            for k in ['import', 'export']:
-                res = root.find(
-                    './fews:%s/fews:PITimeSeriesFile/fews:timeSeriesFile' % k, ns)
+            for k in ["import", "export"]:
+                res = root.find("./fews:%s/fews:PITimeSeriesFile/fews:timeSeriesFile" % k, ns)
                 if res is not None:
-                    setattr(self, 'basename_%s' %
-                            k, os.path.splitext(res.text)[0])
+                    setattr(self, "basename_%s" % k, os.path.splitext(res.text)[0])
 
-            parameters = root.findall('./fews:parameter', ns)
+            parameters = root.findall("./fews:parameter", ns)
             if parameters is not None:
                 for parameter in parameters:
-                    pi_parameter = parameter.find('fews:PIParameter', ns)
+                    pi_parameter = parameter.find("fews:PIParameter", ns)
                     if pi_parameter is not None:
-                        internal_id = parameter.get('id')
-                        external_id = self.__pi_parameter_id(pi_parameter, 'fews')
+                        internal_id = parameter.get("id")
+                        external_id = self.__pi_parameter_id(pi_parameter, "fews")
 
                         if internal_id in self.__model_parameter_ids:
                             message = (
-                                'Found more than one external parameter mapped '
-                                'to internal id {} in {}.').format(internal_id, path)
+                                "Found more than one external parameter mapped "
+                                "to internal id {} in {}."
+                            ).format(internal_id, path)
                             logger.error(message)
                             raise Exception(message)
                         if external_id in self.__parameter_map:
                             message = (
-                                'Found more than one interal parameter mapped to external '
-                                'modelId {}, locationId {}, parameterId {} in {}.').format(
-                                external_id.model_id, external_id.location_id, external_id.parameter_id, path)
+                                "Found more than one interal parameter mapped to external "
+                                "modelId {}, locationId {}, parameterId {} in {}."
+                            ).format(
+                                external_id.model_id,
+                                external_id.location_id,
+                                external_id.parameter_id,
+                                path,
+                            )
                             logger.error(message)
                             raise Exception(message)
                         else:
-                            self.__model_parameter_ids[internal_id] = self.__pi_model_parameter_id(pi_parameter, 'fews')
+                            self.__model_parameter_ids[internal_id] = self.__pi_model_parameter_id(
+                                pi_parameter, "fews"
+                            )
                             self.__parameter_map[external_id] = internal_id
 
         except OSError:
-            logger.error(
-                f'No rtcDataConfig.xml file was found in "{folder}".')
+            logger.error(f'No rtcDataConfig.xml file was found in "{folder}".')
             raise
 
     def __pi_timeseries_id(self, el, namespace):
-        location_id = el.find(namespace + ':locationId', ns).text
-        parameter_id = el.find(namespace + ':parameterId', ns).text
+        location_id = el.find(namespace + ":locationId", ns).text
+        parameter_id = el.find(namespace + ":parameterId", ns).text
 
-        timeseries_id = location_id + ':' + parameter_id
+        timeseries_id = location_id + ":" + parameter_id
 
-        qualifiers = el.findall(namespace + ':qualifierId', ns)
+        qualifiers = el.findall(namespace + ":qualifierId", ns)
         qualifier_ids = []
         for qualifier in qualifiers:
             qualifier_ids.append(qualifier.text)
@@ -113,36 +120,40 @@ class DataConfig:
         if len(qualifier_ids) > 0:
             qualifier_ids.sort()
 
-            return timeseries_id + ':' + ':'.join(qualifier_ids)
+            return timeseries_id + ":" + ":".join(qualifier_ids)
         else:
             return timeseries_id
 
     def __pi_location_parameter_id(self, el, namespace):
         qualifier_ids = []
-        qualifiers = el.findall(namespace + ':qualifierId', ns)
+        qualifiers = el.findall(namespace + ":qualifierId", ns)
         for qualifier in qualifiers:
             qualifier_ids.append(qualifier.text)
 
-        location_parameter_ids = ts_ids(location_id=el.find(namespace + ':locationId', ns).text,
-                                        parameter_id=el.find(namespace + ':parameterId', ns).text,
-                                        qualifier_id=qualifier_ids)
+        location_parameter_ids = ts_ids(
+            location_id=el.find(namespace + ":locationId", ns).text,
+            parameter_id=el.find(namespace + ":parameterId", ns).text,
+            qualifier_id=qualifier_ids,
+        )
         return location_parameter_ids
 
     def __pi_parameter_id(self, el, namespace):
-        model_id = el.find(namespace + ':modelId', ns).text
-        location_id = el.find(namespace + ':locationId', ns).text
-        parameter_id = el.find(namespace + ':parameterId', ns).text
+        model_id = el.find(namespace + ":modelId", ns).text
+        location_id = el.find(namespace + ":locationId", ns).text
+        parameter_id = el.find(namespace + ":parameterId", ns).text
 
         return self.__long_parameter_id(parameter_id, location_id, model_id)
 
     def __pi_model_parameter_id(self, el, namespace):
-        model_id = el.find(namespace + ':modelId', ns).text
-        location_id = el.find(namespace + ':locationId', ns).text
-        parameter_id = el.find(namespace + ':parameterId', ns).text
+        model_id = el.find(namespace + ":modelId", ns).text
+        location_id = el.find(namespace + ":locationId", ns).text
+        parameter_id = el.find(namespace + ":parameterId", ns).text
 
-        model_parameter_ids = p_ids(model_id=(model_id if model_id is not None else ""),
-                                    location_id=(location_id if location_id is not None else ""),
-                                    parameter_id=(parameter_id if parameter_id is not None else ""))
+        model_parameter_ids = p_ids(
+            model_id=(model_id if model_id is not None else ""),
+            location_id=(location_id if location_id is not None else ""),
+            parameter_id=(parameter_id if parameter_id is not None else ""),
+        )
 
         return model_parameter_ids
 
@@ -152,9 +163,9 @@ class DataConfig:
         of the form model:location:parameter.
         """
         if location_id is not None:
-            parameter_id = location_id + ':' + parameter_id
+            parameter_id = location_id + ":" + parameter_id
         if model_id is not None:
-            parameter_id = model_id + ':' + parameter_id
+            parameter_id = model_id + ":" + parameter_id
         return parameter_id
 
     def variable(self, pi_header):
@@ -166,7 +177,7 @@ class DataConfig:
         :returns: A timeseries ID.
         :rtype: string
         """
-        series_id = self.__pi_timeseries_id(pi_header, 'pi')
+        series_id = self.__pi_timeseries_id(pi_header, "pi")
         try:
             return self.__variable_map[series_id]
         except KeyError:

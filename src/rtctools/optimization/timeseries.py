@@ -28,7 +28,7 @@ class Timeseries:
         elif isinstance(values, (np.ndarray, list)) and len(values) == 1:
             values = values[0]
 
-        if hasattr(values, '__iter__'):
+        if hasattr(values, "__iter__"):
             self.__values = np.array(values, dtype=np.float64, copy=True)
         else:
             self.__values = np.full_like(times, values, dtype=np.float64)
@@ -47,12 +47,11 @@ class Timeseries:
         """
         return self.__values
 
-    def __neg__(self) -> 'Timeseries':
+    def __neg__(self) -> "Timeseries":
         return self.__class__(self.times, -self.values)
 
     def __repr__(self) -> str:
-        return f'Timeseries({self.__times}, {self.__values})'
+        return f"Timeseries({self.__times}, {self.__values})"
 
     def __eq__(self, other: "Timeseries") -> bool:
-        return (np.array_equal(self.times, other.times) and
-                np.array_equal(self.values, other.values))
+        return np.array_equal(self.times, other.times) and np.array_equal(self.values, other.values)

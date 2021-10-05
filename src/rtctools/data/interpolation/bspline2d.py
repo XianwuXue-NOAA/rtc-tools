@@ -39,10 +39,16 @@ class BSpline2D(BSpline):
         """
         z = 0.0
         for i in range(len(self.__tx) - self.__kx - 1):
-            bx = if_else(logic_and(x >= self.__tx[i], x <= self.__tx[
-                         i + self.__kx + 1]), self.basis(self.__tx, x, self.__kx, i), 0.0)
+            bx = if_else(
+                logic_and(x >= self.__tx[i], x <= self.__tx[i + self.__kx + 1]),
+                self.basis(self.__tx, x, self.__kx, i),
+                0.0,
+            )
             for j in range(len(self.__ty) - self.__ky - 1):
-                by = if_else(logic_and(y >= self.__ty[j], y <= self.__ty[
-                             j + self.__ky + 1]), self.basis(self.__ty, y, self.__ky, j), 0.0)
+                by = if_else(
+                    logic_and(y >= self.__ty[j], y <= self.__ty[j + self.__ky + 1]),
+                    self.basis(self.__ty, y, self.__ky, j),
+                    0.0,
+                )
                 z += self.__w[i * (len(self.__ty) - self.__ky - 1) + j] * bx * by
         return z

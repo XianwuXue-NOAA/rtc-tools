@@ -22,15 +22,18 @@ def _boolean_to_nan(data, fname):
     convert_to_nan = []
     dtypes_out = []
     for i, name in enumerate(data.dtype.names):
-        if dtypes_in[i][1][1] == 'b':
+        if dtypes_in[i][1][1] == "b":
             convert_to_nan.append(name)
-            dtypes_out.append((dtypes_in[i][0], '<f8'))
+            dtypes_out.append((dtypes_in[i][0], "<f8"))
         else:
             dtypes_out.append(dtypes_in[i])
 
     if convert_to_nan:
-        logger.warning("Column(s) {} were detected as boolean in '{}'; converting to NaN".format(
-            ", ".join([f"'{name}'" for name in convert_to_nan]), fname))
+        logger.warning(
+            "Column(s) {} were detected as boolean in '{}'; converting to NaN".format(
+                ", ".join([f"'{name}'" for name in convert_to_nan]), fname
+            )
+        )
         data = data.astype(dtypes_out)
         for name in convert_to_nan:
             data[name] = np.nan
@@ -38,7 +41,7 @@ def _boolean_to_nan(data, fname):
     return data
 
 
-def load(fname, delimiter=',', with_time=False):
+def load(fname, delimiter=",", with_time=False):
     """
     Check delimiter of csv and read contents to an array. Assumes no date-time conversion needed.
 
@@ -50,56 +53,61 @@ def load(fname, delimiter=',', with_time=False):
     """
     c = {}
     if with_time:
-        c.update({0: lambda str: datetime.strptime(
-            str.decode("utf-8"), '%Y-%m-%d %H:%M:%S')})
+        c.update({0: lambda str: datetime.strptime(str.decode("utf-8"), "%Y-%m-%d %H:%M:%S")})
 
     # Check delimiter of csv file. If semicolon, check if decimal separator is
     # a comma.
-    if delimiter == ';':
-        with open(fname, 'rb') as csvfile:
+    if delimiter == ";":
+        with open(fname, "rb") as csvfile:
             # Read the first line, this should be a header. Count columns by
             # counting separator.
             sample_csvfile = csvfile.readline()
-            n_semicolon = sample_csvfile.count(b';')
+            n_semicolon = sample_csvfile.count(b";")
             # We actually only need one number to evaluate if commas are used as decimal separator, but
             # certain csv writers don't use a decimal when the value has no meaningful decimal
             # (e.g. 12.0 becomes 12) so we read the next 1024 bytes to make sure we catch a number.
             sample_csvfile = csvfile.read(1024)
             # Count the commas
-            n_comma_decimal = sample_csvfile.count(b',')
+            n_comma_decimal = sample_csvfile.count(b",")
             # If commas are used as decimal separator, we need additional
             # converters.
             if n_comma_decimal:
-                c.update({i + len(c): lambda str: float(str.decode("utf-8").replace(',', '.'))
-                          for i in range(1 + n_semicolon - len(c))})
+                c.update(
+                    {
+                        i + len(c): lambda str: float(str.decode("utf-8").replace(",", "."))
+                        for i in range(1 + n_semicolon - len(c))
+                    }
+                )
 
     # Read the csv file and convert to array
     try:
         if len(c):  # Converters exist, so use them.
             try:
-                data = np.genfromtxt(fname, delimiter=delimiter, deletechars='', dtype=None, names=True, converters=c)
+                data = np.genfromtxt(
+                    fname, delimiter=delimiter, deletechars="", dtype=None, names=True, converters=c
+                )
                 return _boolean_to_nan(data, fname)
             except np.lib._iotools.ConverterError:  # value does not conform to expected date-time format
                 type, value, traceback = sys.exc_info()
-                logger.error(
-                    f'CSVMixin: converter of csv reader failed on {fname}: {value}')
+                logger.error(f"CSVMixin: converter of csv reader failed on {fname}: {value}")
                 raise ValueError(
-                    'CSVMixin: wrong date time or value format in {}. '
-                    'Should be %Y-%m-%d %H:%M:%S and numerical values everywhere.'.format(fname))
+                    "CSVMixin: wrong date time or value format in {}. "
+                    "Should be %Y-%m-%d %H:%M:%S and numerical values everywhere.".format(fname)
+                )
         else:
-            data = np.genfromtxt(fname, delimiter=delimiter, deletechars='', dtype=None, names=True)
+            data = np.genfromtxt(fname, delimiter=delimiter, deletechars="", dtype=None, names=True)
             return _boolean_to_nan(data, fname)
     except ValueError:  # can occur when delimiter changes after first 1024 bytes of file, or delimiter is not , or ;
         type, value, traceback = sys.exc_info()
-        logger.error(
-            f'CSV: Value reader of csv reader failed on {fname}: {value}')
+        logger.error(f"CSV: Value reader of csv reader failed on {fname}: {value}")
         raise ValueError(
             "CSV: could not read all values from {}. Used delimiter '{}'. "
             "Please check delimiter (should be ',' or ';' throughout the file) "
-            "and if all values are numbers.".format(fname, delimiter))
+            "and if all values are numbers.".format(fname, delimiter)
+        )
 
 
-def save(fname, data, delimiter=',', with_time=False):
+def save(fname, data, delimiter=",", with_time=False):
     """
     Write the contents of an array to a csv file.
 
@@ -109,10 +117,16 @@ def save(fname, data, delimiter=',', with_time=False):
     :param with_time: Whether to output the first column of the data as time stamps.
     """
     if with_time:
-        data['time'] = [t.strftime("%Y-%m-%d %H:%M:%S") for t in data['time']]
-        fmt = ['%s'] + (len(data.dtype.names) - 1) * ['%f']
+        data["time"] = [t.strftime("%Y-%m-%d %H:%M:%S") for t in data["time"]]
+        fmt = ["%s"] + (len(data.dtype.names) - 1) * ["%f"]
     else:
-        fmt = len(data.dtype.names) * ['%f']
+        fmt = len(data.dtype.names) * ["%f"]
 
-    np.savetxt(fname, data, delimiter=delimiter, header=delimiter.join(
-        data.dtype.names), fmt=fmt, comments='')
+    np.savetxt(
+        fname,
+        data,
+        delimiter=delimiter,
+        header=delimiter.join(data.dtype.names),
+        fmt=fmt,
+        comments="",
+    )

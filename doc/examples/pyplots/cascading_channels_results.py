@@ -108,9 +108,7 @@ fig.tight_layout()
 for i in range(n_subplots):
     box = axarr[i].get_position()
     axarr[i].set_position([box.x0, box.y0, box.width * 0.75, box.height])
-    axarr[i].legend(
-        loc="center left", bbox_to_anchor=(1, 0.5), frameon=False, prop={"size": 8}
-    )
+    axarr[i].legend(loc="center left", bbox_to_anchor=(1, 0.5), frameon=False, prop={"size": 8})
 
 plt.autoscale(enable=True, axis="x", tight=True)
 

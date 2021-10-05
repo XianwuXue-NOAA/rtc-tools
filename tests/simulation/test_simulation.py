@@ -29,12 +29,11 @@ class SimulationModel(SimulationProblem):
     def compiler_options(self):
         compiler_options = super().compiler_options()
         compiler_options["cache"] = False
-        compiler_options['library_folders'] = []
+        compiler_options["library_folders"] = []
         return compiler_options
 
 
 class TestSimulation(TestCase):
-
     def setUp(self):
         self.problem = SimulationModel()
 
@@ -62,13 +61,11 @@ class TestSimulation(TestCase):
                 "y",
                 "z",
                 "_pymoca_delay_0[1,1]",
-                "x_delayed"
+                "x_delayed",
             },
         )
         self.assertEqual(set(self.problem.get_parameter_variables()), {"x_start", "k"})
-        self.assertEqual(
-            set(self.problem.get_input_variables()), {"constant_input", "u"}
-        )
+        self.assertEqual(set(self.problem.get_input_variables()), {"constant_input", "u"})
         self.assertEqual(
             set(self.problem.get_output_variables()),
             {"constant_output", "switched", "u_out", "y", "z", "x_delayed"},
@@ -132,7 +129,9 @@ class TestSimulation(TestCase):
             self.assertEqual(val, expected_values[i])
 
             # Test zero-delayed expression
-            self.assertAlmostEqual(self.problem.get_var('x_delayed'), self.problem.get_var('x') * 3 + 1, 1e-6)
+            self.assertAlmostEqual(
+                self.problem.get_var("x_delayed"), self.problem.get_var("x") * 3 + 1, 1e-6
+            )
             i += 1
 
     def test_set_input2(self):
@@ -161,7 +160,6 @@ class TestSimulation(TestCase):
 
 
 class FailingSimulationModel(SimulationProblem):
-
     def __init__(self):
         super().__init__(
             input_folder=data_path(),
@@ -173,12 +171,11 @@ class FailingSimulationModel(SimulationProblem):
     def compiler_options(self):
         compiler_options = super().compiler_options()
         compiler_options["cache"] = False
-        compiler_options['library_folders'] = []
+        compiler_options["library_folders"] = []
         return compiler_options
 
 
 class TestFailingSimulation(TestCase):
-
     def test_delay_exception(self):
-        with self.assertRaisesRegex(NotImplementedError, 'Delayed states are not supported'):
+        with self.assertRaisesRegex(NotImplementedError, "Delayed states are not supported"):
             self.problem = FailingSimulationModel()

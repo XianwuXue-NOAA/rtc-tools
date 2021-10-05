@@ -3,7 +3,7 @@ import logging
 import numpy as np
 
 from rtctools.optimization.collocated_integrated_optimization_problem import (
-    CollocatedIntegratedOptimizationProblem
+    CollocatedIntegratedOptimizationProblem,
 )
 from rtctools.optimization.goal_programming_mixin import (
     Goal,
@@ -25,10 +25,7 @@ logger = logging.getLogger("rtctools")
 logger.setLevel(logging.WARNING)
 
 
-class Model(
-    GoalProgrammingMixin, ModelicaMixin, CollocatedIntegratedOptimizationProblem
-):
-
+class Model(GoalProgrammingMixin, ModelicaMixin, CollocatedIntegratedOptimizationProblem):
     def __init__(self):
         super().__init__(
             input_folder=data_path(),
@@ -66,12 +63,11 @@ class Model(
     def compiler_options(self):
         compiler_options = super().compiler_options()
         compiler_options["cache"] = False
-        compiler_options['library_folders'] = []
+        compiler_options["library_folders"] = []
         return compiler_options
 
 
 class GoalMinimizeU(Goal):
-
     def function(self, optimization_problem, ensemble_member):
         return optimization_problem.state_at("u", 0.5, ensemble_member=ensemble_member)
 
@@ -97,20 +93,18 @@ class InvalidGoalTargetAbsU(GoalMinimizeAbsU):
 
 
 class GoalTargetU(StateGoal):
-    state = 'u'
+    state = "u"
     target_min = -1.9
     target_max = 1.9
     priority = 1
 
 
 class ModelTargetU(Model):
-
     def path_goals(self):
         return [GoalTargetU(self)]
 
 
 class ModelTargetMinimizeU(ModelTargetU):
-
     def goals(self):
         return [GoalPrio2MinimizeU()]
 
@@ -119,25 +113,21 @@ class ModelTargetMinimizeU(ModelTargetU):
 
 
 class ModelInvalidAbsoluteGoal(ModelTargetU, MinAbsGoalProgrammingMixin, GoalProgrammingMixin):
-
     def min_abs_goals(self):
         return [InvalidGoalTargetAbsU()]
 
 
 class ModelMinimizeSqU(ModelTargetU):
-
     def goals(self):
         return [GoalMinimizeSqU()]
 
 
 class ModelMinimizeAbsU(ModelTargetU, MinAbsGoalProgrammingMixin, GoalProgrammingMixin):
-
     def min_abs_goals(self):
         return [GoalMinimizeAbsU()]
 
 
 class TestAbsoluteMinimization(TestCase):
-
     def setUp(self):
         self.tolerance = 1e-5
 
@@ -164,6 +154,6 @@ class TestAbsoluteMinimization(TestCase):
         self.problem1.optimize()
         self.problem2.optimize()
 
-        self.assertAlmostEqual(self.problem1.objective_value,
-                               self.problem2.objective_value**2,
-                               self.tolerance)
+        self.assertAlmostEqual(
+            self.problem1.objective_value, self.problem2.objective_value ** 2, self.tolerance
+        )

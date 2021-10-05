@@ -8,7 +8,7 @@ import casadi as ca
 import numpy as np
 
 from rtctools.optimization.collocated_integrated_optimization_problem import (
-    CollocatedIntegratedOptimizationProblem
+    CollocatedIntegratedOptimizationProblem,
 )
 from rtctools.optimization.io_mixin import IOMixin
 from rtctools.optimization.modelica_mixin import ModelicaMixin
@@ -29,10 +29,10 @@ class DummyIOMixin(IOMixin):
         datetimes = [ref_datetime + timedelta(seconds=x) for x in times_sec]
 
         values = {
-            'constant_input': [1.1, 1.4, 0.9, 1.2, 1.5, 1.7],
-            'u_Min': [0.5, 0.2, 0.3, 0.1, 0.4, 0.0],
-            'u_Max': [2.1, 2.2, 2.0, 2.4, 2.5, 2.3],
-            'alias': [3.1, 3.2, 3.3, 3.4, 3.5, 3.6]  # alias of 'x'
+            "constant_input": [1.1, 1.4, 0.9, 1.2, 1.5, 1.7],
+            "u_Min": [0.5, 0.2, 0.3, 0.1, 0.4, 0.0],
+            "u_Max": [2.1, 2.2, 2.0, 2.4, 2.5, 2.3],
+            "alias": [3.1, 3.2, 3.3, 3.4, 3.5, 3.6],  # alias of 'x'
         }
 
         for key, value in values.items():
@@ -42,14 +42,13 @@ class DummyIOMixin(IOMixin):
         pass
 
     def times(self, variable=None):
-        if hasattr(self, '_overrule_times'):
+        if hasattr(self, "_overrule_times"):
             return self._overrule_times
         else:
             return super().times(variable)
 
 
 class Model(DummyIOMixin, ModelicaMixin, CollocatedIntegratedOptimizationProblem):
-
     def __init__(self, **kwargs):
         kwargs["model_name"] = kwargs.get("model_name", "Model")
         kwargs["input_folder"] = data_path()
@@ -70,7 +69,7 @@ class Model(DummyIOMixin, ModelicaMixin, CollocatedIntegratedOptimizationProblem
     def compiler_options(self):
         compiler_options = super().compiler_options()
         compiler_options["cache"] = False
-        compiler_options['library_folders'] = []
+        compiler_options["library_folders"] = []
         return compiler_options
 
 
@@ -85,13 +84,13 @@ class TestOptimizationProblem(TestCase):
         self.tolerance = 1e-6
 
     def test_get_timeseries(self):
-        timeseries = self.problem.get_timeseries('constant_input')
+        timeseries = self.problem.get_timeseries("constant_input")
         expected_times = [-7200, -3600, 0, 3600, 7200, 9800]
         self.assertTrue(np.array_equal(timeseries.times, expected_times))
         expected_values = [1.1, 1.4, 0.9, 1.2, 1.5, 1.7]
         self.assertTrue(np.array_equal(timeseries.values, expected_values))
 
-        timeseries_x = self.problem.get_timeseries('x')
+        timeseries_x = self.problem.get_timeseries("x")
         self.assertTrue(np.array_equal(timeseries_x.times, expected_times))
         expected_values = [3.1, 3.2, 3.3, 3.4, 3.5, 3.6]
         self.assertTrue(np.array_equal(timeseries_x.values, expected_values))
@@ -99,14 +98,14 @@ class TestOptimizationProblem(TestCase):
     def test_set_timeseries_with_timeseries(self):
         times = self.problem.io.times_sec
         values = [0.1, 1.1, 2.1, 3.1, 4.1, 5.1]
-        self.problem.set_timeseries('newVar', Timeseries(times, values))
+        self.problem.set_timeseries("newVar", Timeseries(times, values))
 
-        actual_series = self.problem.get_timeseries('newVar')
+        actual_series = self.problem.get_timeseries("newVar")
         self.assertTrue(np.array_equal(actual_series.values, values))
         self.assertTrue(np.array_equal(actual_series.times, times))
 
         # test if it was actually stored in the internal data store
-        _, actual_values = self.problem.io.get_timeseries_sec('newVar')
+        _, actual_values = self.problem.io.get_timeseries_sec("newVar")
         self.assertTrue(np.array_equal(actual_values, values))
 
         # now let's do this again but only give part of the values
@@ -114,8 +113,8 @@ class TestOptimizationProblem(TestCase):
 
         # with check_consistency=True (default) we should be fine as long
         # as the timeseries times are a subset of the import times
-        self.problem.set_timeseries('partialSeries1', Timeseries(times[-3:], values))
-        actual_series = self.problem.get_timeseries('partialSeries1')
+        self.problem.set_timeseries("partialSeries1", Timeseries(times[-3:], values))
+        actual_series = self.problem.get_timeseries("partialSeries1")
         self.assertTrue(np.array_equal(actual_series.times, times))
         self.assertTrue(np.array_equal(actual_series.values[-3:], values))
         self.assertTrue(np.all(np.isnan(actual_series.values[:-3])))
@@ -123,12 +122,14 @@ class TestOptimizationProblem(TestCase):
         wrong_times = times[-3:].copy()
         wrong_times[-1] -= 1
         with self.assertRaisesRegex(ValueError, "different times"):
-            self.problem.set_timeseries('partialSeries2', Timeseries(wrong_times, values))
+            self.problem.set_timeseries("partialSeries2", Timeseries(wrong_times, values))
 
         # Without the check, we will also get through with wrong times
-        self.problem.set_timeseries('partialSeries2', Timeseries(wrong_times, values), check_consistency=False)
+        self.problem.set_timeseries(
+            "partialSeries2", Timeseries(wrong_times, values), check_consistency=False
+        )
 
-        actual_series = self.problem.get_timeseries('partialSeries2')
+        actual_series = self.problem.get_timeseries("partialSeries2")
         self.assertTrue(np.array_equal(actual_series.times, times))
         self.assertTrue(np.array_equal(actual_series.values[-3:], values))
         self.assertTrue(np.all(np.isnan(actual_series.values[:-3])))
@@ -136,10 +137,12 @@ class TestOptimizationProblem(TestCase):
     def test_set_timeseries_with_array(self):
         times = self.problem.times()
         values = np.random.random(times.shape)
-        self.problem.set_timeseries('newVar', values)
+        self.problem.set_timeseries("newVar", values)
 
-        actual_series = self.problem.get_timeseries('newVar')
-        forecast_index = bisect.bisect_left(self.problem.io.datetimes, self.problem.io.reference_datetime)
+        actual_series = self.problem.get_timeseries("newVar")
+        forecast_index = bisect.bisect_left(
+            self.problem.io.datetimes, self.problem.io.reference_datetime
+        )
         self.assertTrue(np.array_equal(actual_series.values[forecast_index:], values))
         self.assertTrue(np.all(np.isnan(actual_series.values[:forecast_index])))
 
@@ -147,25 +150,25 @@ class TestOptimizationProblem(TestCase):
         # as self.times() returns subset of the import times
         orig_times = self.problem.times()
         self.problem._overrule_times = orig_times[1:]
-        self.problem.set_timeseries('partialSeries1', values[1:])
-        actual_series = self.problem.get_timeseries('partialSeries1')
+        self.problem.set_timeseries("partialSeries1", values[1:])
+        actual_series = self.problem.get_timeseries("partialSeries1")
         self.assertTrue(np.array_equal(actual_series.times, self.problem.io.times_sec))
         self.assertTrue(np.array_equal(actual_series.values[-3:], values[1:]))
         self.assertTrue(np.all(np.isnan(actual_series.values[:-3])))
 
         with self.assertRaisesRegex(ValueError, "different length"):
-            self.problem.set_timeseries('partialSeries1', values)
+            self.problem.set_timeseries("partialSeries1", values)
 
         wrong_times = orig_times.copy()[1:]
         wrong_times[-1] -= 1
         self.problem._overrule_times = wrong_times
         with self.assertRaisesRegex(ValueError, "different times"):
-            self.problem.set_timeseries('partialSeries2', values[1:])
+            self.problem.set_timeseries("partialSeries2", values[1:])
 
         # Without the check, we will also get through with wrong times
-        self.problem.set_timeseries('partialSeries2', values[1:], check_consistency=False)
+        self.problem.set_timeseries("partialSeries2", values[1:], check_consistency=False)
 
-        actual_series = self.problem.get_timeseries('partialSeries2')
+        actual_series = self.problem.get_timeseries("partialSeries2")
         self.assertTrue(np.array_equal(actual_series.times, self.problem.io.times_sec))
         self.assertTrue(np.array_equal(actual_series.values[-3:], values[1:]))
         self.assertTrue(np.all(np.isnan(actual_series.values[:-3])))
@@ -173,19 +176,19 @@ class TestOptimizationProblem(TestCase):
     def test_timeseries_at(self):
         times = self.problem.io.times_sec
         values = times.astype(dtype=np.float64) / 10
-        self.problem.set_timeseries('myVar', Timeseries(times, values))
-        actual = self.problem.timeseries_at('myVar', times[0])
+        self.problem.set_timeseries("myVar", Timeseries(times, values))
+        actual = self.problem.timeseries_at("myVar", times[0])
         self.assertEqual(actual, times[0] / 10)
 
-        actual = self.problem.timeseries_at('myVar', (times[0] + times[1]) / 2)
+        actual = self.problem.timeseries_at("myVar", (times[0] + times[1]) / 2)
         self.assertEqual(actual, (values[0] + values[1]) / 2)
 
     def test_bounds(self):
         bounds = self.problem.bounds()
-        self.assertEqual(bounds['x'], (float("-inf"), float("inf")))
+        self.assertEqual(bounds["x"], (float("-inf"), float("inf")))
 
-        min_u = bounds['u'][0]
-        max_u = bounds['u'][1]
+        min_u = bounds["u"][0]
+        max_u = bounds["u"][1]
 
         expected_times = [0, 3600, 7200, 9800]
         self.assertTrue(np.array_equal(min_u.times, expected_times))
@@ -201,39 +204,41 @@ class TestOptimizationProblem(TestCase):
         history = self.problem.history(0)
 
         expected_times = [-7200, -3600, 0]
-        self.assertTrue(np.array_equal(history['x'].times, expected_times))
-        self.assertTrue(np.array_equal(history['constant_input'].times, expected_times))
+        self.assertTrue(np.array_equal(history["x"].times, expected_times))
+        self.assertTrue(np.array_equal(history["constant_input"].times, expected_times))
 
         expected_history_x = [3.1, 3.2, 3.3]
-        self.assertTrue(np.array_equal(history['x'].values, expected_history_x))
+        self.assertTrue(np.array_equal(history["x"].values, expected_history_x))
         expected_history_u = [1.1, 1.4, 0.9]
-        self.assertTrue(np.array_equal(history['constant_input'].values, expected_history_u))
+        self.assertTrue(np.array_equal(history["constant_input"].values, expected_history_u))
 
     def test_seed(self):
         # add another variable containing some nans
-        self.problem.io.set_timeseries_sec('some_missing',
-                                           self.problem.io.times_sec,
-                                           np.array([np.nan, 0.1, 0.2, np.nan, 3.1, np.nan]))
-        self.problem.dae_variables['free_variables'].append(ca.MX().sym('some_missing'))
+        self.problem.io.set_timeseries_sec(
+            "some_missing",
+            self.problem.io.times_sec,
+            np.array([np.nan, 0.1, 0.2, np.nan, 3.1, np.nan]),
+        )
+        self.problem.dae_variables["free_variables"].append(ca.MX().sym("some_missing"))
 
         seed = self.problem.seed(0)
-        self.assertTrue(np.array_equal(seed['x'].values, [3.1, 3.2, 3.3, 3.4, 3.5, 3.6]))
-        self.assertTrue(np.array_equal(seed['alias'].values, [3.1, 3.2, 3.3, 3.4, 3.5, 3.6]))
-        self.assertTrue(np.array_equal(seed['some_missing'].values, [0, 0.1, 0.2, 0, 3.1, 0]))
+        self.assertTrue(np.array_equal(seed["x"].values, [3.1, 3.2, 3.3, 3.4, 3.5, 3.6]))
+        self.assertTrue(np.array_equal(seed["alias"].values, [3.1, 3.2, 3.3, 3.4, 3.5, 3.6]))
+        self.assertTrue(np.array_equal(seed["some_missing"].values, [0, 0.1, 0.2, 0, 3.1, 0]))
 
     def test_constant_inputs(self):
         constant_inputs = self.problem.constant_inputs(0)
-        self.assertTrue(np.array_equal(constant_inputs['constant_input'].values, [1.1, 1.4, 0.9, 1.2, 1.5, 1.7]))
+        self.assertTrue(
+            np.array_equal(constant_inputs["constant_input"].values, [1.1, 1.4, 0.9, 1.2, 1.5, 1.7])
+        )
 
 
 class ModelSubTimes(Model):
-
     def times(self, variable=None):
         return super().times(variable)[:-1]
 
 
 class TestOptimizationProblemSubTimes(TestCase):
-
     def setUp(self):
         self.problem = ModelSubTimes()
         self.problem.read()

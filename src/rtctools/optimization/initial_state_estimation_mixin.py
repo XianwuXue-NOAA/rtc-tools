@@ -12,9 +12,9 @@ class _MeasurementGoal(Goal):
 
     def function(self, optimization_problem, ensemble_member):
         op = optimization_problem
-        return (
-            op.state_at(self.__state, op.initial_time, ensemble_member) -
-            op.timeseries_at(self.__measurement_id, op.initial_time, ensemble_member))
+        return op.state_at(self.__state, op.initial_time, ensemble_member) - op.timeseries_at(
+            self.__measurement_id, op.initial_time, ensemble_member
+        )
 
     order = 2
     priority = -2
@@ -29,9 +29,9 @@ class _SmoothingGoal(Goal):
 
     def function(self, optimization_problem, ensemble_member):
         op = optimization_problem
-        return (
-            op.state_at(self.__state1, op.initial_time, ensemble_member) -
-            op.state_at(self.__state2, op.initial_time, ensemble_member))
+        return op.state_at(self.__state1, op.initial_time, ensemble_member) - op.state_at(
+            self.__state2, op.initial_time, ensemble_member
+        )
 
     order = 2
     priority = -1

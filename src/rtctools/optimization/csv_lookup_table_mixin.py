@@ -54,10 +54,14 @@ class LookupTable(LookupTableBase):
     def domain(self) -> Tuple:
         t = self.__t
         if t is None:
-            raise AttributeError('This lookup table was not instantiated with tck metadata. \
-                                  Domain/Range information is unavailable.')
+            raise AttributeError(
+                "This lookup table was not instantiated with tck metadata. \
+                                  Domain/Range information is unavailable."
+            )
         if type(t) == tuple and len(t) == 2:
-            raise NotImplementedError('Domain/Range information is not yet implemented for 2D LookupTables')
+            raise NotImplementedError(
+                "Domain/Range information is not yet implemented for 2D LookupTables"
+            )
 
         return np.nextafter(t[0], np.inf), np.nextafter(t[-1], -np.inf)
 
@@ -84,9 +88,7 @@ class LookupTable(LookupTableBase):
     @cached
     def __numeric_function_evaluator(self):
         return np.vectorize(
-            lambda *args: np.nan
-            if np.any(np.isnan(args))
-            else np.float(self.function(*args))
+            lambda *args: np.nan if np.any(np.isnan(args)) else np.float(self.function(*args))
         )
 
     def __call__(
@@ -170,9 +172,7 @@ class LookupTable(LookupTableBase):
             all_viol = y_array_not_nan[lb_viol | ub_viol]
             if all_viol.size > 0:
                 raise ValueError(
-                    "Values {} are not in lookup table range ({}, {})".format(
-                        all_viol, l_r, u_r
-                    )
+                    "Values {} are not in lookup table range ({}, {})".format(all_viol, l_r, u_r)
                 )
 
         # Construct function to do inverse evaluation
@@ -232,7 +232,7 @@ class CSVLookupTableMixin(OptimizationProblem):
     """
 
     #: Column delimiter used in CSV files
-    csv_delimiter = ','
+    csv_delimiter = ","
 
     #: Debug settings
     csv_lookup_table_debug = False
@@ -240,13 +240,12 @@ class CSVLookupTableMixin(OptimizationProblem):
 
     def __init__(self, **kwargs):
         # Check arguments
-        if 'input_folder' in kwargs:
-            assert('lookup_table_folder' not in kwargs)
+        if "input_folder" in kwargs:
+            assert "lookup_table_folder" not in kwargs
 
-            self.__lookup_table_folder = os.path.join(
-                kwargs['input_folder'], 'lookup_tables')
+            self.__lookup_table_folder = os.path.join(kwargs["input_folder"], "lookup_tables")
         else:
-            self.__lookup_table_folder = kwargs['lookup_table_folder']
+            self.__lookup_table_folder = kwargs["lookup_table_folder"]
 
         # Call parent
         super().__init__(**kwargs)
@@ -256,15 +255,15 @@ class CSVLookupTableMixin(OptimizationProblem):
         super().pre()
 
         # Get curve fitting options from curvefit_options.ini file
-        ini_path = os.path.join(
-            self.__lookup_table_folder, 'curvefit_options.ini')
+        ini_path = os.path.join(self.__lookup_table_folder, "curvefit_options.ini")
         try:
             ini_config = configparser.RawConfigParser()
             ini_config.read(ini_path)
             no_curvefit_options = False
         except OSError:
             logger.info(
-                "CSVLookupTableMixin: No curvefit_options.ini file found. Using default values.")
+                "CSVLookupTableMixin: No curvefit_options.ini file found. Using default values."
+            )
             no_curvefit_options = True
 
         def get_curvefit_options(curve_name, no_curvefit_options=no_curvefit_options):
@@ -282,25 +281,27 @@ class CSVLookupTableMixin(OptimizationProblem):
                     prop = 0
                 except ValueError:
                     raise Exception(
-                        'CSVLookupTableMixin: Invalid {0} constraint for {1}. {0} should '
-                        'be either -1, 0, or 1.'.format(prop_name, curve_name))
+                        "CSVLookupTableMixin: Invalid {0} constraint for {1}. {0} should "
+                        "be either -1, 0, or 1.".format(prop_name, curve_name)
+                    )
                 return prop
 
-            for prop_name in ['monotonicity', 'monotonicity2', 'curvature']:
+            for prop_name in ["monotonicity", "monotonicity2", "curvature"]:
                 curvefit_options.append(get_property(prop_name))
 
-            logger.debug("CSVLookupTableMixin: Curve fit option for {}:({},{},{})".format(
-                curve_name, *curvefit_options))
+            logger.debug(
+                "CSVLookupTableMixin: Curve fit option for {}:({},{},{})".format(
+                    curve_name, *curvefit_options
+                )
+            )
             return tuple(curvefit_options)
 
         # Read CSV files
-        logger.info(
-            "CSVLookupTableMixin: Generating Splines from lookup table data.")
+        logger.info("CSVLookupTableMixin: Generating Splines from lookup table data.")
         self.__lookup_tables = {}
         for filename in glob.glob(os.path.join(self.__lookup_table_folder, "*.csv")):
 
-            logger.debug(
-                f"CSVLookupTableMixin: Reading lookup table from {filename}")
+            logger.debug(f"CSVLookupTableMixin: Reading lookup table from {filename}")
 
             csvinput = csv.load(filename, delimiter=self.csv_delimiter)
             output = csvinput.dtype.names[0]
@@ -309,62 +310,77 @@ class CSVLookupTableMixin(OptimizationProblem):
             # Get monotonicity and curvature from ini file
             mono, mono2, curv = get_curvefit_options(output)
 
-            logger.debug(
-                f"CSVLookupTableMixin: Output is {output}, inputs are {inputs}.")
+            logger.debug(f"CSVLookupTableMixin: Output is {output}, inputs are {inputs}.")
 
             tck = None
             function = None
 
             # If tck file is newer than the csv file, first try to load the cached values from the tck file
-            tck_filename = filename.replace('.csv', '.tck')
+            tck_filename = filename.replace(".csv", ".tck")
             valid_cache = False
             if os.path.exists(tck_filename):
                 if no_curvefit_options:
                     valid_cache = os.path.getmtime(filename) < os.path.getmtime(tck_filename)
                 else:
-                    valid_cache = (os.path.getmtime(filename) < os.path.getmtime(tck_filename)) and \
-                                  (os.path.getmtime(ini_path) < os.path.getmtime(tck_filename))
+                    valid_cache = (
+                        os.path.getmtime(filename) < os.path.getmtime(tck_filename)
+                    ) and (os.path.getmtime(ini_path) < os.path.getmtime(tck_filename))
                 if valid_cache:
                     logger.debug(
-                        f'CSVLookupTableMixin: Attempting to use cached tck values for {output}')
-                    with open(tck_filename, 'rb') as f:
+                        f"CSVLookupTableMixin: Attempting to use cached tck values for {output}"
+                    )
+                    with open(tck_filename, "rb") as f:
                         try:
                             tck, function = pickle.load(f)
                         except Exception:
                             valid_cache = False
             if not valid_cache:
-                logger.info(
-                    f'CSVLookupTableMixin: Recalculating tck values for {output}')
+                logger.info(f"CSVLookupTableMixin: Recalculating tck values for {output}")
 
             if len(csvinput.dtype.names) == 2:
                 if not valid_cache:
                     k = 3  # default value
                     # 1D spline fitting needs k+1 data points
                     if len(csvinput[output]) >= k + 1:
-                        tck = BSpline1D.fit(csvinput[inputs[0]], csvinput[
-                                            output], k=k, monotonicity=mono, curvature=curv)
+                        tck = BSpline1D.fit(
+                            csvinput[inputs[0]],
+                            csvinput[output],
+                            k=k,
+                            monotonicity=mono,
+                            curvature=curv,
+                        )
                     else:
                         raise Exception(
-                            'CSVLookupTableMixin: Too few data points in {} to do spline fitting. '
-                            'Need at least {} points.'.format(filename, k + 1))
+                            "CSVLookupTableMixin: Too few data points in {} to do spline fitting. "
+                            "Need at least {} points.".format(filename, k + 1)
+                        )
 
                 if self.csv_lookup_table_debug:
                     import pylab
-                    i = np.linspace(csvinput[inputs[0]][0], csvinput[
-                                    inputs[0]][-1], self.csv_lookup_table_debug_points)
+
+                    i = np.linspace(
+                        csvinput[inputs[0]][0],
+                        csvinput[inputs[0]][-1],
+                        self.csv_lookup_table_debug_points,
+                    )
                     o = splev(i, tck)
                     pylab.clf()
                     # TODO: Figure out why cross-section B0607 in NZV does not
                     # conform to constraints!
                     pylab.plot(i, o)
-                    pylab.plot(csvinput[inputs[0]], csvinput[
-                               output], linestyle='', marker='x', markersize=10)
-                    figure_filename = filename.replace('.csv', '.png')
+                    pylab.plot(
+                        csvinput[inputs[0]],
+                        csvinput[output],
+                        linestyle="",
+                        marker="x",
+                        markersize=10,
+                    )
+                    figure_filename = filename.replace(".csv", ".png")
                     pylab.savefig(figure_filename)
 
                 symbols = [ca.SX.sym(inputs[0])]
                 if not valid_cache:
-                    function = ca.Function('f', symbols, [BSpline1D(*tck)(symbols[0])])
+                    function = ca.Function("f", symbols, [BSpline1D(*tck)(symbols[0])])
                 self.__lookup_tables[output] = LookupTable(symbols, function, tck)
 
             elif len(csvinput.dtype.names) == 3:
@@ -376,41 +392,54 @@ class CSVLookupTableMixin(OptimizationProblem):
                     if len(csvinput[output]) >= (kx + 1) * (ky + 1):
                         # TODO: add curvature parameters from curvefit_options.ini
                         # once 2d fit is implemented
-                        tck = bisplrep(csvinput[inputs[0]], csvinput[
-                                       inputs[1]], csvinput[output], kx=kx, ky=ky)
+                        tck = bisplrep(
+                            csvinput[inputs[0]], csvinput[inputs[1]], csvinput[output], kx=kx, ky=ky
+                        )
                     else:
                         raise Exception(
-                            'CSVLookupTableMixin: Too few data points in {} to do spline fitting. '
-                            'Need at least {} points.'.format(filename, (kx + 1) * (ky + 1)))
+                            "CSVLookupTableMixin: Too few data points in {} to do spline fitting. "
+                            "Need at least {} points.".format(filename, (kx + 1) * (ky + 1))
+                        )
 
                 if self.csv_lookup_table_debug:
                     import pylab
-                    i1 = np.linspace(csvinput[inputs[0]][0], csvinput[
-                                     inputs[0]][-1], self.csv_lookup_table_debug_points)
-                    i2 = np.linspace(csvinput[inputs[1]][0], csvinput[
-                                     inputs[1]][-1], self.csv_lookup_table_debug_points)
+
+                    i1 = np.linspace(
+                        csvinput[inputs[0]][0],
+                        csvinput[inputs[0]][-1],
+                        self.csv_lookup_table_debug_points,
+                    )
+                    i2 = np.linspace(
+                        csvinput[inputs[1]][0],
+                        csvinput[inputs[1]][-1],
+                        self.csv_lookup_table_debug_points,
+                    )
                     i1, i2 = np.meshgrid(i1, i2)
                     i1 = i1.flatten()
                     i2 = i2.flatten()
                     o = bisplev(i1, i2, tck)
                     pylab.clf()
                     pylab.plot_surface(i1, i2, o)
-                    figure_filename = filename.replace('.csv', '.png')
+                    figure_filename = filename.replace(".csv", ".png")
                     pylab.savefig(figure_filename)
                 symbols = [ca.SX.sym(inputs[0]), ca.SX.sym(inputs[1])]
                 if not valid_cache:
-                    function = ca.Function('f', symbols, [BSpline2D(*tck)(symbols[0], symbols[1])])
+                    function = ca.Function("f", symbols, [BSpline2D(*tck)(symbols[0], symbols[1])])
                 self.__lookup_tables[output] = LookupTable(symbols, function, tck)
 
             else:
                 raise Exception(
-                    'CSVLookupTableMixin: {}-dimensional lookup tables not implemented yet.'.format(
-                        len(csvinput.dtype.names)))
+                    "CSVLookupTableMixin: {}-dimensional lookup tables not implemented yet.".format(
+                        len(csvinput.dtype.names)
+                    )
+                )
 
             if not valid_cache:
-                pickle.dump((tck, function),
-                            open(filename.replace('.csv', '.tck'), 'wb'),
-                            protocol=pickle.HIGHEST_PROTOCOL)
+                pickle.dump(
+                    (tck, function),
+                    open(filename.replace(".csv", ".tck"), "wb"),
+                    protocol=pickle.HIGHEST_PROTOCOL,
+                )
 
     def lookup_tables(self, ensemble_member):
         # Call parent class first for default values.

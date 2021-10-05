@@ -36,13 +36,26 @@ class BSpline1D(BSpline):
         """
         y = 0.0
         for i in range(len(self.__t) - self.__k - 1):
-            y += if_else(logic_and(x >= self.__t[i], x <= self.__t[i + self.__k + 1]), self.__w[
-                         i] * self.basis(self.__t, x, self.__k, i), 0.0)
+            y += if_else(
+                logic_and(x >= self.__t[i], x <= self.__t[i + self.__k + 1]),
+                self.__w[i] * self.basis(self.__t, x, self.__k, i),
+                0.0,
+            )
         return y
 
     @classmethod
-    def fit(cls, x, y, k=3, monotonicity=0, curvature=0,
-            num_test_points=100, epsilon=1e-7, delta=1e-4, interior_pts=None):
+    def fit(
+        cls,
+        x,
+        y,
+        k=3,
+        monotonicity=0,
+        curvature=0,
+        num_test_points=100,
+        epsilon=1e-7,
+        delta=1e-4,
+        interior_pts=None,
+    ):
         """
         fit() returns a tck tuple like scipy.interpolate.splrep, but adjusts
         the weights to meet the desired constraints to the curvature of the spline curve.
@@ -86,32 +99,32 @@ class BSpline1D(BSpline):
             # Generate knots: This algorithm is based on the Fitpack algorithm by p.dierckx
             # The original code lives here: http://www.netlib.org/dierckx/
             if k % 2 == 1:
-                interior_pts = x[k // 2 + 1:-k // 2]
+                interior_pts = x[k // 2 + 1 : -k // 2]
             else:
-                interior_pts = (x[k // 2 + 1:-k // 2] + x[k // 2:-k // 2 - 1]) / 2
+                interior_pts = (x[k // 2 + 1 : -k // 2] + x[k // 2 : -k // 2 - 1]) / 2
         t = np.concatenate(
-            (np.full(k + 1, x[0] - delta), interior_pts, np.full(k + 1, x[-1] + delta)))
+            (np.full(k + 1, x[0] - delta), interior_pts, np.full(k + 1, x[-1] + delta))
+        )
         num_knots = len(t)
 
         # Casadi Variable Symbols
-        c = SX.sym('c', num_knots)
-        x_sym = SX.sym('x')
+        c = SX.sym("c", num_knots)
+        x_sym = SX.sym("x")
 
         # Casadi Representation of Spline Function & Derivatives
         expr = cls(t, c, k)(x_sym)
         free_vars = [c, x_sym]
-        bspline = Function('bspline', free_vars, [expr])
+        bspline = Function("bspline", free_vars, [expr])
         J = jacobian(expr, x_sym)
         # bspline_prime = Function('bspline_prime', free_vars, [J])
         H = jacobian(J, x_sym)
-        bspline_prime_prime = Function('bspline_prime_prime', free_vars, [H])
+        bspline_prime_prime = Function("bspline_prime_prime", free_vars, [H])
 
         # Objective Function
-        xpt = SX.sym('xpt')
-        ypt = SX.sym('ypt')
-        sq_diff = Function('sq_diff', [xpt, ypt], [
-                             (ypt - bspline(c, xpt))**2])
-        sq_diff = sq_diff.map(N, 'serial')
+        xpt = SX.sym("xpt")
+        ypt = SX.sym("ypt")
+        sq_diff = Function("sq_diff", [xpt, ypt], [(ypt - bspline(c, xpt)) ** 2])
+        sq_diff = sq_diff.map(N, "serial")
         f = sum2(sq_diff(SX(x), SX(y)))
 
         # Setup Curvature Constraints
@@ -129,24 +142,24 @@ class BSpline1D(BSpline):
                 max_slope_slope = np.full(num_test_points, -epsilon)
             else:
                 min_slope_slope = np.full(num_test_points, epsilon)
-        monotonicity_constraints = vertcat(*[
-            c[i + 1] - c[i] for i in range(num_knots - 1)])
+        monotonicity_constraints = vertcat(*[c[i + 1] - c[i] for i in range(num_knots - 1)])
         x_linspace = np.linspace(x[0], x[-1], num_test_points)
-        curvature_constraints = vertcat(*[
-            bspline_prime_prime(c, SX(x)) for x in x_linspace])
+        curvature_constraints = vertcat(*[bspline_prime_prime(c, SX(x)) for x in x_linspace])
         g = vertcat(monotonicity_constraints, curvature_constraints)
         lbg = np.concatenate((delta_c_min, min_slope_slope))
         ubg = np.concatenate((delta_c_max, max_slope_slope))
 
         # Perform mini-optimization problem to calculate the the values of c
-        nlp = {'x': c, 'f': f, 'g': g}
+        nlp = {"x": c, "f": f, "g": g}
         my_solver = "ipopt"
-        solver = nlpsol("solver", my_solver, nlp, {'print_time': 0, 'expand': True, 'ipopt': {'print_level': 0}})
+        solver = nlpsol(
+            "solver", my_solver, nlp, {"print_time": 0, "expand": True, "ipopt": {"print_level": 0}}
+        )
         sol = solver(lbg=lbg, ubg=ubg)
         stats = solver.stats()
-        return_status = stats['return_status']
-        if return_status not in ['Solve_Succeeded', 'Solved_To_Acceptable_Level', 'SUCCESS']:
+        return_status = stats["return_status"]
+        if return_status not in ["Solve_Succeeded", "Solved_To_Acceptable_Level", "SUCCESS"]:
             raise Exception(f"Spline fitting failed with status {return_status}")
 
         # Return the new tck tuple
-        return (t, np.array(sol['x']).ravel(), k)
+        return (t, np.array(sol["x"]).ravel(), k)

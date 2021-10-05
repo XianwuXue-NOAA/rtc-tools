@@ -44,90 +44,120 @@ class SimulationProblem(DataStoreAccessor):
 
     def __init__(self, **kwargs):
         # Check arguments
-        assert('model_folder' in kwargs)
+        assert "model_folder" in kwargs
 
         # Log pymoca version
         logger.debug(f"Using pymoca {pymoca.__version__}.")
 
         # Transfer model from the Modelica .mo file to CasADi using pymoca
-        if 'model_name' in kwargs:
-            model_name = kwargs['model_name']
+        if "model_name" in kwargs:
+            model_name = kwargs["model_name"]
         else:
-            if hasattr(self, 'model_name'):
+            if hasattr(self, "model_name"):
                 model_name = self.model_name
             else:
                 model_name = self.__class__.__name__
 
         # Load model from pymoca backend
         self.__pymoca_model = pymoca.backends.casadi.api.transfer_model(
-            kwargs['model_folder'], model_name, self.compiler_options())
+            kwargs["model_folder"], model_name, self.compiler_options()
+        )
 
         # Extract the CasADi MX variables used in the model
         self.__mx = {}
-        self.__mx['time'] = [self.__pymoca_model.time]
-        self.__mx['states'] = [v.symbol for v in self.__pymoca_model.states]
-        self.__mx['derivatives'] = [v.symbol for v in self.__pymoca_model.der_states]
-        self.__mx['algebraics'] = [v.symbol for v in self.__pymoca_model.alg_states]
-        self.__mx['parameters'] = [v.symbol for v in self.__pymoca_model.parameters]
-        self.__mx['constant_inputs'] = []
-        self.__mx['lookup_tables'] = []
+        self.__mx["time"] = [self.__pymoca_model.time]
+        self.__mx["states"] = [v.symbol for v in self.__pymoca_model.states]
+        self.__mx["derivatives"] = [v.symbol for v in self.__pymoca_model.der_states]
+        self.__mx["algebraics"] = [v.symbol for v in self.__pymoca_model.alg_states]
+        self.__mx["parameters"] = [v.symbol for v in self.__pymoca_model.parameters]
+        self.__mx["constant_inputs"] = []
+        self.__mx["lookup_tables"] = []
 
         for v in self.__pymoca_model.inputs:
             if v.symbol.name() in self.__pymoca_model.delay_states:
                 # Delayed feedback variables are local to each ensemble, and
                 # therefore belong to the collection of algebraic variables,
                 # rather than to the control inputs.
-                self.__mx['algebraics'].append(v.symbol)
+                self.__mx["algebraics"].append(v.symbol)
             else:
-                if v.symbol.name() in kwargs.get('lookup_tables', []):
-                    self.__mx['lookup_tables'].append(v.symbol)
+                if v.symbol.name() in kwargs.get("lookup_tables", []):
+                    self.__mx["lookup_tables"].append(v.symbol)
                 else:
                     # All inputs are constant inputs
-                    self.__mx['constant_inputs'].append(v.symbol)
+                    self.__mx["constant_inputs"].append(v.symbol)
 
         # Log variables in debug mode
         if logger.getEffectiveLevel() == logging.DEBUG:
-            logger.debug("SimulationProblem: Found states {}".format(
-                ', '.join([var.name() for var in self.__mx['states']])))
-            logger.debug("SimulationProblem: Found derivatives {}".format(
-                ', '.join([var.name() for var in self.__mx['derivatives']])))
-            logger.debug("SimulationProblem: Found algebraics {}".format(
-                ', '.join([var.name() for var in self.__mx['algebraics']])))
-            logger.debug("SimulationProblem: Found constant inputs {}".format(
-                ', '.join([var.name() for var in self.__mx['constant_inputs']])))
-            logger.debug("SimulationProblem: Found parameters {}".format(
-                ', '.join([var.name() for var in self.__mx['parameters']])))
+            logger.debug(
+                "SimulationProblem: Found states {}".format(
+                    ", ".join([var.name() for var in self.__mx["states"]])
+                )
+            )
+            logger.debug(
+                "SimulationProblem: Found derivatives {}".format(
+                    ", ".join([var.name() for var in self.__mx["derivatives"]])
+                )
+            )
+            logger.debug(
+                "SimulationProblem: Found algebraics {}".format(
+                    ", ".join([var.name() for var in self.__mx["algebraics"]])
+                )
+            )
+            logger.debug(
+                "SimulationProblem: Found constant inputs {}".format(
+                    ", ".join([var.name() for var in self.__mx["constant_inputs"]])
+                )
+            )
+            logger.debug(
+                "SimulationProblem: Found parameters {}".format(
+                    ", ".join([var.name() for var in self.__mx["parameters"]])
+                )
+            )
 
         # Store the types in an AliasDict
         self.__python_types = AliasDict(self.alias_relation)
-        model_variable_types = ["states", "der_states", "alg_states", "inputs", "constants", "parameters"]
+        model_variable_types = [
+            "states",
+            "der_states",
+            "alg_states",
+            "inputs",
+            "constants",
+            "parameters",
+        ]
         for t in model_variable_types:
             for v in getattr(self.__pymoca_model, t):
                 self.__python_types[v.symbol.name()] = v.python_type
 
         # Store the nominals in an AliasDict
         self.__nominals = AliasDict(self.alias_relation)
-        for v in itertools.chain(
-                self.__pymoca_model.states, self.__pymoca_model.alg_states):
+        for v in itertools.chain(self.__pymoca_model.states, self.__pymoca_model.alg_states):
             sym_name = v.symbol.name()
 
             # If the nominal is 0.0 or 1.0 or -1.0, ignore: get_variable_nominal returns a default of 1.0
             # TODO: handle nominal vectors (update() will need to load them)
-            if ca.MX(v.nominal).is_zero() or ca.MX(v.nominal - 1).is_zero() or ca.MX(v.nominal + 1).is_zero():
+            if (
+                ca.MX(v.nominal).is_zero()
+                or ca.MX(v.nominal - 1).is_zero()
+                or ca.MX(v.nominal + 1).is_zero()
+            ):
                 continue
             else:
                 if ca.MX(v.nominal).size1() != 1:
-                    logger.error(f'Vector Nominals not supported yet. ({sym_name})')
+                    logger.error(f"Vector Nominals not supported yet. ({sym_name})")
                 self.__nominals[sym_name] = ca.fabs(v.nominal)
                 if logger.getEffectiveLevel() == logging.DEBUG:
-                    logger.debug("SimulationProblem: Setting nominal value for variable {} to {}".format(
-                        sym_name, self.__nominals[sym_name]))
+                    logger.debug(
+                        "SimulationProblem: Setting nominal value for variable {} to {}".format(
+                            sym_name, self.__nominals[sym_name]
+                        )
+                    )
 
         # Initialize DAE and initial residuals
-        variable_lists = ['states', 'der_states', 'alg_states', 'inputs', 'constants', 'parameters']
+        variable_lists = ["states", "der_states", "alg_states", "inputs", "constants", "parameters"]
         function_arguments = [self.__pymoca_model.time] + [
             ca.veccat(*[v.symbol for v in getattr(self.__pymoca_model, variable_list)])
-            for variable_list in variable_lists]
+            for variable_list in variable_lists
+        ]
 
         self.__dae_residual = self.__pymoca_model.dae_residual_function(*function_arguments)
 
@@ -136,18 +166,25 @@ class SimulationProblem(DataStoreAccessor):
             self.__initial_residual = ca.MX()
 
         # Construct state vector
-        self.__sym_list = self.__mx['states'] + self.__mx['algebraics'] + self.__mx['derivatives'] + \
-            self.__mx['time'] + self.__mx['constant_inputs'] + self.__mx['parameters']
+        self.__sym_list = (
+            self.__mx["states"]
+            + self.__mx["algebraics"]
+            + self.__mx["derivatives"]
+            + self.__mx["time"]
+            + self.__mx["constant_inputs"]
+            + self.__mx["parameters"]
+        )
         self.__state_vector = np.full(len(self.__sym_list), np.nan)
 
         # A very handy index
-        self.__states_end_index = len(self.__mx['states']) + \
-            len(self.__mx['algebraics']) + len(self.__mx['derivatives'])
+        self.__states_end_index = (
+            len(self.__mx["states"]) + len(self.__mx["algebraics"]) + len(self.__mx["derivatives"])
+        )
 
         # NOTE: Backwards compatibility allowing set_var() for parameters. These
         # variables check that this is only done before calling initialize().
         self.__parameters = AliasDict(self.alias_relation)
-        self.__parameters.update({v.name(): v for v in self.__mx['parameters']})
+        self.__parameters.update({v.name(): v for v in self.__mx["parameters"]})
         self.__parameters_set_var = True
 
         # Construct a dict to look up symbols by name (or iterate over)
@@ -159,20 +196,24 @@ class SimulationProblem(DataStoreAccessor):
         self.__indices = {}
         for i, k in enumerate(self.__sym_dict.keys()):
             for alias in self.alias_relation.aliases(k):
-                if alias.startswith('-'):
+                if alias.startswith("-"):
                     self.__indices[alias[1:]] = (i, -1.0)
                 else:
                     self.__indices[alias] = (i, 1.0)
 
         # Assemble some symbolics, including those needed for a backwards Euler derivative approximation
-        X = ca.vertcat(*self.__sym_list[:self.__states_end_index])
-        X_prev = ca.vertcat(*[ca.MX.sym(sym.name() + '_prev') for sym in self.__sym_list[:self.__states_end_index]])
+        X = ca.vertcat(*self.__sym_list[: self.__states_end_index])
+        X_prev = ca.vertcat(
+            *[ca.MX.sym(sym.name() + "_prev") for sym in self.__sym_list[: self.__states_end_index]]
+        )
         dt = ca.MX.sym("delta_t")
 
         # Make a list of derivative approximations using backwards Euler formulation
         derivative_approximation_residuals = []
-        for index, derivative_state in enumerate(self.__mx['derivatives']):
-            derivative_approximation_residuals.append(derivative_state - (X[index] - X_prev[index]) / dt)
+        for index, derivative_state in enumerate(self.__mx["derivatives"]):
+            derivative_approximation_residuals.append(
+                derivative_state - (X[index] - X_prev[index]) / dt
+            )
 
         if self.__pymoca_model.delay_states and not self._force_zero_delay:
             raise NotImplementedError("Delayed states are not supported")
@@ -180,13 +221,16 @@ class SimulationProblem(DataStoreAccessor):
         # Delayed feedback (assuming zero delay)
         # TODO: implement delayed feedback support for delay != 0
         delayed_feedback_equations = []
-        for delay_state, delay_argument in zip(self.__pymoca_model.delay_states,
-                                               self.__pymoca_model.delay_arguments):
+        for delay_state, delay_argument in zip(
+            self.__pymoca_model.delay_states, self.__pymoca_model.delay_arguments
+        ):
             logger.warning(f"Assuming zero delay for delay state '{delay_state}'")
             delayed_feedback_equations.append(delay_argument.expr - self.__sym_dict[delay_state])
 
         # Append residuals for derivative approximations
-        dae_residual = ca.vertcat(self.__dae_residual, *derivative_approximation_residuals, *delayed_feedback_equations)
+        dae_residual = ca.vertcat(
+            self.__dae_residual, *derivative_approximation_residuals, *delayed_feedback_equations
+        )
 
         # TODO: implement lookup_tables
 
@@ -207,23 +251,32 @@ class SimulationProblem(DataStoreAccessor):
                 scaled_symbols.append(X_prev[index] * nominal)
 
         # Substitute unscaled terms for scaled terms
-        dae_residual = ca.substitute(dae_residual, ca.vertcat(*unscaled_symbols), ca.vertcat(*scaled_symbols))
+        dae_residual = ca.substitute(
+            dae_residual, ca.vertcat(*unscaled_symbols), ca.vertcat(*scaled_symbols)
+        )
 
         if logger.getEffectiveLevel() == logging.DEBUG:
-            logger.debug('SimulationProblem: DAE Residual is ' + str(dae_residual))
+            logger.debug("SimulationProblem: DAE Residual is " + str(dae_residual))
 
         if X.size1() != dae_residual.size1():
-            logger.error('Formulation Error: Number of states ({}) does not equal number of equations ({})'.format(
-                X.size1(), dae_residual.size1()))
+            logger.error(
+                "Formulation Error: Number of states ({}) does not equal number of equations ({})".format(
+                    X.size1(), dae_residual.size1()
+                )
+            )
 
         # Construct function parameters
-        parameters = ca.vertcat(X_prev, *self.__sym_list[self.__states_end_index:])
+        parameters = ca.vertcat(X_prev, *self.__sym_list[self.__states_end_index :])
 
         # Construct a function res_vals that returns the numerical residuals of a numerical state
         self.__res_vals = ca.Function("res_vals", [X, dt, parameters], [dae_residual])
 
         # Use rootfinder() to make a function that takes a step forward in time by trying to zero res_vals()
-        options = {'nlpsol': 'ipopt', 'nlpsol_options': self.solver_options(), 'error_on_fail': False}
+        options = {
+            "nlpsol": "ipopt",
+            "nlpsol_options": self.solver_options(),
+            "error_on_fail": False,
+        }
         self.__do_step = ca.rootfinder("next_state", "nlpsol", self.__res_vals, options)
 
         # Call parent class for default behaviour.
@@ -261,7 +314,9 @@ class SimulationProblem(DataStoreAccessor):
             else:
                 # If val is finite, we set it
                 if np.isfinite(val):
-                    logger.debug(f'SimulationProblem: Setting parameter {var.symbol.name()} = {val}')
+                    logger.debug(
+                        f"SimulationProblem: Setting parameter {var.symbol.name()} = {val}"
+                    )
                     self.set_var(var.symbol.name(), val)
 
         # Nominals can be symbolic, written in terms of parameters. After all
@@ -269,9 +324,11 @@ class SimulationProblem(DataStoreAccessor):
         # nominals.
         nominal_vars = list(self.__nominals.keys())
         symbolic_nominals = ca.vertcat(*[self.get_variable_nominal(v) for v in nominal_vars])
-        nominal_evaluator = ca.Function('nominal_evaluator', self.__mx['parameters'], [symbolic_nominals])
+        nominal_evaluator = ca.Function(
+            "nominal_evaluator", self.__mx["parameters"], [symbolic_nominals]
+        )
 
-        n_parameters = len(self.__mx['parameters'])
+        n_parameters = len(self.__mx["parameters"])
         if n_parameters > 0:
             [evaluated_nominals] = nominal_evaluator.call(self.__state_vector[-n_parameters:])
         else:
@@ -308,8 +365,11 @@ class SimulationProblem(DataStoreAccessor):
                     pass
                 else:
                     # An initial state was found- add it to the constrained residuals
-                    logger.debug('Initialize: Added {} = {} to initial equations (found matching timeseries).'.format(
-                        var_name, start_val))
+                    logger.debug(
+                        "Initialize: Added {} = {} to initial equations (found matching timeseries).".format(
+                            var_name, start_val
+                        )
+                    )
                     # Set var to be fixed
                     var.fixed = True
 
@@ -323,15 +383,21 @@ class SimulationProblem(DataStoreAccessor):
                     pass
                 else:
                     # An initial state was found- add it to the constrained residuals
-                    logger.debug('Initialize: Added {} = {} as initial guess (found matching timeseries).'.format(
-                        var_name, start_val))
+                    logger.debug(
+                        "Initialize: Added {} = {} as initial guess (found matching timeseries).".format(
+                            var_name, start_val
+                        )
+                    )
 
             # Attempt to set start_val in the state vector. Default to zero if unknown.
             try:
                 self.set_var(var_name, start_val if start_val is not None else 0.0)
             except KeyError:
-                logger.warning('Initialize: {} not found in state vector. Initial value of {} not set.'.format(
-                    var_name, start_val))
+                logger.warning(
+                    "Initialize: {} not found in state vector. Initial value of {} not set.".format(
+                        var_name, start_val
+                    )
+                )
 
             # Add a residual for the difference between the state and its starting expression
             start_expr = start_val if start_val is not None else var.start
@@ -345,17 +411,17 @@ class SimulationProblem(DataStoreAccessor):
                 minimized_residuals.append((var.symbol - start_expr) / var_nominal)
 
         # Default start var for ders is zero
-        for der_var in self.__mx['derivatives']:
+        for der_var in self.__mx["derivatives"]:
             self.set_var(der_var.name(), 0.0)
 
         # Warn for nans in state vector (verify we didn't miss anything)
         self.__warn_for_nans()
 
         # Optionally encourage a steady-state initial condition
-        if getattr(self, 'encourage_steady_state_initial_conditions', False):
+        if getattr(self, "encourage_steady_state_initial_conditions", False):
             # add penalty for der(var) != 0.0
-            for d in self.__mx['derivatives']:
-                logger.debug(f'Added {d.name()} to the minimized residuals.')
+            for d in self.__mx["derivatives"]:
+                logger.debug(f"Added {d.name()} to the minimized residuals.")
                 minimized_residuals.append(d)
 
         # Make minimized_residuals into a single symbolic object
@@ -366,7 +432,7 @@ class SimulationProblem(DataStoreAccessor):
         equality_constraints = ca.vertcat(self.__dae_residual, self.__initial_residual)
 
         # The variables that need a mutually consistent initial condition
-        X = ca.vertcat(*self.__sym_list[:self.__states_end_index])
+        X = ca.vertcat(*self.__sym_list[: self.__states_end_index])
 
         # Make a list of unscaled symbols and a list of their scaled equivalent
         unscaled_symbols = []
@@ -389,17 +455,21 @@ class SimulationProblem(DataStoreAccessor):
         equality_constraints = ca.substitute(equality_constraints, unscaled_symbols, scaled_symbols)
         minimized_residual = ca.substitute(minimized_residual, unscaled_symbols, scaled_symbols)
 
-        logger.debug('SimulationProblem: Initial Equations are ' + str(equality_constraints))
-        logger.debug('SimulationProblem: Minimized Residuals are ' + str(minimized_residual))
+        logger.debug("SimulationProblem: Initial Equations are " + str(equality_constraints))
+        logger.debug("SimulationProblem: Minimized Residuals are " + str(minimized_residual))
 
         # State bounds can be symbolic, written in terms of parameters. After all
         # parameter values are known, we evaluate the numeric values of bounds.
-        bound_vars = self.__pymoca_model.states + self.__pymoca_model.alg_states + self.__pymoca_model.der_states
+        bound_vars = (
+            self.__pymoca_model.states
+            + self.__pymoca_model.alg_states
+            + self.__pymoca_model.der_states
+        )
         symbolic_bounds = ca.vertcat(*[ca.horzcat(v.min, v.max) for v in bound_vars])
-        bound_evaluator = ca.Function('bound_evaluator', self.__mx['parameters'], [symbolic_bounds])
+        bound_evaluator = ca.Function("bound_evaluator", self.__mx["parameters"], [symbolic_bounds])
 
         # Evaluate bounds using values of parameters
-        n_parameters = len(self.__mx['parameters'])
+        n_parameters = len(self.__mx["parameters"])
         if n_parameters > 0:
             [evaluated_bounds] = bound_evaluator.call(self.__state_vector[-n_parameters:])
         else:
@@ -416,9 +486,9 @@ class SimulationProblem(DataStoreAccessor):
         n_delay = len(self.__pymoca_model.delay_states)
         delay_bounds = np.array([-np.inf, np.inf] * n_delay).reshape((n_delay, 2))
         offset = len(self.__pymoca_model.states) + len(self.__pymoca_model.alg_states)
-        evaluated_bounds = np.vstack((evaluated_bounds[:offset, :],
-                                      delay_bounds,
-                                      evaluated_bounds[offset:, :]))
+        evaluated_bounds = np.vstack(
+            (evaluated_bounds[:offset, :], delay_bounds, evaluated_bounds[offset:, :])
+        )
 
         # Construct arrays of state bounds (used in the initialize() nlp, but not in __do_step rootfinder)
         self.__lbx = evaluated_bounds[:, 0]
@@ -432,26 +502,34 @@ class SimulationProblem(DataStoreAccessor):
         objective_function = ca.dot(minimized_residual, minimized_residual)
 
         # Construct nlp and solver to find initial state using ipopt
-        parameters = ca.vertcat(*self.__mx['time'], *self.__mx['constant_inputs'], *self.__mx['parameters'])
-        nlp = {'x': X, 'f': objective_function, 'g': equality_constraints, 'p': parameters}
-        solver = ca.nlpsol('solver', 'ipopt', nlp, self.solver_options())
+        parameters = ca.vertcat(
+            *self.__mx["time"], *self.__mx["constant_inputs"], *self.__mx["parameters"]
+        )
+        nlp = {"x": X, "f": objective_function, "g": equality_constraints, "p": parameters}
+        solver = ca.nlpsol("solver", "ipopt", nlp, self.solver_options())
 
         # Construct guess
-        guess = ca.vertcat(*np.nan_to_num(self.__state_vector[:self.__states_end_index]))
+        guess = ca.vertcat(*np.nan_to_num(self.__state_vector[: self.__states_end_index]))
 
         # Find initial state
-        initial_state = solver(x0=guess,
-                               lbx=self.__lbx, ubx=self.__ubx,
-                               lbg=lbg, ubg=ubg,
-                               p=self.__state_vector[self.__states_end_index:])
+        initial_state = solver(
+            x0=guess,
+            lbx=self.__lbx,
+            ubx=self.__ubx,
+            lbg=lbg,
+            ubg=ubg,
+            p=self.__state_vector[self.__states_end_index :],
+        )
 
         # If unsuccessful, stop.
-        return_status = solver.stats()['return_status']
-        if return_status not in {'Solve_Succeeded', 'Solved_To_Acceptable_Level'}:
+        return_status = solver.stats()["return_status"]
+        if return_status not in {"Solve_Succeeded", "Solved_To_Acceptable_Level"}:
             raise Exception(f'Initialization Failed with return status "{return_status}"')
 
         # Update state vector with initial conditions
-        self.__state_vector[:self.__states_end_index] = initial_state['x'][:self.__states_end_index].T
+        self.__state_vector[: self.__states_end_index] = initial_state["x"][
+            : self.__states_end_index
+        ].T
 
         # make a copy of the initialized initial state vector in case we want to run the model again
         self.__initialized_state_vector = copy.deepcopy(self.__state_vector)
@@ -494,7 +572,7 @@ class SimulationProblem(DataStoreAccessor):
         self.__dt = dt
 
         # Set time in state vector
-        self.set_var('time', start)
+        self.set_var("time", start)
 
     def update(self, dt):
         """
@@ -510,27 +588,29 @@ class SimulationProblem(DataStoreAccessor):
         logger.debug(f"Taking a step at {self.get_current_time()} with size {dt}")
 
         # increment time
-        self.set_var('time', self.get_current_time() + dt)
+        self.set_var("time", self.get_current_time() + dt)
 
         # take a step
-        guess = self.__state_vector[:self.__states_end_index]
+        guess = self.__state_vector[: self.__states_end_index]
         next_state = self.__do_step(guess, dt, self.__state_vector)
 
         # Check convergence of rootfinder
         rootfinder_stats = self.__do_step.stats()
 
-        if not rootfinder_stats['success']:
+        if not rootfinder_stats["success"]:
             logger.warning(
-                'Simulation has failed to converge at time {}. Solver failed with status {}'.format(
-                    self.get_current_time(), rootfinder_stats['nlpsol']['return_status']))
+                "Simulation has failed to converge at time {}. Solver failed with status {}".format(
+                    self.get_current_time(), rootfinder_stats["nlpsol"]["return_status"]
+                )
+            )
 
         if logger.getEffectiveLevel() == logging.DEBUG:
             # compute max residual
             largest_res = ca.norm_inf(self.__res_vals(next_state, self.__dt, self.__state_vector))
-            logger.debug(f'Residual maximum magnitude: {float(largest_res):.2E}')
+            logger.debug(f"Residual maximum magnitude: {float(largest_res):.2E}")
 
         # Update state vector
-        self.__state_vector[:self.__states_end_index] = next_state.toarray().ravel()
+        self.__state_vector[: self.__states_end_index] = next_state.toarray().ravel()
 
     def simulate(self):
         """
@@ -583,7 +663,7 @@ class SimulationProblem(DataStoreAccessor):
 
         :returns: The current simulation time.
         """
-        return self.get_var('time')
+        return self.get_var("time")
 
     def get_time_step(self):
         """
@@ -671,19 +751,18 @@ class SimulationProblem(DataStoreAccessor):
     def get_state_variables(self):
         return AliasDict(
             self.alias_relation,
-            {sym.name(): sym for sym in (self.__mx['states'] + self.__mx['algebraics'])})
+            {sym.name(): sym for sym in (self.__mx["states"] + self.__mx["algebraics"])},
+        )
 
     @cached
     def get_parameter_variables(self):
-        return AliasDict(
-            self.alias_relation,
-            {sym.name(): sym for sym in self.__mx['parameters']})
+        return AliasDict(self.alias_relation, {sym.name(): sym for sym in self.__mx["parameters"]})
 
     @cached
     def get_input_variables(self):
         return AliasDict(
-            self.alias_relation,
-            {sym.name(): sym for sym in self.__mx['constant_inputs']})
+            self.alias_relation, {sym.name(): sym for sym in self.__mx["constant_inputs"]}
+        )
 
     @cached
     def get_output_variables(self):
@@ -697,7 +776,7 @@ class SimulationProblem(DataStoreAccessor):
         if any(value_is_nan):
             for sym, isnan in zip(self.__sym_list, value_is_nan):
                 if isnan:
-                    logger.warning(f'Variable {sym} has no value.')
+                    logger.warning(f"Variable {sym} has no value.")
 
     def set_var(self, name, value):
         """
@@ -757,10 +836,12 @@ class SimulationProblem(DataStoreAccessor):
 
         :returns: A dictionary of CasADi :class:`root_finder` options.  See the CasADi documentation for details.
         """
-        return {'ipopt.fixed_variable_treatment': 'make_parameter',
-                'ipopt.print_level': 0,
-                'print_time': False,
-                'error_on_fail': False}
+        return {
+            "ipopt.fixed_variable_treatment": "make_parameter",
+            "ipopt.print_level": 0,
+            "print_time": False,
+            "error_on_fail": False,
+        }
 
     def get_variable_nominal(self, variable) -> Union[float, ca.MX]:
         """
@@ -842,43 +923,42 @@ class SimulationProblem(DataStoreAccessor):
         compiler_options = {}
 
         # Expand vector states to multiple scalar component states.
-        compiler_options['expand_vectors'] = True
+        compiler_options["expand_vectors"] = True
 
         # Where imported model libraries are located.
         library_folders = self.modelica_library_folders.copy()
 
-        for ep in pkg_resources.iter_entry_points(group='rtctools.libraries.modelica'):
+        for ep in pkg_resources.iter_entry_points(group="rtctools.libraries.modelica"):
             if ep.name == "library_folder":
-                library_folders.append(
-                    pkg_resources.resource_filename(ep.module_name, ep.attrs[0]))
+                library_folders.append(pkg_resources.resource_filename(ep.module_name, ep.attrs[0]))
 
-        compiler_options['library_folders'] = library_folders
+        compiler_options["library_folders"] = library_folders
 
         # Eliminate equations of the type 'var = const'.
-        compiler_options['eliminate_constant_assignments'] = True
+        compiler_options["eliminate_constant_assignments"] = True
 
         # Eliminate constant symbols from model, replacing them with the values
         # specified in the model.
-        compiler_options['replace_constant_values'] = True
+        compiler_options["replace_constant_values"] = True
 
         # Replace any constant expressions into the model.
-        compiler_options['replace_constant_expressions'] = True
+        compiler_options["replace_constant_expressions"] = True
 
         # Replace any parameter expressions into the model.
-        compiler_options['replace_parameter_expressions'] = True
+        compiler_options["replace_parameter_expressions"] = True
 
         # Eliminate variables starting with underscores.
-        compiler_options['eliminable_variable_expression'] = r'(.*[.]|^)_\w+(\[[\d,]+\])?\Z'
+        compiler_options["eliminable_variable_expression"] = r"(.*[.]|^)_\w+(\[[\d,]+\])?\Z"
 
         # Pymoca currently requires `expand_mx` to be set for
         # `eliminable_variable_expression` to work.
-        compiler_options['expand_mx'] = True
+        compiler_options["expand_mx"] = True
 
         # Automatically detect and eliminate alias variables.
-        compiler_options['detect_aliases'] = True
+        compiler_options["detect_aliases"] = True
 
         # Cache the model on disk
-        compiler_options['cache'] = True
+        compiler_options["cache"] = True
 
         # Done
         return compiler_options

@@ -7,8 +7,8 @@ from setuptools import setup, find_packages
 import versioneer
 import sys
 
-if sys.version_info < (3, 5):
-    sys.exit("Sorry, Python 3.5 or newer is required.")
+if sys.version_info < (3, 7):
+    sys.exit("Sorry, Python 3.7 or newer is required.")
 
 DOCLINES = __doc__.split("\n")
 
@@ -51,7 +51,7 @@ setup(
         'netcdf':  ["netCDF4"],
         'all': ["netCDF4"],
     },
-    python_requires='>=3.5',
+    python_requires='>=3.7',
     cmdclass = versioneer.get_cmdclass(),
     entry_points={
         'console_scripts': [

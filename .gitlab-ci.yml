@@ -39,14 +39,6 @@ build:
   script:
     - tox -vv
 
-py35:linux:
-  <<: *unittests
-  image: python:3.5-jessie
-  variables:
-    TOXENV: py35
-  tags:
-    - docker
-
 py37:linux:
   <<: *unittests
   image: python:3.7-stretch
@@ -72,12 +64,6 @@ py38:linux:
     - tags
   tags:
     - docker
-
-examples35:linux:
-  <<: *examples
-  image: python:3.5-jessie
-  variables:
-    TOXENV: examples35
 
 examples37:linux:
   <<: *examples

@@ -182,7 +182,7 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
             variable = variable.name()
             if variable not in bounds:
                 logger.warning(
-                    "OptimizationProblem: control input {} has no bounds.".format(variable))
+                    f"OptimizationProblem: control input {variable} has no bounds.")
 
     @abstractmethod
     def transcribe(self) -> Tuple[
@@ -475,7 +475,7 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
             elif isinstance(v1, np.ndarray) and isinstance(v2, Timeseries):
                 if v2.values.ndim != 2 or len(v1) != v2.values.shape[1]:
                     raise Exception(
-                        "Mismatching vector size when upcasting to Timeseries, {} vs. {}.".format(v1, v2))
+                        f"Mismatching vector size when upcasting to Timeseries, {v1} vs. {v2}.")
                 all_bounds[i] = Timeseries(v2.times, np.broadcast_to(v1, v2.values.shape))
             elif isinstance(v1, (int, float)) and isinstance(v2, np.ndarray):
                 all_bounds[i] = np.full_like(v2, v1)
@@ -774,11 +774,11 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
 
         if f_left is None:
             if (min(t) if hasattr(t, '__iter__') else t) < ts[0]:
-                raise Exception("Interpolation: Point {} left of range".format(t))
+                raise Exception(f"Interpolation: Point {t} left of range")
 
         if f_right is None:
             if (max(t) if hasattr(t, '__iter__') else t) > ts[-1]:
-                raise Exception("Interpolation: Point {} right of range".format(t))
+                raise Exception(f"Interpolation: Point {t} right of range")
 
         if mode == self.INTERPOLATION_LINEAR:
             # No need to handle f_left / f_right; NumPy already does this for us
@@ -1170,9 +1170,9 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
 
         for vi, g_inds in var_index_assignment.items():
             if len(g_inds) > 1:
-                logger.info("Variable '{}' has duplicate constraints setting its value:".format(var_names[vi]))
+                logger.info(f"Variable '{var_names[vi]}' has duplicate constraints setting its value:")
                 for g_i in g_inds:
-                    logger.info("row {}: {} = {}".format(g_i, named_g[g_i], lbg[g_i]))
+                    logger.info(f"row {g_i}: {named_g[g_i]} = {lbg[g_i]}")
 
         # Find variables for which the bounds are equal, but also an equality
         # constraint is set. This would result in a constraint `1 = 1` with
@@ -1184,4 +1184,4 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
                 logger.info("Variable '{}' has equal bounds (value = {}), but also the following equality constraints:"
                             .format(var_names[vi], lbx[vi]))
                 for g_i in var_index_assignment[vi]:
-                    logger.info("row {}: {} = {}".format(g_i, named_g[g_i], lbg[g_i]))
+                    logger.info(f"row {g_i}: {named_g[g_i]} = {lbg[g_i]}")

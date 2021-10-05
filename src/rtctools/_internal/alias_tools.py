@@ -45,7 +45,7 @@ class OrderedSet(MutableSet):
                     return curr[0]
                 curr = curr[2]
                 i += 1
-            raise IndexError('set index {} out of range with length {}'.format(index, len(self)))
+            raise IndexError(f'set index {index} out of range with length {len(self)}')
 
     def add(self, key):
         if key not in self.map:
@@ -82,8 +82,8 @@ class OrderedSet(MutableSet):
 
     def __repr__(self):
         if not self:
-            return '%s()' % (self.__class__.__name__,)
-        return '%s(%r)' % (self.__class__.__name__, list(self))
+            return f'{self.__class__.__name__}()'
+        return f'{self.__class__.__name__}({list(self)!r})'
 
     def __eq__(self, other):
         if isinstance(other, OrderedSet):

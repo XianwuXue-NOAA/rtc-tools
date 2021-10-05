@@ -262,7 +262,7 @@ class CSVLookupTableMixin(OptimizationProblem):
             ini_config = configparser.RawConfigParser()
             ini_config.read(ini_path)
             no_curvefit_options = False
-        except IOError:
+        except OSError:
             logger.info(
                 "CSVLookupTableMixin: No curvefit_options.ini file found. Using default values.")
             no_curvefit_options = True
@@ -300,7 +300,7 @@ class CSVLookupTableMixin(OptimizationProblem):
         for filename in glob.glob(os.path.join(self.__lookup_table_folder, "*.csv")):
 
             logger.debug(
-                "CSVLookupTableMixin: Reading lookup table from {}".format(filename))
+                f"CSVLookupTableMixin: Reading lookup table from {filename}")
 
             csvinput = csv.load(filename, delimiter=self.csv_delimiter)
             output = csvinput.dtype.names[0]
@@ -310,7 +310,7 @@ class CSVLookupTableMixin(OptimizationProblem):
             mono, mono2, curv = get_curvefit_options(output)
 
             logger.debug(
-                "CSVLookupTableMixin: Output is {}, inputs are {}.".format(output, inputs))
+                f"CSVLookupTableMixin: Output is {output}, inputs are {inputs}.")
 
             tck = None
             function = None
@@ -326,7 +326,7 @@ class CSVLookupTableMixin(OptimizationProblem):
                                   (os.path.getmtime(ini_path) < os.path.getmtime(tck_filename))
                 if valid_cache:
                     logger.debug(
-                        'CSVLookupTableMixin: Attempting to use cached tck values for {}'.format(output))
+                        f'CSVLookupTableMixin: Attempting to use cached tck values for {output}')
                     with open(tck_filename, 'rb') as f:
                         try:
                             tck, function = pickle.load(f)
@@ -334,7 +334,7 @@ class CSVLookupTableMixin(OptimizationProblem):
                             valid_cache = False
             if not valid_cache:
                 logger.info(
-                    'CSVLookupTableMixin: Recalculating tck values for {}'.format(output))
+                    f'CSVLookupTableMixin: Recalculating tck values for {output}')
 
             if len(csvinput.dtype.names) == 2:
                 if not valid_cache:

@@ -63,21 +63,21 @@ class PIMixin(IOMixin):
             for pi_parameter_config_basename in self.pi_parameter_config_basenames:
                 self.__parameter_config.append(pi.ParameterConfig(
                     self._input_folder, pi_parameter_config_basename))
-        except IOError:
+        except OSError:
             raise Exception(
-                "PIMixin: {}.xml not found in {}.".format(pi_parameter_config_basename, self._input_folder))
+                f"PIMixin: {pi_parameter_config_basename}.xml not found in {self._input_folder}.")
 
         try:
             self.__parameter_config_numerical = pi.ParameterConfig(
                   self._input_folder, self.pi_parameter_config_numerical_basename)
-        except IOError:
+        except OSError:
             self.__parameter_config_numerical = None
 
         try:
             self.__timeseries_import = pi.Timeseries(
                 self.__data_config, self._input_folder, self.timeseries_import_basename,
                 binary=self.pi_binary_timeseries, pi_validate_times=self.pi_validate_timeseries)
-        except IOError:
+        except OSError:
             raise Exception("PIMixin: {}.xml not found in {}.".format(
                 self.timeseries_import_basename, self._input_folder))
 

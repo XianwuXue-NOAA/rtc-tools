@@ -142,7 +142,7 @@ class TestMultipleIOMixins(TestCase):
                 expected_size = max(len(outputs[x]) for x in permut)
                 self.assertEqual(
                     problem.ensemble_size, expected_size,
-                    "class permutation = {}".format([x.__name__ for x in permut]))
+                    f"class permutation = {[x.__name__ for x in permut]}")
 
                 # Construct reference output for this permutation
                 expected_output = [None] * expected_size

@@ -45,7 +45,7 @@ class Model(
     def constant_inputs(self, ensemble_member):
         constant_inputs = super().constant_inputs(ensemble_member)
         constant_inputs["constant_input"] = Timeseries(
-            np.hstack(([self.initial_time, self.times()])),
+            np.hstack([self.initial_time, self.times()]),
             np.hstack(([1.0], np.linspace(1.0, 0.0, 21))),
         )
         return constant_inputs
@@ -292,7 +292,7 @@ class ModelPathGoals(
     def constant_inputs(self, ensemble_member):
         constant_inputs = super().constant_inputs(ensemble_member)
         constant_inputs["constant_input"] = Timeseries(
-            np.hstack(([self.initial_time, self.times()])),
+            np.hstack([self.initial_time, self.times()]),
             np.hstack(([1.0], np.linspace(1.0, 0.0, 21))),
         )
         return constant_inputs
@@ -546,7 +546,7 @@ class ModelEnsemble(Model):
     def constant_inputs(self, ensemble_member):
         constant_inputs = super().constant_inputs(ensemble_member)
         constant_inputs["constant_input"] = Timeseries(
-            np.hstack(([self.initial_time, self.times()])),
+            np.hstack([self.initial_time, self.times()]),
             np.hstack(([1.0], np.linspace(1.0, 0.0, 21))),
         )
         if ensemble_member == 0:
@@ -617,7 +617,7 @@ class ModelPathGoalsSmoothing(
     def constant_inputs(self, ensemble_member):
         constant_inputs = super().constant_inputs(ensemble_member)
         constant_inputs["constant_input"] = Timeseries(
-            np.hstack(([self.initial_time, self.times()])),
+            np.hstack([self.initial_time, self.times()]),
             np.hstack(([1.0], np.linspace(1.0, 0.0, 21))),
         )
         return constant_inputs
@@ -697,7 +697,7 @@ class ModelStateGoals(
     def constant_inputs(self, ensemble_member):
         constant_inputs = super().constant_inputs(ensemble_member)
         constant_inputs["constant_input"] = Timeseries(
-            np.hstack(([self.initial_time, self.times()])),
+            np.hstack([self.initial_time, self.times()]),
             np.hstack(([1.0], np.linspace(1.0, 0.0, 21))),
         )
         return constant_inputs

@@ -47,7 +47,7 @@ class SimulationProblem(DataStoreAccessor):
         assert('model_folder' in kwargs)
 
         # Log pymoca version
-        logger.debug("Using pymoca {}.".format(pymoca.__version__))
+        logger.debug(f"Using pymoca {pymoca.__version__}.")
 
         # Transfer model from the Modelica .mo file to CasADi using pymoca
         if 'model_name' in kwargs:
@@ -117,7 +117,7 @@ class SimulationProblem(DataStoreAccessor):
                 continue
             else:
                 if ca.MX(v.nominal).size1() != 1:
-                    logger.error('Vector Nominals not supported yet. ({})'.format(sym_name))
+                    logger.error(f'Vector Nominals not supported yet. ({sym_name})')
                 self.__nominals[sym_name] = ca.fabs(v.nominal)
                 if logger.getEffectiveLevel() == logging.DEBUG:
                     logger.debug("SimulationProblem: Setting nominal value for variable {} to {}".format(
@@ -151,7 +151,7 @@ class SimulationProblem(DataStoreAccessor):
         self.__parameters_set_var = True
 
         # Construct a dict to look up symbols by name (or iterate over)
-        self.__sym_dict = OrderedDict(((sym.name(), sym) for sym in self.__sym_list))
+        self.__sym_dict = OrderedDict((sym.name(), sym) for sym in self.__sym_list)
 
         # Generate a dictionary that we can use to lookup the index in the state vector.
         # To avoid repeated and relatively expensive `canonical_signed` calls, we
@@ -182,7 +182,7 @@ class SimulationProblem(DataStoreAccessor):
         delayed_feedback_equations = []
         for delay_state, delay_argument in zip(self.__pymoca_model.delay_states,
                                                self.__pymoca_model.delay_arguments):
-            logger.warning("Assuming zero delay for delay state '{}'".format(delay_state))
+            logger.warning(f"Assuming zero delay for delay state '{delay_state}'")
             delayed_feedback_equations.append(delay_argument.expr - self.__sym_dict[delay_state])
 
         # Append residuals for derivative approximations
@@ -261,7 +261,7 @@ class SimulationProblem(DataStoreAccessor):
             else:
                 # If val is finite, we set it
                 if np.isfinite(val):
-                    logger.debug('SimulationProblem: Setting parameter {} = {}'.format(var.symbol.name(), val))
+                    logger.debug(f'SimulationProblem: Setting parameter {var.symbol.name()} = {val}')
                     self.set_var(var.symbol.name(), val)
 
         # Nominals can be symbolic, written in terms of parameters. After all
@@ -355,7 +355,7 @@ class SimulationProblem(DataStoreAccessor):
         if getattr(self, 'encourage_steady_state_initial_conditions', False):
             # add penalty for der(var) != 0.0
             for d in self.__mx['derivatives']:
-                logger.debug('Added {} to the minimized residuals.'.format(d.name()))
+                logger.debug(f'Added {d.name()} to the minimized residuals.')
                 minimized_residuals.append(d)
 
         # Make minimized_residuals into a single symbolic object
@@ -448,7 +448,7 @@ class SimulationProblem(DataStoreAccessor):
         # If unsuccessful, stop.
         return_status = solver.stats()['return_status']
         if return_status not in {'Solve_Succeeded', 'Solved_To_Acceptable_Level'}:
-            raise Exception('Initialization Failed with return status "{}"'.format(return_status))
+            raise Exception(f'Initialization Failed with return status "{return_status}"')
 
         # Update state vector with initial conditions
         self.__state_vector[:self.__states_end_index] = initial_state['x'][:self.__states_end_index].T
@@ -507,7 +507,7 @@ class SimulationProblem(DataStoreAccessor):
         if dt < 0:
             dt = self.__dt
 
-        logger.debug("Taking a step at {} with size {}".format(self.get_current_time(), dt))
+        logger.debug(f"Taking a step at {self.get_current_time()} with size {dt}")
 
         # increment time
         self.set_var('time', self.get_current_time() + dt)
@@ -527,7 +527,7 @@ class SimulationProblem(DataStoreAccessor):
         if logger.getEffectiveLevel() == logging.DEBUG:
             # compute max residual
             largest_res = ca.norm_inf(self.__res_vals(next_state, self.__dt, self.__state_vector))
-            logger.debug('Residual maximum magnitude: {:.2E}'.format(float(largest_res)))
+            logger.debug(f'Residual maximum magnitude: {float(largest_res):.2E}')
 
         # Update state vector
         self.__state_vector[:self.__states_end_index] = next_state.toarray().ravel()
@@ -697,7 +697,7 @@ class SimulationProblem(DataStoreAccessor):
         if any(value_is_nan):
             for sym, isnan in zip(self.__sym_list, value_is_nan):
                 if isnan:
-                    logger.warning('Variable {} has no value.'.format(sym))
+                    logger.warning(f'Variable {sym} has no value.')
 
     def set_var(self, name, value):
         """
@@ -799,7 +799,7 @@ class SimulationProblem(DataStoreAccessor):
                 pass
             else:
                 if logger.getEffectiveLevel() == logging.DEBUG:
-                    logger.debug("Read intial state for {}".format(variable))
+                    logger.debug(f"Read intial state for {variable}")
 
         return initial_state_dict
 

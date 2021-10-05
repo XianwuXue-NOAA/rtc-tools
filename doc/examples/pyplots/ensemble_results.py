@@ -60,14 +60,14 @@ for idx, forecast in enumerate(forecast_names):
     axarr[1].plot(
         times,
         results["q_in"],
-        label="{}:Inflow".format(forecast),
+        label=f"{forecast}:Inflow",
         linewidth=2,
         color=get_cmap(cmaps[idx])(shades[0]),
     )
     axarr[1].plot(
         times,
         results["q_release"],
-        label="{}:Release".format(forecast),
+        label=f"{forecast}:Release",
         linewidth=2,
         color=get_cmap(cmaps[idx])(shades[1]),
     )

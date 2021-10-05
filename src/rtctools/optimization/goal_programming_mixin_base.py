@@ -255,7 +255,7 @@ class Goal(metaclass=ABCMeta):
         # This must be deterministic.  See RTCTOOLS-485.
         if not hasattr(Goal, '_function_key_counter'):
             Goal._function_key_counter = 0
-        self.function_key = '{}_{}'.format(self.__class__.__name__, Goal._function_key_counter)
+        self.function_key = f'{self.__class__.__name__}_{Goal._function_key_counter}'
         Goal._function_key_counter += 1
 
         return self.function_key
@@ -318,12 +318,12 @@ class StateGoal(Goal, metaclass=ABCMeta):
             try:
                 self.function_range = optimization_problem.bounds()[self.state]
             except KeyError:
-                raise Exception('State {} has no bounds or does not exist in the model.'.format(self.state))
+                raise Exception(f'State {self.state} has no bounds or does not exist in the model.')
 
             if self.function_range[0] is None:
-                raise Exception('Please provide a lower bound for state {}.'.format(self.state))
+                raise Exception(f'Please provide a lower bound for state {self.state}.')
             if self.function_range[1] is None:
-                raise Exception('Please provide an upper bound for state {}.'.format(self.state))
+                raise Exception(f'Please provide an upper bound for state {self.state}.')
 
         # Extract state nominal from model
         self.function_nominal = optimization_problem.variable_nominal(self.state)
@@ -534,7 +534,7 @@ class _GoalProgrammingMixinBase(OptimizationProblem, metaclass=ABCMeta):
             assert isinstance(M, (float, int, np.ndarray))
 
             if np.any(goal.function_nominal <= 0):
-                raise Exception("Nonpositive nominal value specified for goal {}".format(goal))
+                raise Exception(f"Nonpositive nominal value specified for goal {goal}")
 
             if goal.critical and not goal.has_target_bounds:
                 raise Exception("Minimization goals cannot be critical")
@@ -545,40 +545,40 @@ class _GoalProgrammingMixinBase(OptimizationProblem, metaclass=ABCMeta):
                 pass
             elif goal.has_target_bounds:
                 if not np.all(np.isfinite(m)) or not np.all(np.isfinite(M)):
-                    raise Exception("No function range specified for goal {}".format(goal))
+                    raise Exception(f"No function range specified for goal {goal}")
 
                 if np.any(m >= M):
-                    raise Exception("Invalid function range for goal {}".format(goal))
+                    raise Exception(f"Invalid function range for goal {goal}")
 
                 if goal.weight <= 0:
-                    raise Exception("Goal weight should be positive for goal {}".format(goal))
+                    raise Exception(f"Goal weight should be positive for goal {goal}")
             else:
                 if goal.function_range != (np.nan, np.nan):
-                    raise Exception("Specifying function range not allowed for goal {}".format(goal))
+                    raise Exception(f"Specifying function range not allowed for goal {goal}")
 
             if not is_path_goal:
                 if isinstance(goal.target_min, Timeseries):
-                    raise Exception("Target min cannot be a Timeseries for goal {}".format(goal))
+                    raise Exception(f"Target min cannot be a Timeseries for goal {goal}")
                 if isinstance(goal.target_max, Timeseries):
-                    raise Exception("Target max cannot be a Timeseries for goal {}".format(goal))
+                    raise Exception(f"Target max cannot be a Timeseries for goal {goal}")
 
             try:
                 int(goal.priority)
             except ValueError:
-                raise Exception("Priority of not int or castable to int for goal {}".format(goal))
+                raise Exception(f"Priority of not int or castable to int for goal {goal}")
 
             if options['keep_soft_constraints']:
                 if goal.relaxation != 0.0:
-                    raise Exception("Relaxation not allowed with `keep_soft_constraints` for goal {}".format(goal))
+                    raise Exception(f"Relaxation not allowed with `keep_soft_constraints` for goal {goal}")
                 if goal.violation_timeseries_id is not None:
                     raise Exception(
-                        "Violation timeseries id not allowed with `keep_soft_constraints` for goal {}".format(goal))
+                        f"Violation timeseries id not allowed with `keep_soft_constraints` for goal {goal}")
             else:
                 if goal.size > 1:
-                    raise Exception("Option `keep_soft_constraints` needs to be set for vector goal {}".format(goal))
+                    raise Exception(f"Option `keep_soft_constraints` needs to be set for vector goal {goal}")
 
             if goal.critical and goal.size > 1:
-                raise Exception("Vector goal cannot be critical for goal {}".format(goal))
+                raise Exception(f"Vector goal cannot be critical for goal {goal}")
 
         if is_path_goal:
             target_shape = len(self.times())
@@ -629,7 +629,7 @@ class _GoalProgrammingMixinBase(OptimizationProblem, metaclass=ABCMeta):
                     np.isnan(goal_m), np.isnan(goal_M))))
 
                 if np.any(goal_m[indices] > goal_M[indices]):
-                    raise Exception("Target minimum exceeds target maximum for goal {}".format(goal))
+                    raise Exception(f"Target minimum exceeds target maximum for goal {goal}")
 
             if goal.has_target_min and not goal.critical:
                 indices = np.where(np.isfinite(goal_m))
@@ -653,7 +653,7 @@ class _GoalProgrammingMixinBase(OptimizationProblem, metaclass=ABCMeta):
                         .format(goal))
 
             if goal.relaxation < 0.0:
-                raise Exception('Relaxation of goal {} should be a nonnegative value'.format(goal))
+                raise Exception(f'Relaxation of goal {goal} should be a nonnegative value')
 
     def _gp_goal_constraints(self, goals, sym_index, options, is_path_goal):
         """

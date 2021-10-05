@@ -115,7 +115,7 @@ class TestInputDataset_requirements(TestCase):
         frame = inspect.currentframe()
         func_name = inspect.getframeinfo(frame).function
         for file_key in file_associations[func_name]:
-            logging.debug("testing file '{}' in '{}'".format(filepaths[file_key], func_name))
+            logging.debug(f"testing file '{filepaths[file_key]}' in '{func_name}'")
             for requirement_level in self._dimensions.keys():
                 self._subtest_inputfile(file_key, requirement_level)
 
@@ -180,7 +180,7 @@ class TestImportDataset(TestCase):
         frame = inspect.currentframe()
         func_name = inspect.getframeinfo(frame).function
         for file_key in file_associations[func_name]:
-            logging.debug("testing file '{}' in '{}'".format(filepaths[file_key], func_name))
+            logging.debug(f"testing file '{filepaths[file_key]}' in '{func_name}'")
             self._subtest_get_ensemble_size(file_key)
 
     def test_read_times(self):
@@ -194,7 +194,7 @@ class TestImportDataset(TestCase):
         frame = inspect.currentframe()
         func_name = inspect.getframeinfo(frame).function
         for file_key in file_associations[func_name]:
-            logging.debug("testing file '{}' in '{}'".format(filepaths[file_key], func_name))
+            logging.debug(f"testing file '{filepaths[file_key]}' in '{func_name}'")
             self._subtest_read_times(file_key)
 
     def test_find_timeseries_variables(self):
@@ -207,7 +207,7 @@ class TestImportDataset(TestCase):
         frame = inspect.currentframe()
         func_name = inspect.getframeinfo(frame).function
         for file_key in file_associations[func_name]:
-            logging.debug("testing file '{}' in '{}'".format(filepaths[file_key], func_name))
+            logging.debug(f"testing file '{filepaths[file_key]}' in '{func_name}'")
             self._subtest_find_timeseries_variables(file_key)
 
     def test_stations(self):
@@ -226,7 +226,7 @@ class TestImportDataset(TestCase):
         frame = inspect.currentframe()
         func_name = inspect.getframeinfo(frame).function
         for file_key in file_associations[func_name]:
-            logging.debug("testing file '{}' in '{}'".format(filepaths[file_key], func_name))
+            logging.debug(f"testing file '{filepaths[file_key]}' in '{func_name}'")
             self._subtest_stations(file_key)
 
     def test_read_timeseries_values(self):
@@ -248,7 +248,7 @@ class TestImportDataset(TestCase):
         frame = inspect.currentframe()
         func_name = inspect.getframeinfo(frame).function
         for file_key in file_associations[func_name]:
-            logging.debug("testing file '{}' in '{}'".format(filepaths[file_key], func_name))
+            logging.debug(f"testing file '{filepaths[file_key]}' in '{func_name}'")
             self._subtest_read_timeseries_values(file_key)
 
     # subtests # TestImportDataset #
@@ -320,7 +320,7 @@ class TestExportDataset(TestCase):
     def check_attributes(self, _variable, _attributes, _attribute_values):
         for (_attribute, _attribute_value) in zip(_attributes, _attribute_values):
             self.assertIn(_attribute, self.dataset.variables[_variable].ncattrs(),
-                          "Variable '{}' is missing attribute '{}'.".format(_variable, _attribute))
+                          f"Variable '{_variable}' is missing attribute '{_attribute}'.")
             self.assertEqual(getattr(self.dataset.variables[_variable], _attribute),
                              _attribute_value, '''Attribute '{}'
  of variable '{}' does not match its expected value.'''.format(_attribute, _variable))
@@ -389,7 +389,7 @@ The dimensions of variable '{}' are not as expected.'''.format(_variable))
  but should be available to be able to identify the stations.'''.format(_variable))
         for _attribute in ('long_name', 'cf_role'):
             self.assertIn(_attribute, self.dataset.variables['station_id'].ncattrs(),
-                          "Variable 'station id' is missing attribute '{}'.".format(_attribute))
+                          f"Variable 'station id' is missing attribute '{_attribute}'.")
 
         _variable = 'station_id'
         _attributes = ('long_name', 'cf_role')
@@ -458,7 +458,7 @@ The dimensions of variable '{}' are not as expected.'''.format(_variable))
         self.dataset = get_exported_dataset()
 
         for _variable in unique_parameter_ids:
-            self.assertIn(_variable, self.dataset.variables, "Variable {} is not created.".format(_variable))
+            self.assertIn(_variable, self.dataset.variables, f"Variable {_variable} is not created.")
         self.check_associated_dimensions(unique_parameter_ids, [['time', 'station'], ]*7)
 
         # TODO: check fill_value
@@ -485,7 +485,7 @@ The dimensions of variable '{}' are not as expected.'''.format(_variable))
         self.dataset = get_exported_dataset()
 
         for _variable in unique_parameter_ids:
-            self.assertIn(_variable, self.dataset.variables, "Variable {} is not created.".format(_variable))
+            self.assertIn(_variable, self.dataset.variables, f"Variable {_variable} is not created.")
         self.check_associated_dimensions(unique_parameter_ids, [['time', 'station', 'realization'], ]*7)
 
         # TODO: check fill_value
@@ -509,7 +509,7 @@ The dimensions of variable '{}' are not as expected.'''.format(_variable))
         frame = inspect.currentframe()
         func_name = inspect.getframeinfo(frame).function
         for file_key in file_associations[func_name]:
-            logging.debug("testing file '{}' in '{}'".format(filepaths[file_key], func_name))
+            logging.debug(f"testing file '{filepaths[file_key]}' in '{func_name}'")
             self._subtest_write_output_values(file_key)
 
     def _subtest_write_output_values(self, file_key):

@@ -94,9 +94,9 @@ class DataConfig:
                             self.__model_parameter_ids[internal_id] = self.__pi_model_parameter_id(pi_parameter, 'fews')
                             self.__parameter_map[external_id] = internal_id
 
-        except IOError:
+        except OSError:
             logger.error(
-                'No rtcDataConfig.xml file was found in "{}".'.format(folder))
+                f'No rtcDataConfig.xml file was found in "{folder}".')
             raise
 
     def __pi_timeseries_id(self, el, namespace):

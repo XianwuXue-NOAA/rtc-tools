@@ -39,7 +39,7 @@ class ModelicaMixin(OptimizationProblem):
         assert('model_folder' in kwargs)
 
         # Log pymoca version
-        logger.debug("Using pymoca {}.".format(pymoca.__version__))
+        logger.debug(f"Using pymoca {pymoca.__version__}.")
 
         # Transfer model from the Modelica .mo file to CasADi using pymoca
         if 'model_name' in kwargs:
@@ -247,14 +247,14 @@ class ModelicaMixin(OptimizationProblem):
                     if isinstance(start, ca.MX) and not start.is_constant():
                         [start] = substitute_in_external([start], self.__mx['parameters'], parameter_values)
                         if not start.is_constant() or np.isnan(float(start)):
-                            raise Exception('ModelicaMixin: Could not resolve initial value for {}'.format(sym_name))
+                            raise Exception(f'ModelicaMixin: Could not resolve initial value for {sym_name}')
 
                     start = v.python_type(start)
 
                 history[sym_name] = Timeseries(initial_time, start)
 
                 if logger.getEffectiveLevel() == logging.DEBUG:
-                    logger.debug("ModelicaMixin: Initial state variable {} = {}".format(sym_name, start))
+                    logger.debug(f"ModelicaMixin: Initial state variable {sym_name} = {start}")
 
         return history
 
@@ -288,14 +288,14 @@ class ModelicaMixin(OptimizationProblem):
             if isinstance(m_, ca.MX) and not m_.is_constant():
                 [m_] = substitute_in_external([m_], self.__mx['parameters'], parameter_values)
                 if not m_.is_constant() or np.isnan(float(m_)):
-                    raise Exception('Could not resolve lower bound for variable {}'.format(sym_name))
+                    raise Exception(f'Could not resolve lower bound for variable {sym_name}')
             m_ = float(m_)
 
             M_ = v.max
             if isinstance(M_, ca.MX) and not M_.is_constant():
                 [M_] = substitute_in_external([M_], self.__mx['parameters'], parameter_values)
                 if not M_.is_constant() or np.isnan(float(M_)):
-                    raise Exception('Could not resolve upper bound for variable {}'.format(sym_name))
+                    raise Exception(f'Could not resolve upper bound for variable {sym_name}')
             M_ = float(M_)
 
             # We take the intersection of all provided bounds
@@ -330,14 +330,14 @@ class ModelicaMixin(OptimizationProblem):
                 if isinstance(start, ca.MX) and not start.is_constant():
                     [start] = substitute_in_external([start], self.__mx['parameters'], parameter_values)
                     if not start.is_constant() or np.isnan(float(start)):
-                        logger.error('ModelicaMixin: Could not resolve seed value for {}'.format(sym_name))
+                        logger.error(f'ModelicaMixin: Could not resolve seed value for {sym_name}')
                         continue
 
                 times = self.times(sym_name)
                 start = var.python_type(start)
                 s = Timeseries(times, np.full_like(times, start))
                 if logger.getEffectiveLevel() == logging.DEBUG:
-                    logger.debug("ModelicaMixin: Seeded variable {} = {}".format(sym_name, start))
+                    logger.debug(f"ModelicaMixin: Seeded variable {sym_name} = {start}")
                 seed[sym_name] = s
 
         return seed
@@ -371,7 +371,7 @@ class ModelicaMixin(OptimizationProblem):
             if isinstance(nominal, ca.MX) and not nominal.is_constant():
                 [nominal] = substitute_in_external([nominal], self.__mx['parameters'], parameter_values)
                 if not nominal.is_constant() or np.isnan(float(nominal)):
-                    logger.error('ModelicaMixin: Could not resolve nominal value for {}'.format(sym_name))
+                    logger.error(f'ModelicaMixin: Could not resolve nominal value for {sym_name}')
                     continue
 
             nominal = float(nominal)
@@ -390,7 +390,7 @@ class ModelicaMixin(OptimizationProblem):
                     logger.debug("ModelicaMixin: Set nominal value for variable {} to {}".format(
                         sym_name, nominal))
             else:
-                logger.warning("ModelicaMixin: Could not set nominal value for {}".format(sym_name))
+                logger.warning(f"ModelicaMixin: Could not set nominal value for {sym_name}")
 
         return nominal_dict
 

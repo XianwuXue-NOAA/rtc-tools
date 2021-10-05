@@ -190,7 +190,7 @@ class IOMixin(OptimizationProblem, metaclass=ABCMeta):
                 pass
             else:
                 if logger.getEffectiveLevel() == logging.DEBUG:
-                    logger.debug("Read lower bound for variable {}".format(variable_name))
+                    logger.debug(f"Read lower bound for variable {variable_name}")
 
             timeseries_id = self.max_timeseries_id(variable_name)
             try:
@@ -200,7 +200,7 @@ class IOMixin(OptimizationProblem, metaclass=ABCMeta):
                 pass
             else:
                 if logger.getEffectiveLevel() == logging.DEBUG:
-                    logger.debug("Read upper bound for variable {}".format(variable_name))
+                    logger.debug(f"Read upper bound for variable {variable_name}")
 
             # Replace NaN with +/- inf, and create Timeseries objects
             if m is not None:
@@ -237,7 +237,7 @@ class IOMixin(OptimizationProblem, metaclass=ABCMeta):
                 pass
             else:
                 if logger.getEffectiveLevel() == logging.DEBUG:
-                    logger.debug("IOMixin: Read history for state {}".format(variable))
+                    logger.debug(f"IOMixin: Read history for state {variable}")
         return history
 
     @cached
@@ -256,7 +256,7 @@ class IOMixin(OptimizationProblem, metaclass=ABCMeta):
                 pass
             else:
                 if logger.getEffectiveLevel() == logging.DEBUG:
-                    logger.debug("IOMixin: Seeded free variable {}".format(variable))
+                    logger.debug(f"IOMixin: Seeded free variable {variable}")
                 # A seeding of NaN means no seeding
                 s.values[np.isnan(s.values)] = 0.0
                 seed[variable] = s
@@ -290,10 +290,10 @@ class IOMixin(OptimizationProblem, metaclass=ABCMeta):
             else:
                 inds = timeseries.times >= self.initial_time
                 if np.any(np.isnan(timeseries.values[inds])):
-                    raise Exception("IOMixin: Constant input {} contains NaN".format(variable))
+                    raise Exception(f"IOMixin: Constant input {variable} contains NaN")
                 constant_inputs[variable] = timeseries
                 if logger.getEffectiveLevel() == logging.DEBUG:
-                    logger.debug("IOMixin: Read constant input {}".format(variable))
+                    logger.debug(f"IOMixin: Read constant input {variable}")
         return constant_inputs
 
     def timeseries_at(self, variable, t, ensemble_member=0):

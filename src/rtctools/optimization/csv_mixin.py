@@ -123,7 +123,7 @@ class CSVMixin(IOMixin):
                         delimiter=self.csv_delimiter)
                     for key in _parameters.dtype.names:
                         self.io.set_parameter(key, float(_parameters[key]), ensemble_member_index)
-                except IOError:
+                except OSError:
                     pass
             logger.debug("CSVMixin: Read parameters.")
 
@@ -134,7 +134,7 @@ class CSVMixin(IOMixin):
                         delimiter=self.csv_delimiter)
                     check_initial_state_array(_initial_state)
                     _initial_state = {key: float(_initial_state[key]) for key in _initial_state.dtype.names}
-                except IOError:
+                except OSError:
                     _initial_state = {}
                 self.__initial_state.append(AliasDict(self.alias_relation, _initial_state))
             logger.debug("CSVMixin: Read initial state.")
@@ -160,7 +160,7 @@ class CSVMixin(IOMixin):
                 logger.debug("CSVMixin: Read parameters.")
                 for key in _parameters.dtype.names:
                     self.io.set_parameter(key, float(_parameters[key]))
-            except IOError:
+            except OSError:
                 pass
 
             try:
@@ -169,7 +169,7 @@ class CSVMixin(IOMixin):
                 logger.debug("CSVMixin: Read initial state.")
                 check_initial_state_array(_initial_state)
                 _initial_state = {key: float(_initial_state[key]) for key in _initial_state.dtype.names}
-            except IOError:
+            except OSError:
                 _initial_state = {}
             self.__initial_state.append(AliasDict(self.alias_relation, _initial_state))
 
@@ -216,7 +216,7 @@ class CSVMixin(IOMixin):
                 pass
             else:
                 if logger.getEffectiveLevel() == logging.DEBUG:
-                    logger.debug("CSVMixin: Read initial state {}".format(variable))
+                    logger.debug(f"CSVMixin: Read initial state {variable}")
         return history
 
     def write(self):
@@ -251,7 +251,7 @@ class CSVMixin(IOMixin):
                             values = ts.values
                     except KeyError:
                         logger.error(
-                            "Output requested for non-existent variable {}".format(output_variable))
+                            f"Output requested for non-existent variable {output_variable}")
                         continue
                 data[output_variable] = values
 

@@ -44,7 +44,7 @@ class NetCDFMixin(IOMixin):
 
         :return: The variable name used in RTC-Tools
         """
-        return '{}__{}'.format(station_id, parameter)
+        return f'{station_id}__{parameter}'
 
     def netcdf_id_from_variable(self, variable_name: str) -> Tuple[str, str]:
         """

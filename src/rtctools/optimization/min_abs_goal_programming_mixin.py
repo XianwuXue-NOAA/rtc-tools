@@ -122,16 +122,16 @@ class MinAbsGoalProgrammingMixin(_GoalProgrammingMixinBase):
 
         for goal in goals:
             if not isinstance(goal, MinAbsGoal):
-                raise Exception("Absolute goal not an instance of MinAbsGoal for goal {}".format(goal))
+                raise Exception(f"Absolute goal not an instance of MinAbsGoal for goal {goal}")
 
             if goal.function_range != (np.nan, np.nan):
-                raise Exception("Absolute goal function is only allowed for minimization for goal {}".format(goal))
+                raise Exception(f"Absolute goal function is only allowed for minimization for goal {goal}")
 
             if goal.order != 1:
-                raise Exception("Absolute goal function is only allowed for order = 1 for goal {}".format(goal))
+                raise Exception(f"Absolute goal function is only allowed for order = 1 for goal {goal}")
 
             if goal.weight <= 0:
-                raise Exception("Absolute goal function is only allowed for weight > 0 for goal {}".format(goal))
+                raise Exception(f"Absolute goal function is only allowed for weight > 0 for goal {goal}")
 
     @staticmethod
     def __convert_goals(goals, sym_index, ensemble_size, is_path_goal):
@@ -149,7 +149,7 @@ class MinAbsGoalProgrammingMixin(_GoalProgrammingMixinBase):
         for j, goal in enumerate(goals):
             assert isinstance(goal, MinAbsGoal)
 
-            abs_variable_name = "abs_{}_{}".format(sym_index, j)
+            abs_variable_name = f"abs_{sym_index}_{j}"
             if is_path_goal:
                 abs_variable_name = "path_" + abs_variable_name
 

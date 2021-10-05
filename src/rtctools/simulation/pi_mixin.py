@@ -64,7 +64,7 @@ class PIMixin(IOMixin):
                     self._input_folder, pi_parameter_config_basename))
         except FileNotFoundError:
             raise FileNotFoundError(
-                "PIMixin: {}.xml not found in {}.".format(pi_parameter_config_basename, self._input_folder))
+                f"PIMixin: {pi_parameter_config_basename}.xml not found in {self._input_folder}.")
 
         # Make a parameters dict for later access
         for parameter_config in self.__parameter_config:
@@ -115,7 +115,7 @@ class PIMixin(IOMixin):
         for variable, values in self.__timeseries_import.items(self.pi_ensemble_member):
             self.io.set_timeseries(variable, timeseries_import_times, values)
             if debug and variable in self.get_variables():
-                logger.debug('PIMixin: Timeseries {} replaced another aliased timeseries.'.format(variable))
+                logger.debug(f'PIMixin: Timeseries {variable} replaced another aliased timeseries.')
 
     def write(self):
         # Call parent class first for default behaviour.

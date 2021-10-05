@@ -357,7 +357,7 @@ class SinglePassGoalProgrammingMixin(_GoalProgrammingMixinBase):
             self.__path_objectives_per_priority.append(subproblem_path_objectives)
 
         for priority in priorities:
-            logger.info("Solving goals at priority {}".format(priority))
+            logger.info(f"Solving goals at priority {priority}")
 
             # Call the pre priority hook
             self.priority_started(priority)

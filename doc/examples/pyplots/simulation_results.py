@@ -21,7 +21,7 @@ fig, axarr = plt.subplots(n_subplots, sharex=True, figsize=(8, 3 * n_subplots))
 axarr[0].set_title("Water Volume and Discharge")
 
 # Upper subplot
-axarr[0].set_ylabel(u"Water Volume [m³]")
+axarr[0].set_ylabel("Water Volume [m³]")
 axarr[0].ticklabel_format(style="sci", axis="y", scilimits=(0, 0))
 axarr[0].plot(times, results["storage_v"], label="Storage", linewidth=2, color="b")
 axarr[0].plot(
@@ -42,7 +42,7 @@ axarr[0].plot(
 )
 
 # Lower Subplot
-axarr[1].set_ylabel(u"Flow Rate [m³/s]")
+axarr[1].set_ylabel("Flow Rate [m³/s]")
 axarr[1].plot(times, input_data["q_in"], label="Inflow", linewidth=2, color="g")
 axarr[1].plot(times, results["q_release"], label="Release", linewidth=2, color="r")
 

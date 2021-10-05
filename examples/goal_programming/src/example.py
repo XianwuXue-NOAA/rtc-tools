@@ -135,11 +135,11 @@ class Example(GoalProgrammingMixin, CSVMixin, ModelicaMixin,
         super().post()
         for priority, n_level_satisfied, q_pump_integral, q_pump_sum_changes \
                 in self.intermediate_results:
-            print('\nAfter finishing goals of priority {}:'.format(priority))
+            print(f'\nAfter finishing goals of priority {priority}:')
             print('Level goal satisfied at {} of {} time steps'.format(
                 n_level_satisfied, len(self.times())))
-            print('Integral of Q_pump = {:.2f}'.format(q_pump_integral))
-            print('Sum of squares of changes in Q_pump: {:.2f}'.format(q_pump_sum_changes))
+            print(f'Integral of Q_pump = {q_pump_integral:.2f}')
+            print(f'Sum of squares of changes in Q_pump: {q_pump_sum_changes:.2f}')
 
     # Any solver options can be set here
     def solver_options(self):

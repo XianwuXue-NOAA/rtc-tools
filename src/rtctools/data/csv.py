@@ -30,7 +30,7 @@ def _boolean_to_nan(data, fname):
 
     if convert_to_nan:
         logger.warning("Column(s) {} were detected as boolean in '{}'; converting to NaN".format(
-            ", ".join(["'{}'".format(name) for name in convert_to_nan]), fname))
+            ", ".join([f"'{name}'" for name in convert_to_nan]), fname))
         data = data.astype(dtypes_out)
         for name in convert_to_nan:
             data[name] = np.nan
@@ -82,7 +82,7 @@ def load(fname, delimiter=',', with_time=False):
             except np.lib._iotools.ConverterError:  # value does not conform to expected date-time format
                 type, value, traceback = sys.exc_info()
                 logger.error(
-                    'CSVMixin: converter of csv reader failed on {}: {}'.format(fname, value))
+                    f'CSVMixin: converter of csv reader failed on {fname}: {value}')
                 raise ValueError(
                     'CSVMixin: wrong date time or value format in {}. '
                     'Should be %Y-%m-%d %H:%M:%S and numerical values everywhere.'.format(fname))
@@ -92,7 +92,7 @@ def load(fname, delimiter=',', with_time=False):
     except ValueError:  # can occur when delimiter changes after first 1024 bytes of file, or delimiter is not , or ;
         type, value, traceback = sys.exc_info()
         logger.error(
-            'CSV: Value reader of csv reader failed on {}: {}'.format(fname, value))
+            f'CSV: Value reader of csv reader failed on {fname}: {value}')
         raise ValueError(
             "CSV: could not read all values from {}. Used delimiter '{}'. "
             "Please check delimiter (should be ',' or ';' throughout the file) "

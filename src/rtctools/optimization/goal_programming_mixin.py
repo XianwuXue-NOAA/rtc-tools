@@ -606,7 +606,7 @@ class GoalProgrammingMixin(_GoalProgrammingMixinBase):
         self.__original_constant_input_keys = {}
         self.__original_parameter_keys = {}
         for i, (priority, goals, path_goals) in enumerate(subproblems):
-            logger.info("Solving goals at priority {}".format(priority))
+            logger.info(f"Solving goals at priority {priority}")
 
             # Call the pre priority hook
             self.priority_started(priority)

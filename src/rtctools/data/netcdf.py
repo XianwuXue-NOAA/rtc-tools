@@ -153,7 +153,7 @@ class ImportDataset:
         try:
             time_calendar = self.__time_variable.calendar
         except AttributeError:
-            time_calendar = u'gregorian'
+            time_calendar = 'gregorian'
 
         return num2date(time_values, units=time_unit, calendar=time_calendar)
 
@@ -279,7 +279,7 @@ class ExportDataset:
         self.__dataset.title = 'RTC-Tools Output Data'
         self.__dataset.institution = 'Deltares'
         self.__dataset.source = 'RTC-Tools'
-        self.__dataset.history = 'Generated on {}'.format(datetime.now())
+        self.__dataset.history = f'Generated on {datetime.now()}'
         self.__dataset.Conventions = 'CF-1.6'
         self.__dataset.featureType = 'timeseries'
 
@@ -316,7 +316,7 @@ class ExportDataset:
 
         time_var = self.__dataset.createVariable('time', 'f8', ('time',))
         time_var.standard_name = 'time'
-        time_var.units = 'seconds since {}'.format(reference_date)
+        time_var.units = f'seconds since {reference_date}'
         time_var.axis = 'T'
         time_var[:] = times
 

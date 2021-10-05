@@ -72,7 +72,7 @@ class CSVMixin(IOMixin):
             for key in _parameters.dtype.names:
                 self.io.set_parameter(key, float(_parameters[key]))
             logger.debug("CSVMixin: Read parameters.")
-        except IOError:
+        except OSError:
             pass
 
         try:
@@ -83,7 +83,7 @@ class CSVMixin(IOMixin):
             check_initial_state_array(_initial_state)
             self.__initial_state = {
                 key: float(_initial_state[key]) for key in _initial_state.dtype.names}
-        except IOError:
+        except OSError:
             self.__initial_state = {}
 
         # Check for collisions in __initial_state and timeseries import (CSV)
@@ -158,7 +158,7 @@ class CSVMixin(IOMixin):
                 initial_state[canonical_var] = value * sign
 
                 if logger.getEffectiveLevel() == logging.DEBUG:
-                    logger.debug("CSVMixin: Read initial state {} = {}".format(variable, value))
+                    logger.debug(f"CSVMixin: Read initial state {variable} = {value}")
             else:
-                logger.warning("CSVMixin: In initial_state.csv, {} is not an input or state variable.".format(variable))
+                logger.warning(f"CSVMixin: In initial_state.csv, {variable} is not an input or state variable.")
         return initial_state

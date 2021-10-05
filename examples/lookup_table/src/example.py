@@ -94,10 +94,10 @@ class Example(GoalProgrammingMixin, CSVLookupTableMixin, CSVMixin,
         # Call super() class to not overwrite default behaviour
         super().post()
         for priority, n_level_satisfied, q_release_integral in self.intermediate_results:
-            print("\nAfter finishing goals of priority {}:".format(priority))
+            print(f"\nAfter finishing goals of priority {priority}:")
             print("Volume goal satisfied at {} of {} time steps".format(
                 n_level_satisfied, len(self.times())))
-            print("Integral of Q_release = {:.2f}".format(q_release_integral))
+            print(f"Integral of Q_release = {q_release_integral:.2f}")
 
     # Any solver options can be set here
     def solver_options(self):

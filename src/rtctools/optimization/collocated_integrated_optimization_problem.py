@@ -232,12 +232,12 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
         # Variables that are integrated states are not yet allowed to have size > 1
         for variable in self.integrated_states:
             if self.__variable_sizes.get(variable, 1) > 1:
-                raise NotImplementedError("Vector symbol not supported for integrated state '{}'".format(variable))
+                raise NotImplementedError(f"Vector symbol not supported for integrated state '{variable}'")
 
         # The same holds for controls
         for variable in self.controls:
             if self.__variable_sizes.get(variable, 1) > 1:
-                raise NotImplementedError("Vector symbol not supported for control state '{}'".format(variable))
+                raise NotImplementedError(f"Vector symbol not supported for control state '{variable}'")
 
         # Collocation times
         collocation_times = self.times()
@@ -265,7 +265,7 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                     parameter_values[i] = parameters[variable]
                 except KeyError:
                     raise Exception(
-                        "No value specified for parameter {}".format(variable))
+                        f"No value specified for parameter {variable}")
 
             if len(dynamic_parameters) > 0:
                 jac_1 = ca.jacobian(symbolic_parameters, ca.vertcat(*dynamic_parameters))
@@ -297,7 +297,7 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                         constant_input = raw_constant_inputs[variable]
                     except KeyError:
                         raise Exception(
-                            "No values found for constant input {}".format(variable))
+                            f"No values found for constant input {variable}")
                     else:
                         values = constant_input.values
                         interpolation_method = self.interpolation_method(variable)
@@ -414,7 +414,7 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                     self.dae_variables['derivatives'][k])
         self.__algebraic_and_control_derivatives = []
         for var in itertools.chain(self.dae_variables['algebraics'], self.dae_variables['control_inputs']):
-            sym = ca.MX.sym('der({})'.format(var.name()))
+            sym = ca.MX.sym(f'der({var.name()})')
             self.__algebraic_and_control_derivatives.append(sym)
             collocated_derivatives.append(sym)
 
@@ -601,7 +601,7 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                     lookup_table = lookup_tables[sym_name]
                 except KeyError:
                     raise Exception(
-                        "Unable to find lookup table function for {}".format(sym_name))
+                        f"Unable to find lookup table function for {sym_name}")
                 else:
                     input_syms = [self.variable(input_sym.name())
                                   for input_sym in lookup_table.inputs]
@@ -671,9 +671,9 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
             if len(integrated_variables) > 0:
                 I = ca.MX.sym('I', len(integrated_variables))  # noqa: E741
                 I0 = ca.MX.sym('I0', len(integrated_variables))
-                C0 = [ca.MX.sym('C0[{}]'.format(i))
+                C0 = [ca.MX.sym(f'C0[{i}]')
                       for i in range(len(collocated_variables))]
-                CI0 = [ca.MX.sym('CI0[{}]'.format(i))
+                CI0 = [ca.MX.sym(f'CI0[{i}]')
                        for i in range(len(self.dae_variables['constant_inputs']))]
                 dt_sym = ca.MX.sym('dt')
 
@@ -1011,7 +1011,7 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
         # path constraints as well, once CasADi has some kind of loop detection.
         for ensemble_member in range(self.ensemble_size):
             logger.info(
-                "Transcribing ensemble member {}/{}".format(ensemble_member + 1, self.ensemble_size))
+                f"Transcribing ensemble member {ensemble_member + 1}/{self.ensemble_size}")
 
             initial_state = ensemble_aggregate["initial_state"][:, ensemble_member]
             initial_derivatives = ensemble_aggregate["initial_derivatives"][:, ensemble_member]
@@ -1042,7 +1042,7 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                         idx = self.__indices_as_lists[ensemble_member][variable][0]
 
                         if val < lbx[idx] or val > ubx[idx]:
-                            logger.warning("Initial value {} for variable '{}' outside bounds.".format(val, variable))
+                            logger.warning(f"Initial value {val} for variable '{variable}' outside bounds.")
 
                         lbx[idx] = ubx[idx] = val
 
@@ -1449,7 +1449,7 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
 
             if logger.getEffectiveLevel() == logging.DEBUG:
                 logger.debug(
-                    "Adding objective {}".format(f_member))
+                    f"Adding objective {f_member}")
 
             # Constraints
             constraints = self.constraints(ensemble_member)
@@ -1585,8 +1585,7 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
         return self.__solver_input
 
     def solver_options(self):
-        options = super(CollocatedIntegratedOptimizationProblem,
-                        self).solver_options()
+        options = super().solver_options()
 
         solver = options['solver']
         assert solver in ['bonmin', 'ipopt']
@@ -1672,9 +1671,9 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
 
                 # Warn for NaNs
                 if np.any(np.isnan(lbx[inds])):
-                    logger.error('Lower bound on variable {} contains NaN'.format(variable))
+                    logger.error(f'Lower bound on variable {variable} contains NaN')
                 if np.any(np.isnan(ubx[inds])):
-                    logger.error('Upper bound on variable {} contains NaN'.format(variable))
+                    logger.error(f'Upper bound on variable {variable} contains NaN')
 
         return lbx, ubx
 
@@ -2073,7 +2072,7 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                 history_timeseries = history[canonical]
             except KeyError:
                 raise Exception(
-                    "No history found for variable {}, but a historical value was requested".format(variable))
+                    f"No history found for variable {variable}, but a historical value was requested")
             else:
                 history_times = history_timeseries.times[:-1]
                 history = history_timeseries.values[:-1]
@@ -2240,9 +2239,9 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
             if len(ensemble_members) == 1:
                 ensemble_members = ensemble_members[0]
             else:
-                ensemble_members = "[{}]".format(",".join((str(x) for x in sorted(ensemble_members))))
+                ensemble_members = "[{}]".format(",".join(str(x) for x in sorted(ensemble_members)))
 
-            var_names.append('{}__e{}__t{}'.format(var_name, ensemble_members, t_i))
+            var_names.append(f'{var_name}__e{ensemble_members}__t{t_i}')
 
         # Create named versions of the constraints
         named_x = ca.vertcat(*(ca.SX.sym(v) for v in var_names))
@@ -2280,62 +2279,62 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
             lb, ub = lbg[i], ubg[i]
 
             if np.isfinite(lb) and np.isfinite(ub) and lb == ub:
-                c_str = "{} = {}".format(c_str, lb)
+                c_str = f"{c_str} = {lb}"
             elif np.isfinite(lb) and np.isfinite(ub):
-                c_str = "{} <= {} <= {}".format(lb, c_str, ub)
+                c_str = f"{lb} <= {c_str} <= {ub}"
             elif np.isfinite(lb):
-                c_str = "{} >= {}".format(c_str, lb)
+                c_str = f"{c_str} >= {lb}"
             elif np.isfinite(ub):
-                c_str = "{} <= {}".format(c_str, ub)
+                c_str = f"{c_str} <= {ub}"
 
             return c_str
 
         # Checking for right hand side of constraints
-        logger.info("Sanity check of lbg and ubg, checking for small values (<{})".format(tol_zero))
+        logger.info(f"Sanity check of lbg and ubg, checking for small values (<{tol_zero})")
 
         lbg_abs_no_zero = np.abs(lbg.copy())
         lbg_abs_no_zero[lbg_abs_no_zero == 0.0] = +np.inf
         ind = np.argmin(lbg_abs_no_zero)
         if np.any(np.isfinite(lbg_abs_no_zero)):
-            logger.info("Smallest (absolute) lbg coefficient {}".format(lbg_abs_no_zero[ind]))
-            logger.info("E.g., {}".format(constr_to_str(ind)))
+            logger.info(f"Smallest (absolute) lbg coefficient {lbg_abs_no_zero[ind]}")
+            logger.info(f"E.g., {constr_to_str(ind)}")
         lbg_inds = (lbg_abs_no_zero < tol_zero)
         if np.any(lbg_inds):
-            logger.info("Too small of a (absolute) lbg found: {}".format(min(lbg[lbg_inds])))
+            logger.info(f"Too small of a (absolute) lbg found: {min(lbg[lbg_inds])}")
 
         ubg_abs_no_zero = np.abs(ubg.copy())
         ubg_abs_no_zero[ubg_abs_no_zero == 0.0] = +np.inf
         ind = np.argmin(ubg_abs_no_zero)
         if np.any(np.isfinite(ubg_abs_no_zero)):
-            logger.info("Smallest (absolute) ubg coefficient {}".format(ubg_abs_no_zero[ind]))
-            logger.info("E.g., {}".format(constr_to_str(ind)))
+            logger.info(f"Smallest (absolute) ubg coefficient {ubg_abs_no_zero[ind]}")
+            logger.info(f"E.g., {constr_to_str(ind)}")
         ubg_inds = (ubg_abs_no_zero < tol_zero)
         if np.any(ubg_inds):
-            logger.info("Too small of a (absolute) ubg found: {}".format(min(ubg[ubg_inds])))
+            logger.info(f"Too small of a (absolute) ubg found: {min(ubg[ubg_inds])}")
 
-        logger.info("Sanity check of lbg and ubg, checking for large values (>{})".format(tol_rhs))
+        logger.info(f"Sanity check of lbg and ubg, checking for large values (>{tol_rhs})")
 
         lbg_abs_no_inf = np.abs(lbg.copy())
         lbg_abs_no_inf[~np.isfinite(lbg_abs_no_inf)] = -np.inf
         ind = np.argmax(lbg_abs_no_inf)
         if np.any(np.isfinite(lbg_abs_no_inf)):
-            logger.info("Largest (absolute) lbg coefficient {}".format(lbg_abs_no_inf[ind]))
-            logger.info("E.g., {}".format(constr_to_str(ind)))
+            logger.info(f"Largest (absolute) lbg coefficient {lbg_abs_no_inf[ind]}")
+            logger.info(f"E.g., {constr_to_str(ind)}")
 
         lbg_inds = (lbg_abs_no_inf > tol_rhs)
         if np.any(lbg_inds):
-            raise Exception("Too large of a (absolute) lbg found: {}".format(max(lbg[lbg_inds])))
+            raise Exception(f"Too large of a (absolute) lbg found: {max(lbg[lbg_inds])}")
 
         ubg_abs_no_inf = np.abs(ubg.copy())
         ubg_abs_no_inf[~np.isfinite(ubg)] = -np.inf
         ind = np.argmax(ubg_abs_no_inf)
         if np.any(np.isfinite(ubg_abs_no_inf)):
-            logger.info("Largest (absolute) ubg coefficient {}".format(ubg_abs_no_inf[ind]))
-            logger.info("E.g., {}".format(constr_to_str(ind)))
+            logger.info(f"Largest (absolute) ubg coefficient {ubg_abs_no_inf[ind]}")
+            logger.info(f"E.g., {constr_to_str(ind)}")
 
         ubg_inds = (ubg_abs_no_inf > tol_rhs)
         if np.any(ubg_inds):
-            raise Exception("Too large of a (absolute) ubg found: {}".format(max(ubg[ubg_inds])))
+            raise Exception(f"Too large of a (absolute) ubg found: {max(ubg[ubg_inds])}")
 
         eval_point = x0 if evaluate_at_x0 else 1.0
         eval_point_str = "x0" if evaluate_at_x0 else "1.0"
@@ -2366,12 +2365,12 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
         obj_x0 = np.array(ca.Function('tmp', [in_var], [nlp['f']])(eval_point)).ravel()[0]
         obj_b = b_obj.data[0] if len(b_obj.data) > 0 else 0.0
 
-        logger.info("{} & {}, {}, {}".format(max_obj_A, min_obj_A, obj_x0, obj_b))
+        logger.info(f"{max_obj_A} & {min_obj_A}, {obj_x0}, {obj_b}")
 
         if abs(obj_b) > tol_up:
-            logger.info("Constant '{}' in objective exceeds upper tolerance of '{}'".format(obj_b, tol_up))
+            logger.info(f"Constant '{obj_b}' in objective exceeds upper tolerance of '{tol_up}'")
         if abs(obj_b) > tol_up:
-            logger.info("Objective value at x0 '{}' exceeds upper tolerance of '{}'".format(obj_x0, tol_up))
+            logger.info(f"Objective value at x0 '{obj_x0}' exceeds upper tolerance of '{tol_up}'")
 
         # Constraints
         A_constr, b_constr = out[1]
@@ -2380,7 +2379,7 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
         min_constr_A = min(np.abs(A_constr.data[A_constr.data != 0.0]), default=None)
         max_constr_b = max(np.abs(b_constr.data), default=None)
         min_constr_b = min(np.abs(b_constr.data[b_constr.data != 0.0]), default=None)
-        logger.info("{} & {}, {} & {}".format(max_constr_A, min_constr_A, max_constr_b, min_constr_b))
+        logger.info(f"{max_constr_A} & {min_constr_A}, {max_constr_b} & {min_constr_b}")
 
         maxs = [x for x in [max_constr_A, max_constr_b, max_obj_A, obj_b] if x is not None]
         mins = [x for x in [min_constr_A, min_constr_b, min_obj_A, obj_b] if x is not None]
@@ -2417,10 +2416,10 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
             exceedences = sorted(exceedences, key=lambda x: x[1] / x[2], reverse=True)
 
             for i, (r, max_r, min_r, c) in enumerate(exceedences):
-                logger.info("row {} (max: {}, min: {}, range: {}):  {}".format(r, max_r, min_r, max_r / min_r, c))
+                logger.info(f"row {r} (max: {max_r}, min: {min_r}, range: {max_r / min_r}):  {c}")
 
                 if i >= 9:
-                    logger.info("Too many warnings of same type ({} others remain).".format(len(exceedences) - 10))
+                    logger.info(f"Too many warnings of same type ({len(exceedences) - 10} others remain).")
                     break
 
         # Columns
@@ -2470,17 +2469,17 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
 
         exceedences = sorted(exceedences, key=lambda x: x[1], reverse=True)
 
-        logger.info("Max range found: {}".format(max_range_found))
+        logger.info(f"Max range found: {max_range_found}")
         if exceedences:
-            logger.info("Exceedence in range per column (max / min > {:g}):".format(tol_range))
+            logger.info(f"Exceedence in range per column (max / min > {tol_range:g}):")
 
             for i, (c, exc, min_, max_, c_min_str, c_max_str) in enumerate(exceedences):
-                logger.info("col {} ({}):  range {}, min {}, max {}".format(c, var_names[c], exc, min_, max_))
+                logger.info(f"col {c} ({var_names[c]}):  range {exc}, min {min_}, max {max_}")
                 logger.info(c_min_str)
                 logger.info(c_max_str)
 
                 if i >= 9:
-                    logger.info("Too many warnings of same type ({} others remain).".format(len(exceedences) - 10))
+                    logger.info(f"Too many warnings of same type ({len(exceedences) - 10} others remain).")
                     break
 
         logger.info("Checking for range exceedence for variables in the objective function")
@@ -2505,7 +2504,7 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
             if max_range > tol_range:
                 exceedences.append((c, max_range, obj_coeff, min_r, max_r))
 
-        logger.info("Max range found: {}".format(max_range_found))
+        logger.info(f"Max range found: {max_range_found}")
         if exceedences:
             logger.info("Exceedence in range of objective variable (range > {:g}):"
                         .format(tol_range))
@@ -2515,7 +2514,7 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                             .format(c, var_names[c], max_range, obj_coeff, min_r, max_r))
 
                 if i >= 9:
-                    logger.info("Too many warnings of same type ({} others remain).".format(len(exceedences) - 10))
+                    logger.info(f"Too many warnings of same type ({len(exceedences) - 10} others remain).")
                     break
 
     @debug_check(DebugLevel.VERYHIGH)
@@ -2560,7 +2559,7 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                             .format(tol_up))
 
             for k, v in exceedences:
-                logger.info("{}: abs max = {}".format(k, v))
+                logger.info(f"{k}: abs max = {v}")
 
         if len(inds_down) > 0:
             exceedences = []
@@ -2580,4 +2579,4 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
                 if ignore_all_zero and v == 0.0:
                     continue
 
-                logger.info("{}: abs max = {}".format(k, v))
+                logger.info(f"{k}: abs max = {v}")

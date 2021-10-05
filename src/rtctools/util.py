@@ -56,7 +56,7 @@ def run_optimization_problem(optimization_problem_class,
     logger = logging.getLogger("rtctools")
 
     # Add stream handler if it does not already exist.
-    if not logger.hasHandlers() and not any((isinstance(h, logging.StreamHandler) for h in logger.handlers)):
+    if not logger.hasHandlers() and not any(isinstance(h, logging.StreamHandler) for h in logger.handlers):
         handler = logging.StreamHandler()
         formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
         handler.setFormatter(formatter)
@@ -64,7 +64,7 @@ def run_optimization_problem(optimization_problem_class,
 
     # Add pi.DiagHandler, if using PIMixin. Only add it if it does not already exist.
     if (issubclass(optimization_problem_class, OptimizationPIMixin) and
-            not any((isinstance(h, pi.DiagHandler) for h in logger.handlers))):
+            not any(isinstance(h, pi.DiagHandler) for h in logger.handlers)):
         handler = pi.DiagHandler(output_folder)
         logger.addHandler(handler)
 
@@ -73,9 +73,9 @@ def run_optimization_problem(optimization_problem_class,
 
     # Log version info
     logger.info(
-        "Using RTC-Tools {}.".format(__version__))
+        f"Using RTC-Tools {__version__}.")
     logger.debug(
-        "Using CasADi {}.".format(casadi.__version__))
+        f"Using CasADi {casadi.__version__}.")
 
     # Check for some common mistakes in inheritance order
     suggested_order = OrderedSet([
@@ -86,7 +86,7 @@ def run_optimization_problem(optimization_problem_class,
         'ControlTreeMixin', 'CollocatedIntegratedOptimizationProblem', 'OptimizationProblem'])
     base_names = OrderedSet([b.__name__ for b in optimization_problem_class.__bases__])
     if suggested_order & base_names != base_names & suggested_order:
-        msg = 'Please inherit from base classes in the following order: {}'.format(list(base_names & suggested_order))
+        msg = f'Please inherit from base classes in the following order: {list(base_names & suggested_order)}'
         logger.error(msg)
         raise Exception(msg)
 
@@ -143,7 +143,7 @@ def run_simulation_problem(simulation_problem_class,
     if base_folder is None:
         # Check command line arguments
         if len(sys.argv) != 2:
-            raise Exception("Usage: {} BASE_FOLDER".format(sys.argv[0]))
+            raise Exception(f"Usage: {sys.argv[0]} BASE_FOLDER")
 
         base_folder = sys.argv[1]
     else:
@@ -157,7 +157,7 @@ def run_simulation_problem(simulation_problem_class,
 
     # Set up logging
     logger = logging.getLogger("rtctools")
-    if not logger.hasHandlers() and not any((isinstance(h, logging.StreamHandler) for h in logger.handlers)):
+    if not logger.hasHandlers() and not any(isinstance(h, logging.StreamHandler) for h in logger.handlers):
         handler = logging.StreamHandler()
         formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
         handler.setFormatter(formatter)
@@ -165,16 +165,16 @@ def run_simulation_problem(simulation_problem_class,
 
     # Add pi.DiagHandler, if using PIMixin. Only add it if it does not already exist.
     if (issubclass(simulation_problem_class, SimulationPIMixin) and
-            not any((isinstance(h, pi.DiagHandler) for h in logger.handlers))):
+            not any(isinstance(h, pi.DiagHandler) for h in logger.handlers)):
         handler = pi.DiagHandler(output_folder)
         logger.addHandler(handler)
 
     logger.setLevel(log_level)
 
     logger.info(
-        'Using RTC-Tools {}'.format(__version__))
+        f'Using RTC-Tools {__version__}')
     logger.debug(
-        'Using CasADi {}.'.format(casadi.__version__))
+        f'Using CasADi {casadi.__version__}.')
 
     # Run
     prob = simulation_problem_class(

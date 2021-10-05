@@ -113,7 +113,7 @@ class HomotopyMixin(OptimizationProblem):
         self.__theta = options['theta_start']
 
         while self.__theta <= 1.0:
-            logger.info("Solving with homotopy parameter theta = {}.".format(self.__theta))
+            logger.info(f"Solving with homotopy parameter theta = {self.__theta}.")
 
             success = super().optimize(preprocessing=False, postprocessing=False, log_solver_failure_as_error=False)
             if success:

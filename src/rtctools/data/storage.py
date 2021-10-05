@@ -175,7 +175,7 @@ class DataStore(metaclass=ABCMeta):
         :return a tuple (datetimes, values)
         """
         if ensemble_member >= self.__ensemble_size:
-            raise KeyError("ensemble_member {} does not exist".format(ensemble_member))
+            raise KeyError(f"ensemble_member {ensemble_member} does not exist")
         return self.__timeseries_datetimes, self.__timeseries_values[ensemble_member][variable]
 
     def get_timeseries_names(self, ensemble_member: int = 0) -> Iterable[str]:
@@ -234,7 +234,7 @@ class DataStore(metaclass=ABCMeta):
         self._datetimes_to_seconds()
 
         if ensemble_member >= self.__ensemble_size:
-            raise KeyError("ensemble_member {} does not exist".format(ensemble_member))
+            raise KeyError(f"ensemble_member {ensemble_member} does not exist")
         return self.__timeseries_times_sec, self.__timeseries_values[ensemble_member][variable]
 
     def set_parameter(self,
@@ -265,7 +265,7 @@ class DataStore(metaclass=ABCMeta):
         Looks up the parameter value in the internal data store.
         """
         if ensemble_member >= self.__ensemble_size:
-            raise KeyError("ensemble_member {} does not exist".format(ensemble_member))
+            raise KeyError(f"ensemble_member {ensemble_member} does not exist")
         return self.__parameters[ensemble_member][parameter_name]
 
     def parameters(self, ensemble_member: int = 0) -> AliasDict:
@@ -273,7 +273,7 @@ class DataStore(metaclass=ABCMeta):
         Returns an AliasDict of parameters to its values for the specified ensemble member.
         """
         if ensemble_member >= self.__ensemble_size:
-            raise KeyError("ensemble_member {} does not exist".format(ensemble_member))
+            raise KeyError(f"ensemble_member {ensemble_member} does not exist")
         return self.__parameters[ensemble_member]
 
     @staticmethod

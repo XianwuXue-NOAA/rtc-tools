@@ -51,7 +51,7 @@ class Timeseries:
         return self.__class__(self.times, -self.values)
 
     def __repr__(self) -> str:
-        return 'Timeseries({}, {})'.format(self.__times, self.__values)
+        return f'Timeseries({self.__times}, {self.__values})'
 
     def __eq__(self, other: "Timeseries") -> bool:
         return (np.array_equal(self.times, other.times) and

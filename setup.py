@@ -45,7 +45,7 @@ setup(
                         "numpy >= 1.16.0",
                         "scipy >= 1.0.0",
                         "pymoca == 0.9.*",
-                        "rtc-tools-channel-flow >= 1.1.0a1"],
+                        "rtc-tools-channel-flow >= 1.1.0"],
     tests_require = ['pytest', 'pytest-runner'],
     extras_require = {
         'netcdf':  ["netCDF4"],

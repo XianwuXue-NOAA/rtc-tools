@@ -11,7 +11,7 @@ data_path = "../../../examples/cascading_channels/output/timeseries_export.csv"
 record = np.recfromcsv(data_path, encoding=None)
 
 # Get times as datetime objects
-times = list(map(lambda x: datetime.strptime(x, "%Y-%m-%d %H:%M:%S"), record["time"]))
+times = [datetime.strptime(x, "%Y-%m-%d %H:%M:%S") for x in record["time"]]
 
 channels = "UpperChannel", "MiddleChannel", "LowerChannel"
 

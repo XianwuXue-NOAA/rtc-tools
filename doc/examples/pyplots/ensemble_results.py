@@ -17,12 +17,7 @@ for forecast in forecast_names:
     forcasts[forecast] = np.recfromcsv(data_path, encoding=None)
 
 # Get times as datetime objects
-times = list(
-    map(
-        lambda x: datetime.strptime(x, "%Y-%m-%d %H:%M:%S"),
-        forcasts[forecast_names[0]]["time"],
-    )
-)
+times = [datetime.strptime(x, "%Y-%m-%d %H:%M:%S") for x in forcasts[forecast_names[0]]["time"]]
 
 n_subplots = 2
 fig, axarr = plt.subplots(n_subplots, sharex=True, figsize=(8, 4 * n_subplots))

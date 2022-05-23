@@ -15,7 +15,7 @@ record_local_control = np.recfromcsv(
 record_optimization = np.recfromcsv(output_dir / "timeseries_export.csv", encoding=None)
 
 # Get times as datetime objects
-times = list(map(lambda x: datetime.strptime(x, "%Y-%m-%d %H:%M:%S"), record_optimization["time"]))
+times = [datetime.strptime(x, "%Y-%m-%d %H:%M:%S") for x in record_optimization["time"]]
 
 # Constants
 g = 9.81

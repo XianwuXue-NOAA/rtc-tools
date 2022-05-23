@@ -10,7 +10,7 @@ data_path = "../../../examples/lookup_table/output/timeseries_export.csv"
 results = np.recfromcsv(data_path, encoding=None)
 
 # Get times as datetime objects
-times = list(map(lambda x: datetime.strptime(x, "%Y-%m-%d %H:%M:%S"), results["time"]))
+times = [datetime.strptime(x, "%Y-%m-%d %H:%M:%S") for x in results["time"]]
 
 # Generate Plot
 n_subplots = 2

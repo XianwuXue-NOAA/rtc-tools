@@ -22,9 +22,7 @@ rtc_tools_conv_acc_upwind_record = np.recfromcsv(
 hec_ras_record = np.recfromcsv(output_dir / "HEC-RAS_export.csv", encoding=None)
 
 # Get times as datetime objects
-times = list(
-    map(lambda x: datetime.strptime(x, "%Y-%m-%d %H:%M:%S"), rtc_tools_record["time"])
-)
+times = [datetime.strptime(x, "%Y-%m-%d %H:%M:%S") for x in rtc_tools_record["time"]]
 
 # Generate Plot
 n_subplots = 2

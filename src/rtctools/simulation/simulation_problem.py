@@ -209,6 +209,10 @@ class SimulationProblem(DataStoreAccessor):
         # Substitute unscaled terms for scaled terms
         dae_residual = ca.substitute(dae_residual, ca.vertcat(*unscaled_symbols), ca.vertcat(*scaled_symbols))
 
+        modelica_parameters = ca.vertcat(*self.__mx['parameters'])
+        modelica_parameters_val = [var.value for var in self.__pymoca_model.parameters]
+        dae_residual = ca.substitute(dae_residual, modelica_parameters, modelica_parameters_val)
+
         if logger.getEffectiveLevel() == logging.DEBUG:
             logger.debug('SimulationProblem: DAE Residual is ' + str(dae_residual))
 
@@ -217,10 +221,10 @@ class SimulationProblem(DataStoreAccessor):
                 X.size1(), dae_residual.size1()))
 
         # Construct function parameters
-        parameters = ca.vertcat(X_prev, *self.__sym_list[self.__states_end_index:])
+        dynamic_parameters = ca.vertcat(X_prev, *self.__sym_list[self.__states_end_index:-len(modelica_parameters_val)])
 
         # Construct a function res_vals that returns the numerical residuals of a numerical state
-        self.__res_vals = ca.Function("res_vals", [X, dt, parameters], [dae_residual])
+        self.__res_vals = ca.Function("res_vals", [X, dt, dynamic_parameters], [dae_residual]).expand()
 
         # Use rootfinder() to make a function that takes a step forward in time by trying to zero res_vals()
         options = {'nlpsol': 'ipopt', 'nlpsol_options': self.solver_options(), 'error_on_fail': False}
@@ -431,9 +435,19 @@ class SimulationProblem(DataStoreAccessor):
         # Construct objective function from the input residual
         objective_function = ca.dot(minimized_residual, minimized_residual)
 
-        # Construct nlp and solver to find initial state using ipopt
+        # Substitute parameters
         parameters = ca.vertcat(*self.__mx['time'], *self.__mx['constant_inputs'], *self.__mx['parameters'])
-        nlp = {'x': X, 'f': objective_function, 'g': equality_constraints, 'p': parameters}
+        parameters_values = self.__state_vector[self.__states_end_index:]
+
+        objective_function = ca.substitute(objective_function, parameters, parameters_values)
+        equality_constraints = ca.substitute(equality_constraints, parameters, parameters_values)
+
+        expand_f_g = ca.Function('f', [X], [objective_function, equality_constraints]).expand()
+        X_sx = ca.SX.sym('X', X.shape)
+        objective_function_sx, equality_constraints_sx = expand_f_g(X_sx)
+
+        # Construct nlp and solver to find initial state using ipopt
+        nlp = {'x': X_sx, 'f': objective_function_sx, 'g': equality_constraints_sx}
         solver = ca.nlpsol('solver', 'ipopt', nlp, self.solver_options())
 
         # Construct guess
@@ -442,8 +456,7 @@ class SimulationProblem(DataStoreAccessor):
         # Find initial state
         initial_state = solver(x0=guess,
                                lbx=self.__lbx, ubx=self.__ubx,
-                               lbg=lbg, ubg=ubg,
-                               p=self.__state_vector[self.__states_end_index:])
+                               lbg=lbg, ubg=ubg)
 
         # If unsuccessful, stop.
         return_status = solver.stats()['return_status']
@@ -514,7 +527,7 @@ class SimulationProblem(DataStoreAccessor):
 
         # take a step
         guess = self.__state_vector[:self.__states_end_index]
-        next_state = self.__do_step(guess, dt, self.__state_vector)
+        next_state = self.__do_step(guess, dt, self.__state_vector[:-len(self.__mx['parameters'])])
 
         # Check convergence of rootfinder
         rootfinder_stats = self.__do_step.stats()

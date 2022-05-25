@@ -129,6 +129,9 @@ class SimulationProblem(DataStoreAccessor):
             ca.veccat(*[v.symbol for v in getattr(self.__pymoca_model, variable_list)])
             for variable_list in variable_lists]
 
+        if self.__pymoca_model.delay_states and not self._force_zero_delay:
+            raise NotImplementedError("Delayed states are not supported")
+
         self.__dae_residual = self.__pymoca_model.dae_residual_function(*function_arguments)
 
         self.__initial_residual = self.__pymoca_model.initial_residual_function(*function_arguments)
@@ -163,72 +166,6 @@ class SimulationProblem(DataStoreAccessor):
                     self.__indices[alias[1:]] = (i, -1.0)
                 else:
                     self.__indices[alias] = (i, 1.0)
-
-        # Assemble some symbolics, including those needed for a backwards Euler derivative approximation
-        X = ca.vertcat(*self.__sym_list[:self.__states_end_index])
-        X_prev = ca.vertcat(*[ca.MX.sym(sym.name() + '_prev') for sym in self.__sym_list[:self.__states_end_index]])
-        dt = ca.MX.sym("delta_t")
-
-        # Make a list of derivative approximations using backwards Euler formulation
-        derivative_approximation_residuals = []
-        for index, derivative_state in enumerate(self.__mx['derivatives']):
-            derivative_approximation_residuals.append(derivative_state - (X[index] - X_prev[index]) / dt)
-
-        if self.__pymoca_model.delay_states and not self._force_zero_delay:
-            raise NotImplementedError("Delayed states are not supported")
-
-        # Delayed feedback (assuming zero delay)
-        # TODO: implement delayed feedback support for delay != 0
-        delayed_feedback_equations = []
-        for delay_state, delay_argument in zip(self.__pymoca_model.delay_states,
-                                               self.__pymoca_model.delay_arguments):
-            logger.warning("Assuming zero delay for delay state '{}'".format(delay_state))
-            delayed_feedback_equations.append(delay_argument.expr - self.__sym_dict[delay_state])
-
-        # Append residuals for derivative approximations
-        dae_residual = ca.vertcat(self.__dae_residual, *derivative_approximation_residuals, *delayed_feedback_equations)
-
-        # TODO: implement lookup_tables
-
-        # Make a list of unscaled symbols and a list of their scaled equivalent
-        unscaled_symbols = []
-        scaled_symbols = []
-        for sym_name, nominal in self.__nominals.items():
-            # Note that sym_name is always a canonical state
-            index, _ = self.__indices[sym_name]
-
-            # If the symbol is a state, Add the symbol to the lists
-            if index <= self.__states_end_index:
-                unscaled_symbols.append(X[index])
-                scaled_symbols.append(X[index] * nominal)
-
-                # Also scale previous states
-                unscaled_symbols.append(X_prev[index])
-                scaled_symbols.append(X_prev[index] * nominal)
-
-        # Substitute unscaled terms for scaled terms
-        dae_residual = ca.substitute(dae_residual, ca.vertcat(*unscaled_symbols), ca.vertcat(*scaled_symbols))
-
-        modelica_parameters = ca.vertcat(*self.__mx['parameters'])
-        modelica_parameters_val = [var.value for var in self.__pymoca_model.parameters]
-        dae_residual = ca.substitute(dae_residual, modelica_parameters, modelica_parameters_val)
-
-        if logger.getEffectiveLevel() == logging.DEBUG:
-            logger.debug('SimulationProblem: DAE Residual is ' + str(dae_residual))
-
-        if X.size1() != dae_residual.size1():
-            logger.error('Formulation Error: Number of states ({}) does not equal number of equations ({})'.format(
-                X.size1(), dae_residual.size1()))
-
-        # Construct function parameters
-        dynamic_parameters = ca.vertcat(X_prev, *self.__sym_list[self.__states_end_index:-len(modelica_parameters_val)])
-
-        # Construct a function res_vals that returns the numerical residuals of a numerical state
-        self.__res_vals = ca.Function("res_vals", [X, dt, dynamic_parameters], [dae_residual]).expand()
-
-        # Use rootfinder() to make a function that takes a step forward in time by trying to zero res_vals()
-        options = {'nlpsol': 'ipopt', 'nlpsol_options': self.solver_options(), 'error_on_fail': False}
-        self.__do_step = ca.rootfinder("next_state", "nlpsol", self.__res_vals, options)
 
         # Call parent class for default behaviour.
         super().__init__(**kwargs)
@@ -371,21 +308,24 @@ class SimulationProblem(DataStoreAccessor):
 
         # The variables that need a mutually consistent initial condition
         X = ca.vertcat(*self.__sym_list[:self.__states_end_index])
+        X_prev = ca.vertcat(*[ca.MX.sym(sym.name() + '_prev') for sym in self.__sym_list[:self.__states_end_index]])
 
         # Make a list of unscaled symbols and a list of their scaled equivalent
         unscaled_symbols = []
         scaled_symbols = []
         for sym_name, nominal in self.__nominals.items():
-            if nominal == 1.0:
-                # Nothing to scale
-                continue
+            # Note that sym_name is always a canonical state
+            index, _ = self.__indices[sym_name]
 
-            # Add the symbol to the lists
-            symbol = self.__sym_dict[sym_name]
-            unscaled_symbols.append(symbol)
-            scaled_symbols.append(symbol * nominal)
+            # If the symbol is a state, Add the symbol to the lists
+            if index <= self.__states_end_index:
+                unscaled_symbols.append(X[index])
+                scaled_symbols.append(X[index] * nominal)
 
-        # Make the lists symbolic
+                # Also scale previous states
+                unscaled_symbols.append(X_prev[index])
+                scaled_symbols.append(X_prev[index] * nominal)
+
         unscaled_symbols = ca.vertcat(*unscaled_symbols)
         scaled_symbols = ca.vertcat(*scaled_symbols)
 
@@ -435,12 +375,12 @@ class SimulationProblem(DataStoreAccessor):
         # Construct objective function from the input residual
         objective_function = ca.dot(minimized_residual, minimized_residual)
 
-        # Substitute parameters
-        parameters = ca.vertcat(*self.__mx['time'], *self.__mx['constant_inputs'], *self.__mx['parameters'])
-        parameters_values = self.__state_vector[self.__states_end_index:]
+        # Substitute constants and parameters
+        const_and_par = ca.vertcat(*self.__mx['time'], *self.__mx['constant_inputs'], *self.__mx['parameters'])
+        const_and_par_values = self.__state_vector[self.__states_end_index:]
 
-        objective_function = ca.substitute(objective_function, parameters, parameters_values)
-        equality_constraints = ca.substitute(equality_constraints, parameters, parameters_values)
+        objective_function = ca.substitute(objective_function, const_and_par, const_and_par_values)
+        equality_constraints = ca.substitute(equality_constraints, const_and_par, const_and_par_values)
 
         expand_f_g = ca.Function('f', [X], [objective_function, equality_constraints]).expand()
         X_sx = ca.SX.sym('X', X.shape)
@@ -479,6 +419,54 @@ class SimulationProblem(DataStoreAccessor):
         self.__parameter_names_including_aliases = set()
         for p in self.__parameters.keys():
             self.__parameter_names_including_aliases |= self.alias_relation.aliases(p)
+
+        # Construct the rootfinder
+
+        # Assemble some symbolics, including those needed for a backwards Euler derivative approximation
+        X = ca.vertcat(*self.__sym_list[:self.__states_end_index])
+        X_prev = ca.vertcat(*[ca.MX.sym(sym.name() + '_prev') for sym in self.__sym_list[:self.__states_end_index]])
+        dt = ca.MX.sym("delta_t")
+        parameters = ca.vertcat(*self.__mx['parameters'])
+        constants = ca.vertcat(X_prev, *self.__sym_list[self.__states_end_index:-n_parameters])
+
+        # Make a list of derivative approximations using backwards Euler formulation
+        derivative_approximation_residuals = []
+        for index, derivative_state in enumerate(self.__mx['derivatives']):
+            derivative_approximation_residuals.append(derivative_state - (X[index] - X_prev[index]) / dt)
+
+        # Delayed feedback (assuming zero delay)
+        # TODO: implement delayed feedback support for delay != 0
+        delayed_feedback_equations = []
+        for delay_state, delay_argument in zip(self.__pymoca_model.delay_states,
+                                               self.__pymoca_model.delay_arguments):
+            logger.warning("Assuming zero delay for delay state '{}'".format(delay_state))
+            delayed_feedback_equations.append(delay_argument.expr - self.__sym_dict[delay_state])
+
+        # Append residuals for derivative approximations
+        dae_residual = ca.vertcat(self.__dae_residual, *derivative_approximation_residuals, *delayed_feedback_equations)
+
+        # TODO: implement lookup_tables
+
+        # Substitute unscaled terms for scaled terms
+        dae_residual = ca.substitute(dae_residual, unscaled_symbols, scaled_symbols)
+
+        # Substitute the parameters
+        parameters_values = self.__state_vector[-n_parameters:]
+        dae_residual = ca.substitute(dae_residual, parameters, parameters_values)
+
+        if logger.getEffectiveLevel() == logging.DEBUG:
+            logger.debug('SimulationProblem: DAE Residual is ' + str(dae_residual))
+
+        if X.size1() != dae_residual.size1():
+            logger.error('Formulation Error: Number of states ({}) does not equal number of equations ({})'.format(
+                X.size1(), dae_residual.size1()))
+
+        # Construct a function res_vals that returns the numerical residuals of a numerical state
+        self.__res_vals = ca.Function("res_vals", [X, dt, constants], [dae_residual]).expand()
+
+        # Use rootfinder() to make a function that takes a step forward in time by trying to zero res_vals()
+        options = {'nlpsol': 'ipopt', 'nlpsol_options': self.solver_options(), 'error_on_fail': False}
+        self.__do_step = ca.rootfinder("next_state", "nlpsol", self.__res_vals, options)
 
     def pre(self):
         """

@@ -20,6 +20,33 @@ class _MeasurementGoal(Goal):
     priority = -2
 
 
+class TargetMeasurementGoal(Goal):
+    def __init__(self, optimization_problem, state, measurement_id, order=2, max_deviation=1.0):
+        self.state = state
+        self.measurement_id = measurement_id
+
+        self.function_nominal = max_deviation
+
+        self.order = order
+        self.target_min = 0
+        self.target_max = self.target_min
+
+        try:
+            bounds_state = optimization_problem.bounds()[self.state]
+            lower_bound = bounds_state[0] - bounds_state[1]
+            upper_bound = bounds_state[1] - bounds_state[0]
+            self.function_range = (lower_bound, upper_bound)
+        except KeyError:
+            raise Exception('State {} has no bounds or does not exist in the model.'.format(self.state))
+
+    def function(self, optimization_problem, ensemble_member):
+        op = optimization_problem
+        return (op.state_at(self.state, op.initial_time, ensemble_member) -
+                op.timeseries_at(self.measurement_id, op.initial_time, ensemble_member))
+
+    priority = -2
+
+
 class _SmoothingGoal(Goal):
     def __init__(self, state1, state2, max_deviation=1.0):
         self.__state1 = state1
@@ -34,6 +61,36 @@ class _SmoothingGoal(Goal):
             op.state_at(self.__state2, op.initial_time, ensemble_member))
 
     order = 2
+    priority = -1
+
+
+class TargetSmoothingGoal(Goal):
+    def __init__(self, optimization_problem, state1, state2, order=2, max_deviation=1.0):
+        self.__state1 = state1
+        self.__state2 = state2
+
+        self.function_nominal = max_deviation
+
+        self.order = order
+        self.target_min = 0
+        self.target_max = self.target_min
+
+        try:
+            bounds_state_1 = optimization_problem.bounds()[self.__state1]
+            bounds_state_2 = optimization_problem.bounds()[self.__state2]
+            lower_bound = bounds_state_1[0] - bounds_state_2[1]
+            upper_bound = bounds_state_1[1] - bounds_state_2[0]
+            self.function_range = (lower_bound, upper_bound)
+        except KeyError:
+            raise Exception(
+                f'State {self.__state1} and/or {self.__state2} have no bounds or do not exist in the model')
+
+    def function(self, optimization_problem, ensemble_member):
+        op = optimization_problem
+        return (
+            op.state_at(self.__state1, op.initial_time, ensemble_member) -
+            op.state_at(self.__state2, op.initial_time, ensemble_member))
+
     priority = -1
 
 

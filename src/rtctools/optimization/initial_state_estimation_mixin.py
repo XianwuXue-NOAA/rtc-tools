@@ -1,6 +1,9 @@
+import logging
 from typing import List, Tuple, Union
 
 from .goal_programming_mixin import Goal, GoalProgrammingMixin
+
+logger = logging.getLogger("rtctools")
 
 
 class _MeasurementGoal(Goal):
@@ -21,7 +24,7 @@ class _MeasurementGoal(Goal):
 
 
 class TargetMeasurementGoal(Goal):
-    def __init__(self, optimization_problem, state, measurement_id, order=2, max_deviation=1.0):
+    def __init__(self, optimization_problem, state, measurement_id, max_deviation=1.0, order=2):
         self.state = state
         self.measurement_id = measurement_id
 
@@ -65,7 +68,7 @@ class _SmoothingGoal(Goal):
 
 
 class TargetSmoothingGoal(Goal):
-    def __init__(self, optimization_problem, state1, state2, order=2, max_deviation=1.0):
+    def __init__(self, optimization_problem, state1, state2, max_deviation=1.0,  order=2):
         self.__state1 = state1
         self.__state2 = state2
 
@@ -115,6 +118,8 @@ class InitialStateEstimationMixin(GoalProgrammingMixin):
         vanishes at the initial time.
 
     """
+    use_targetgoals: bool = False
+    targetgoal_order = None
 
     def initial_state_measurements(self) -> List[Union[Tuple[str, str], Tuple[str, str, float]]]:
         """
@@ -137,10 +142,22 @@ class InitialStateEstimationMixin(GoalProgrammingMixin):
     def goals(self):
         g = super().goals()
 
-        for measurement in self.initial_state_measurements():
-            g.append(_MeasurementGoal(*measurement))
+        if not self.use_targetgoals:
+            for measurement in self.initial_state_measurements():
+                g.append(_MeasurementGoal(*measurement))
 
-        for smoothing_pair in self.initial_state_smoothing_pairs():
-            g.append(_SmoothingGoal(*smoothing_pair))
+            for smoothing_pair in self.initial_state_smoothing_pairs():
+                g.append(_SmoothingGoal(*smoothing_pair))
+        else:
+            if self.targetgoal_order is None:
+                message = "Class variable `targetgoal_order` has not been set!"
+                logging.error(message)
+                raise Exception(message)
+
+            for measurement in self.initial_state_measurements():
+                g.append(TargetMeasurementGoal(self, *measurement, order=self.targetgoal_order))
+
+            for smoothing_pair in self.initial_state_smoothing_pairs():
+                g.append(TargetSmoothingGoal(self, *smoothing_pair, order=self.targetgoal_order))
 
         return g

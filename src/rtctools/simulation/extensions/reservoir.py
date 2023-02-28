@@ -4,16 +4,41 @@ import numpy as np
 
 import pandas as pd
 
+r""""This module ....."""
 
 # assume csv separated by semi colon, make this generic so we can also have commas.
 def readReservoirData(
     reservoirs_csv_path,
-    volume_level_csv_paths,
+    volume_level_csv_path,
     spillwaydischarge_csv_path,
     volume_area_csv_path
 ):
+    r"""
+    This function reads the CSV files provided as input and converts the reservoir data, volume-level tables and
+    volume-area tables and optionally the spill-way-discharge table to dataFrames.
+
+    Parameters
+    ----------
+    reservoirs_csv_path :
+        Path to csv file that contains the columns Name, surcharge, fullsupply, crestheight, volume_min, volume_max,
+        q_turbine_max, q_spill_max, lowflowlocation
+
+    volume_level_csv_path :
+        Path to csv file that contains the columns ReservoirName, Storage_m3, Elevation_m
+
+    spillwaydischarge_csv_path :
+        Path to csv file that contains the columns ReservoirName, Elevation_m, Discharge_m3s
+
+    volume_area_csv_path :
+        Path to csv file that contains the columns ReservoirName, Storage_m3, Area_m2
+
+    Returns
+    -------
+    reservoirs :
+        Returns a dictionary of lookup tables for the reservoir
+    """
     res_df = pd.read_csv(reservoirs_csv_path, sep=",", index_col=0)
-    vh_data_df = pd.read_csv(volume_level_csv_paths, sep=";", index_col=0)  # should be csv_path not paths for generic
+    vh_data_df = pd.read_csv(volume_level_csv_path, sep=";", index_col=0)
     va_data_df = pd.read_csv(volume_area_csv_path, sep=";", index_col=0)
 
     # do we always need spillway discharge? make this generic
@@ -45,6 +70,18 @@ class Reservoir():
         self.properties = reservoir_properties
 
     def level_to_volume(self, levels: Union[float, np.ndarray]):
+        r'''
+        Returns the water levels in the reservoir for elevation (m) and storage (m$^3$) by one-dimensional linear interpolation for given volume and storage
+        volume-level table.
+
+        Parameters
+        ----------
+
+        Returns
+        -------
+        levels :
+            Water level [m]
+        '''
         return np.interp(levels, self.__vh_lookup['Elevation_m'], self.__vh_lookup['Storage_m3'])
 
     def volume_to_level(self, volumes: Union[float, np.ndarray]):

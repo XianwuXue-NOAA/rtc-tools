@@ -19,7 +19,7 @@ class TestCSVMixin(TestCase):
             reservoirs_csv_path=self.reservoirs_csv_path,
             volume_area_csv_path=self.volume_area_csv_path,
             spillwaydischarge_csv_path=self.spillwaydischarge_csv_path,
-            volume_level_csv_paths=self.volume_level_csv_paths)
+            volume_level_csv_path=self.volume_level_csv_paths)
 
     def test_read_reservoir_data(self):
         reservoir_data = self.get_reservoir_data()

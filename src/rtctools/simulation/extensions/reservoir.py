@@ -4,7 +4,6 @@ import numpy as np
 
 import pandas as pd
 
-r""""This module ....."""
 
 # assume csv separated by semi colon, make this generic so we can also have commas.
 def readReservoirData(
@@ -71,8 +70,8 @@ class Reservoir():
 
     def level_to_volume(self, levels: Union[float, np.ndarray]):
         r'''
-        Returns the water levels in the reservoir for elevation (m) and storage (m$^3$) by one-dimensional linear interpolation for given volume and storage
-        volume-level table.
+        Returns the water levels in the reservoir for elevation (m) and storage (m$^3$)
+        by one-dimensional linear interpolation for given volume and storage volume-level table.
 
         Parameters
         ----------

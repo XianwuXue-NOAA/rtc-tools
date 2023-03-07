@@ -7,7 +7,7 @@ from test_case import TestCase
 DATA_DIR = Path(__file__).resolve().parent / "data" / "reservoir"
 
 
-class TestCSVMixin(TestCase):
+class TestReservoir(TestCase):
     def setUp(self):
         self.reservoirs_csv_path = DATA_DIR / "reservoirs.csv"
         self.volume_level_csv_paths = DATA_DIR / "volumelevel.csv"

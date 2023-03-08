@@ -7,10 +7,10 @@ from test_case import TestCase
 DATA_DIR = Path(__file__).resolve().parent / "data" / "reservoir"
 
 
-class TestCSVMixin(TestCase):
+class TestReservoir(TestCase):
     def setUp(self):
         self.reservoirs_csv_path = DATA_DIR / "reservoirs.csv"
-        self.volume_level_csv_paths = DATA_DIR / "volumelevel.csv"
+        self.volume_level_csv_path = DATA_DIR / "volumelevel.csv"
         self.spillwaydischarge_csv_path = DATA_DIR / "spillwaydischarge.csv"
         self.volume_area_csv_path = DATA_DIR / "VolumeArea.csv"
 
@@ -19,7 +19,7 @@ class TestCSVMixin(TestCase):
             reservoirs_csv_path=self.reservoirs_csv_path,
             volume_area_csv_path=self.volume_area_csv_path,
             spillwaydischarge_csv_path=self.spillwaydischarge_csv_path,
-            volume_level_csv_paths=self.volume_level_csv_paths)
+            volume_level_csv_path=self.volume_level_csv_path)
 
     def test_read_reservoir_data(self):
         reservoir_data = self.get_reservoir_data()

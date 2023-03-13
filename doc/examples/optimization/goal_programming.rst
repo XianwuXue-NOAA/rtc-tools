@@ -286,3 +286,11 @@ the python library matplotlib:
 
 .. plot:: examples/pyplots/goal_programming_results.py
    :include-source:
+
+Observe that the red pump curve is indeed more smooth than what we have seen before. 
+You may compare this picture with the one in the previous example 
+(Mixed Integer Optimization). The observant user may conclude that although the curve 
+is indeed more smooth, the surface area under the red curve also seems to have increased 
+(i.e., in total, more water is pumped!) This is due to the extra goal that we introduced: 
+the WaterLevelRangeGoal that wasn't present in the Mixed Integer example. Experiment 
+with commenting out this goal on line 109 to see how it affects the results.

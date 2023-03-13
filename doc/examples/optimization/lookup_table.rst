@@ -92,6 +92,11 @@ goal has a lower priority.
   :pyobject: MinimizeQreleaseGoal
   :lineno-match:
 
+Note that this goal is phrased different from what we have seen before. In the :doc:`basic`
+example, we had as a goal to minimize the integral of ``Q_release``; now, we have a path goal 
+to minimize ``Q_release`` at every time step. These two formulations come down to the 
+same thing (and if you replace one by the other the result stays the same). 
+
 Optimization Problem
 ''''''''''''''''''''
 
@@ -111,8 +116,13 @@ we declare a new ``pre()`` method, call ``super().pre()`` to ensure
 that the original method runs unmodified, and add in a variable declaration to
 store our list of intermediate results.
 
-We also want to convert our water level range goal into a water volume range
-goal. We can access the spline function describing the water level-storage
+We also want to convert our water level (H) range goal into a water volume (V) range
+goal. Some values H and what value V they correspond to, for this specific storage element 
+are found in examples/lookup_table/input/lookup_tables/storage_V.csv. 
+Interpolation between these points is done by fitting a smooth curve 
+(so-called Cubic B-Splines, which are polynomials of degree 3) through the points.
+The original table needs to have at least 4 rows for this method to work. 
+We can access the resulting function describing the water level-storage
 relation using the ``lookup_table()`` method. We cache the functions for
 convenience. The ``lookup_storage_V()`` method can convert timeseries objects,
 and we save the water volume goal bounds as timeseries.

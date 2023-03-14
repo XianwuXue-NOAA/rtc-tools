@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from rtctools.simulation.extensions.reservoir_csv import readReservoirData
+from rtctools.simulation.extensions.reservoir_csv import ReadReservoirData
 
 from test_case import TestCase
 
@@ -15,7 +15,7 @@ class TestReservoir(TestCase):
         self.volume_area_csv_path = DATA_DIR / "VolumeArea.csv"
 
     def get_reservoir_data(self):
-        return readReservoirData(
+        return ReadReservoirData(
             reservoirs_csv_path=self.reservoirs_csv_path,
             volume_area_csv_path=self.volume_area_csv_path,
             spillwaydischarge_csv_path=self.spillwaydischarge_csv_path,

@@ -49,7 +49,7 @@ def ReadReservoirData(
 
     # Make dictionary with reservoir data
     reservoirs = {}
-    for index in res_df.iterrows():
+    for index, _row in res_df.iterrows():
         if spillwaydischarge:
             reservoirs[index] = Reservoir(
                 index,

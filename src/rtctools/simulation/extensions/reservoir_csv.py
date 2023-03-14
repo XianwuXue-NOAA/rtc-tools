@@ -63,8 +63,8 @@ def ReadReservoirData(
                 vh_data_df.loc[index],
                 va_data_df.loc[index],
                 res_df.loc[index])
-        # compute setpoints as volumes, using the vh_data_df if user gives setpoints in res_df. 
-        for key in ['surcharge','fullsupply','crestheight']:
+        # compute setpoints as volumes, using the vh_data_df if user gives setpoints in res_df.
+        for key in ['surcharge', 'fullsupply', 'crestheight']:
             if key in res_df.keys():
                 print(key)
                 reservoirs[index].set_Vsetpoints(key)
@@ -173,7 +173,7 @@ class Reservoir():
         '''
         levels = self.volume_to_level(volumes)
         spillwaydischarge = np.interp(levels, self.__spillwaydischargelookup['Elevation_m'],
-                                self.__spillwaydischargelookup['Discharge_m3s'])
+                                      self.__spillwaydischargelookup['Discharge_m3s'])
         return spillwaydischarge
 
     def set_Vsetpoints(self, level):

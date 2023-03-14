@@ -4,6 +4,7 @@ import numpy as np
 
 import pandas as pd
 
+
 def ReadReservoirData(
     reservoirs_csv_path,
     volume_level_csv_path,
@@ -43,13 +44,13 @@ def ReadReservoirData(
     try:
         spillwaydischarge_df = pd.read_csv(spillwaydischarge_csv_path, sep=None, index_col=0, engine='python')
         spillwaydischarge = True
-    except:
+    except BaseException:
         spillwaydischarge = False
 
     # Make dictionary with reservoir data
     reservoirs = {}
-    for index, row in res_df.iterrows():
-        if spillwaydischarge == True:
+    for index in res_df.iterrows():
+        if spillwaydischarge:
             reservoirs[index] = Reservoir(
                 index,
                 vh_data_df.loc[index],
@@ -62,7 +63,7 @@ def ReadReservoirData(
                 vh_data_df.loc[index],
                 va_data_df.loc[index],
                 res_df.loc[index])
-        # compute setpoints as volumes, using the vh_data_df if user gives setpoints in res_df,
+        # compute setpoints as volumes, using the vh_data_df if user gives setpoints in res_df. 
         for key in ['surcharge','fullsupply','crestheight']:
             if key in res_df.keys():
                 print(key)
@@ -70,10 +71,9 @@ def ReadReservoirData(
     return reservoirs
 
 
-
 class Reservoir():
 
-    def __init__(self, name, vh_data, va_data, reservoir_properties, spillwaydischargedata = None):
+    def __init__(self, name, vh_data, va_data, reservoir_properties, spillwaydischargedata=None):
         self.name = name
         self.__vh_lookup = vh_data
         self.__va_lookup = va_data
@@ -173,7 +173,7 @@ class Reservoir():
         '''
         levels = self.volume_to_level(volumes)
         spillwaydischarge = np.interp(levels, self.__spillwaydischargelookup['Elevation_m'],
-                            self.__spillwaydischargelookup['Discharge_m3s'])
+                                self.__spillwaydischargelookup['Discharge_m3s'])
         return spillwaydischarge
 
     def set_Vsetpoints(self, level):

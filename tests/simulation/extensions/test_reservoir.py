@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from rtctools.simulation.extensions.reservoir import readReservoirData
+from rtctools.simulation.extensions.reservoir_csv import readReservoirData
 
 from test_case import TestCase
 

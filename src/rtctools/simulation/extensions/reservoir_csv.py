@@ -4,7 +4,7 @@ import numpy as np
 
 import pandas as pd
 
-def readReservoirData(
+def ReadReservoirData(
     reservoirs_csv_path,
     volume_level_csv_path,
     volume_area_csv_path,
@@ -83,7 +83,7 @@ class Reservoir():
 
     def level_to_volume(self, levels: Union[float, np.ndarray]):
         r'''
-        Returns the reservoir storage(s) by one-dimensional linear interpolation for a given reservoir
+        Returns the reservoir storage volume(s) by one-dimensional linear interpolation for a given reservoir
         elevation-storage table.
 
         Parameters
@@ -94,20 +94,20 @@ class Reservoir():
         Returns
         -------
         volumes :
-             Reservoir storage(s)
+             Reservoir  volume(s)
         '''
         volumes = np.interp(levels, self.__vh_lookup['Elevation_m'], self.__vh_lookup['Storage_m3'])
         return volumes
 
     def volume_to_level(self, volumes: Union[float, np.ndarray]):
         r'''
-        Returns the water level(s) in the reservoir(s) by one-dimensional linear interpolation for a given reservoir
+        Returns the water level(s) in the reservoir by one-dimensional linear interpolation for a given reservoir
         storage-elevation table.
 
         Parameters
         ----------
         volumes :
-            Reservoir storage(s)
+            Reservoir storage volume(s)
 
         Returns
         -------
@@ -119,13 +119,13 @@ class Reservoir():
 
     def volume_to_area(self, volumes: Union[float, np.ndarray]):
         r'''
-        Returns the area(s) of the reservoir(s) by one-dimensional linear interpolation for a given reservoir
+        Returns the area(s) of the reservoir by one-dimensional linear interpolation for a given reservoir
         storage-area table.
 
         Parameters
         ----------
         volumes :
-            Reservoir storage(s)
+            Reservoir storage volume(s)
 
         Returns
         -------
@@ -137,8 +137,8 @@ class Reservoir():
 
     def level_to_area(self, levels: Union[float, np.ndarray]):
         r'''
-        Returns the area(s) of the reservoir(s) in two steps. First, one-dimensional linear interpolation for given
-        level-volume table to get the corresponding storage. Next, the area by one-dimensional linear interpolation for
+        Returns the area(s) of the reservoir in two steps. First, one-dimensional linear interpolation for given
+        level-volume table to get the corresponding volume. Next, the area by one-dimensional linear interpolation for
         a given storage-area table.
 
         Parameters
@@ -158,13 +158,13 @@ class Reservoir():
     def volume_to_spillwaydischarge(self, volumes: Union[float, np.ndarray]):
         r'''
         Returns the spillway discharge in two steps. First, one-dimensional linear interpolation for a given
-        volume-level table to get the corresponding storage. Next, the spillway discharge by one-dimensional linear
+        volume-level table to get the corresponding level. Next, the spillway discharge by one-dimensional linear
         interpolation for a given elevation-discharge table.
 
         Parameters
         ----------
         volumes :
-            Reservoir storage(s)
+            Reservoir storage volume(s)
 
         Returns
         -------

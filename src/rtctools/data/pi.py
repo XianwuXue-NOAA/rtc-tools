@@ -732,14 +732,6 @@ class Timeseries:
         if self.__binary:
             f = io.open(self.binary_path, 'wb')
 
-        if self.timezone is not None:
-            timezone = self.__xml_root.find('pi:timeZone', ns)
-            if timezone is None:
-                timezone = ET.Element('{%s}' % (ns['pi'], ) + 'timeZone')
-                # timeZone has to be the first element according to the schema
-                self.__xml_root.insert(0, timezone)
-            timezone.text = str(self.timezone)
-
         if self.make_new_file:
             # Force reinitialization in case write() is called more than once
             self.__reset_xml_tree()
@@ -753,6 +745,14 @@ class Timeseries:
                         ensemble_member=ensemble_member, miss_val=-999, unit=unit)
 
         for ensemble_member in range(len(self.__values)):
+            if self.timezone is not None:
+                timezone = self.__xml_root.find('pi:timeZone', ns)
+                if timezone is None:
+                    timezone = ET.Element('{%s}' % (ns['pi'],) + 'timeZone')
+                    # timeZone has to be the first element according to the schema
+                    self.__xml_root.insert(0, timezone)
+                timezone.text = str(self.timezone)
+
             for series in self.__xml_root.findall('pi:series', ns):
                 header = series.find('pi:header', ns)
 

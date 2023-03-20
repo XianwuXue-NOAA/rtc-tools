@@ -310,5 +310,6 @@ class IOMixin(OptimizationProblem, metaclass=ABCMeta):
         Deprecated, use `io.reference_datetime` and `io.datetimes`, or override behavior using
         :py:meth:`OptimizationProblem.times` and/or :py:attr:`OptimizationProblem.initial_time`.
         """
-        warnings.warn('get_forecast_index() is deprecated and will be removed in the future', FutureWarning)
+        warnings.warn('get_forecast_index() is deprecated and will be removed in the future',
+                      FutureWarning, stacklevel=1)
         return bisect.bisect_left(self.io.datetimes, self.io.reference_datetime)

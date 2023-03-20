@@ -227,7 +227,7 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
 
         if self.integrated_states:
             warnings.warn("Integrated states are deprecated and support will be removed in a future version.",
-                          FutureWarning)
+                          FutureWarning, stacklevel=1)
 
         # Variables that are integrated states are not yet allowed to have size > 1
         for variable in self.integrated_states:
@@ -442,7 +442,8 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
         # Establish integrator theta
         theta = self.theta
         if theta < 1:
-            warnings.warn("Explicit collocation is deprecated and will be removed in a future version.", FutureWarning)
+            warnings.warn("Explicit collocation is deprecated and will be removed in a future version.",
+                          FutureWarning, stacklevel=1)
 
         # Set CasADi function options
         options = self.solver_options()

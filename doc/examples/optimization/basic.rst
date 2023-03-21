@@ -107,6 +107,11 @@ to relate the inputs to the appropriate water system elements.
 Because we want to view the water volume in the storage element in the output
 file, we also define an output variable ``V_storage``.
 
+There is a subtle difference between these quantities: ``V_storage`` at time t holds 
+the volume of water in storage at that specific point in time. On the other hand, 
+``Q_in`` and ``Q_release`` are aggregated measures: at time, t, their value 
+represents the total flow between time t-1 and t.
+
 The Optimization Problem
 ------------------------
 

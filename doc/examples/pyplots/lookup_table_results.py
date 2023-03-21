@@ -30,8 +30,11 @@ axarr[0].plot(
 
 # Lower Subplot
 axarr[1].set_ylabel("Flow Rate [m³/s]")
-axarr[1].plot(times, results["q_in"], label="Inflow", linewidth=2, color="g")
-axarr[1].plot(times, results["q_release"], label="Release", linewidth=2, color="r")
+axarr[1].scatter(times, results["q_in"], linewidth=1, color="g")
+axarr[1].scatter(times, results["q_release"], linewidth=1, color="r")
+# add horizontal lines to the left of these dots, to indicate that the value is attained over an entire timestep:
+axarr[1].step(times, results["q_in"], linewidth=2, where='pre', label="Inflow", color="g")
+axarr[1].step(times, results["q_release"], linewidth=1, where='pre', label="Release", color="r")
 
 # Format bottom axis label
 axarr[-1].xaxis.set_major_formatter(mdates.DateFormatter("%m/%d"))

@@ -44,8 +44,11 @@ axarr[1].plot(
 
 # Lower Subplot
 axarr[2].set_ylabel("Flow Rate [m³/s]")
-axarr[2].plot(times, results["q_orifice"], label="Orifice", linewidth=2, color="g")
-axarr[2].plot(times, results["q_pump"], label="Pump", linewidth=2, color="r")
+axarr[2].scatter(times, results["q_orifice"], linewidth=1, color="g")
+axarr[2].scatter(times, results["q_pump"], linewidth=1, color="r")
+# add horizontal lines to the left of these dots, to indicate that the value is attained over an entire timestep:
+axarr[2].step(times, results["q_orifice"], linewidth=2, where='pre', label="Orifice", color="g")
+axarr[2].step(times, results["q_pump"], linewidth=1, where='pre', label="Pump", color="r")
 
 # Format bottom axis label
 axarr[-1].xaxis.set_major_formatter(mdates.DateFormatter("%H:%M"))

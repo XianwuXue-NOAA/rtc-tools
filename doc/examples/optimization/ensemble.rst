@@ -249,13 +249,18 @@ Extracting Results
 The results from the run are found in ``output/forecast1/timeseries_export.csv``
 and ``output/forecast2/timeseries_export.csv``. Any CSV-reading software can
 import it, but this is how results can be plotted using the python library
-matplotlib:
+matplotlib: 
 
 .. plot:: examples/pyplots/ensemble_results.py
    :include-source:
 
 
 .. _ensemble-results:
+
+This plots the inflow and release values in two different ways: the middle graph 
+depicts them in the same way you have seen until now (and this is how they truly 
+should be interpreted). The lower plot shows the same points, but connected with 
+line segments. This makes it easier to see where the flows diverge.   
 
 Observations
 ------------

@@ -16,7 +16,7 @@ One of the advantages of using RTC-Tools for control is that it is capable of
 making decisions that are optimal for the whole network and for all future
 timesteps within the model time horizon. This is in contrast to local control
 algorithms such as PID controllers, where the control decision must be made on
-past states and local information alone. Futhermore, unlike a PID-style
+past states and local information alone. Furthermore, unlike a PID-style
 controller, RTC-Tools does not have gain parameters that need to be tuned.
 
 This example models a cascading channel system, and compares a local control

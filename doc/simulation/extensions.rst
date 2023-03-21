@@ -1,5 +1,4 @@
 Extensions
 ==========
 
-.. automodule:: rtctools.simulation.extensions
-   :members:
+.. autofunction:: rtctools.simulation.extensions.reservoir_csv.ReadReservoirData

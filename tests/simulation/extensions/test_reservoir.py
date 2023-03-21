@@ -25,3 +25,4 @@ class TestReservoir(TestCase):
         reservoir_data = self.get_reservoir_data()
         name = reservoir_data['FrenchMeadowsReservoir'].name
         self.assertEqual(name, "FrenchMeadowsReservoir")
+

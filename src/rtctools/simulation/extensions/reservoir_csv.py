@@ -15,7 +15,7 @@ def ReadReservoirData(
     This function reads the CSV files provided as input and converts the reservoir data, volume-level tables,
     volume-area tables and the spillway-discharge table to dataFrames.
     Optional: Add interpolated volume setpoints corresponding to provided reservoir levels, ie. 'surcharge',
-    fullsupply','crestheight', to the dataFrames.
+    fullsupply','crestheight' (to be provided in reservoirs_csv_path), to the dataFrames.
 
     Parameters
     ----------
@@ -30,7 +30,7 @@ def ReadReservoirData(
         Path to csv file that contains the columns ReservoirName, Storage_m3, Area_m2
 
     spillwaydischarge_csv_path :
-        Path to csv file that contains the columns ReservoirName, Elevation_m, Discharge_m3s
+        Optionally: Path to csv file that contains the columns ReservoirName, Elevation_m, Discharge_m3s
 
     Returns
     -------
@@ -72,7 +72,55 @@ def ReadReservoirData(
 
 
 class Reservoir():
+    r"""
+    Reservoir class
 
+    Attributes:
+    -----------
+    name : str
+        Name of the reservoir
+    properties : Series
+        properties of the reservoirs, such as Name, surcharge, fullsupply,
+        crestheight, volume_min, volume_max, q_turbine_max, q_spill_max
+    Vsetpoints : dict
+        Optionally: dictionary with keys 'surcharge', fullsupply','crestheight'
+
+    __vh_lookup : DataFrame
+        volume-level lookup table
+
+    __va_lookup : DataFrame
+        volume-area lookup table
+
+    __spillwaydischargelookup : DataFrame
+        Optionally: spillway-discharge lookup table
+    Methods:
+    --------
+    level_to_volume(levels: Union[float, np.ndarray]):
+        Returns the reservoir storage volume(s) by one-dimensional linear interpolation for a given reservoir
+        elevation-storage table.
+
+    volume_to_level(volumes: Union[float, np.ndarray]):
+        Returns the water level(s) in the reservoir by one-dimensional linear interpolation for a given reservoir
+        storage-elevation table.
+
+    volume_to_area(volumes: Union[float, np.ndarray]):
+        Returns the area(s) of the reservoir by one-dimensional linear interpolation for a given reservoir
+        storage-area table.
+
+    level_to_area(levels: Union[float, np.ndarray]):
+        Returns the area(s) of the reservoir in two steps. First, one-dimensional linear interpolation for given
+        level-volume table to get the corresponding volume. Next, the area by one-dimensional linear interpolation for
+        a given storage-area table.
+
+    volume_to_spillwaydischarge(volumes: Union[float, np.ndarray]):
+        Returns the spillway discharge in two steps. First, one-dimensional linear interpolation for a given
+        volume-level table to get the corresponding level. Next, the spillway discharge by one-dimensional linear
+        interpolation for a given elevation-discharge table.
+
+    set_Vsetpoints(level: str):
+        Add interpolated volume setpoints for defined setpoint levels to Vsetpoints dictionary.
+
+    """
     def __init__(self, name, vh_data, va_data, reservoir_properties, spillwaydischargedata=None):
         self.name = name
         self.__vh_lookup = vh_data
@@ -176,18 +224,30 @@ class Reservoir():
                                       self.__spillwaydischargelookup['Discharge_m3s'])
         return spillwaydischarge
 
-    def set_Vsetpoints(self, level):
+    def set_Vsetpoints(self, level: str):
         r'''
-        Add interpolated volume setpoints for defined setpoint levels.
+        Add interpolated volume setpoints for defined setpoint levels to Vsetpoints dictionary.
 
         Parameters
         ----------
         level:
             Setpoint level
-        ....
-        Returns
-        -------
-        Vsetpoints :
-            Volume setpoints [m$^3$]
         '''
         self.Vsetpoints[level] = self.level_to_volume(self.properties[level])
+
+
+DATA_DIR=r"C:\\Users\\star_kj\\rtc-tools\\tests\\simulation\\extensions\\data\\reservoir\\"
+
+reservoirs_csv_path=DATA_DIR+"reservoirs.csv"
+volume_level_csv_path=DATA_DIR+"volumelevel.csv"
+volume_area_csv_path=DATA_DIR+"VolumeArea.csv"
+spillwaydischarge_csv_path=DATA_DIR+"spillwaydischarge.csv"
+
+dict = ReadReservoirData(
+reservoirs_csv_path=reservoirs_csv_path,
+volume_area_csv_path=volume_area_csv_path,
+volume_level_csv_path=volume_level_csv_path,
+spillwaydischarge_csv_path = spillwaydischarge_csv_path
+)
+# print(dict['FrenchMeadowsReservoir'].Vsetpoints)
+exit(0)

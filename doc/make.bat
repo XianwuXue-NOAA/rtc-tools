@@ -2,7 +2,7 @@
 
 REM Command file for Sphinx documentation
 
-if "%SPHINXBUILD%" == "" (
+if not defined SPHINXBUILD (
 	set SPHINXBUILD=sphinx-build
 )
 set BUILDDIR=_build

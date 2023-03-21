@@ -40,6 +40,7 @@ extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.mathjax',
     'sphinx.ext.viewcode',
+    'sphinx_rtd_theme',
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -60,7 +61,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = 'RTC-Tools'
-copyright = '2016 - 2022 Deltares'
+copyright = 'Deltares'
 author = 'Deltares'
 
 # The version info for the project you're documenting, acts as replacement for
@@ -144,11 +145,9 @@ html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
 
 html_static_path = ['_static']
 
-html_context = {
-    'css_files': [
-        '_static/theme_overrides.css',  # override wide tables in RTD theme
-        ],
-     }
+html_css_files = [
+    'theme_overrides.css',  # override wide tables in RTD theme
+]
 
 # The name for this set of Sphinx documents.
 # "<project> v<release> documentation" by default.
@@ -280,7 +279,7 @@ latex_elements = {
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
     (master_doc, 'RTC-Tools.tex', 'RTC-Tools Documentation',
-     'Jorn Baayen, Matthijs den Toom, Olav van Duin, Tjerk Vreeken, Jesse VanderWees, Teresa Piovesan', 'manual'),
+     'Deltares', 'manual'),
 ]
 
 # The name of an image file (relative to this directory) to place at the top of

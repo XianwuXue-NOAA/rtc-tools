@@ -154,15 +154,21 @@ class GoalProgrammingMixin(_GoalProgrammingMixinBase):
         return seed
 
     def objective(self, ensemble_member):
-        n_objectives = self._gp_n_objectives(
-            self.__subproblem_objectives, self.__subproblem_path_objectives, ensemble_member
-        )
+        if self.goal_programming_options()["scale_by_problem_size"]:
+            n_objectives = self._gp_n_objectives(
+                self.__subproblem_objectives, self.__subproblem_path_objectives, ensemble_member
+            )
+        else:
+            n_objectives = 1
         return self._gp_objective(self.__subproblem_objectives, n_objectives, ensemble_member)
 
     def path_objective(self, ensemble_member):
-        n_objectives = self._gp_n_objectives(
-            self.__subproblem_objectives, self.__subproblem_path_objectives, ensemble_member
-        )
+        if self.goal_programming_options()["scale_by_problem_size"]:
+            n_objectives = self._gp_n_objectives(
+                self.__subproblem_objectives, self.__subproblem_path_objectives, ensemble_member
+            )
+        else:
+            n_objectives = 1
         return self._gp_path_objective(
             self.__subproblem_path_objectives, n_objectives, ensemble_member
         )
@@ -560,6 +566,8 @@ class GoalProgrammingMixin(_GoalProgrammingMixinBase):
         self.__problem_path_epsilons.extend(self.__subproblem_path_epsilons)
         self.__problem_path_timeseries.extend(self.__subproblem_path_timeseries)
         self.__problem_parameters.extend(self.__subproblem_parameters)
+        self.__subproblem_epsilons = []
+        self.__subproblem_path_epsilons = []
 
         for ensemble_member in range(self.ensemble_size):
             self.__problem_constraints[ensemble_member].extend(
@@ -584,9 +592,13 @@ class GoalProgrammingMixin(_GoalProgrammingMixinBase):
             for ensemble_member in range(problem.ensemble_size):
                 # NOTE: Users might be overriding objective() and/or path_objective(). Use the
                 # private methods that work only on the goals.
-                n_objectives = problem._gp_n_objectives(
-                    subproblem_objectives, subproblem_path_objectives, ensemble_member
-                )
+                if self.goal_programming_options()["scale_by_problem_size"]:
+                    n_objectives = problem._gp_n_objectives(
+                        subproblem_objectives, subproblem_path_objectives, ensemble_member
+                    )
+                else:
+                    n_objectives = 1
+
                 expr = problem._gp_objective(subproblem_objectives, n_objectives, ensemble_member)
                 expr += ca.sum1(
                     problem.map_path_expression(

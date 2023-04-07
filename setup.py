@@ -48,7 +48,7 @@ setup(
         "pymoca == 0.9.*",
         "rtc-tools-channel-flow >= 1.1.0",
     ],
-    tests_require=["pytest", "pytest-runner"],
+    tests_require=["pytest", "pytest-runner", "netCDF4"],
     extras_require={
         "netcdf": ["netCDF4"],
         "all": ["netCDF4"],

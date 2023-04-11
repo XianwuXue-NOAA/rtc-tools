@@ -1215,6 +1215,7 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
             # row-wise scaling operations.
             logger.info("Aggregating and de-scaling variables")
 
+            accumulation_U = [var for var in accumulation_U if var.numel() > 0]
             accumulation_U = ca.transpose(ca.horzcat(*accumulation_U))
 
             # Map to all time steps

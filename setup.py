@@ -41,7 +41,7 @@ setup(
     platforms=['Windows', 'Linux', 'Mac OS-X', 'Unix'],
     packages=find_packages("src"),
     package_dir={"": "src"},
-    install_requires=["casadi == 3.5.*",
+    install_requires=["casadi == 3.6.*",
                       "numpy >= 1.16.0, <1.23",
                       "scipy >= 1.0.0, <1.11",
                       "pymoca == 0.9.*",

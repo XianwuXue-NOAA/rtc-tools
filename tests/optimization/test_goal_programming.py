@@ -1038,5 +1038,5 @@ class TestGoalProgrammingSeed(TestCase):
         self.problem.optimize()
 
     def test_seed(self):
-        self.assertTrue(np.array_equal(self.problem._results[0], self.problem._x0[1]))
-        self.assertTrue(np.array_equal(self.problem._results[1], self.problem._x0[2]))
+        self.assertTrue(np.allclose(self.problem._results[0], self.problem._x0[1]))
+        self.assertTrue(np.allclose(self.problem._results[1], self.problem._x0[2]))

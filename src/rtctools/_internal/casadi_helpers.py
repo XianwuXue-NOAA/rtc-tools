@@ -61,16 +61,37 @@ def interpolate(ts, xs, t, equidistant, mode=0):
             mode_str = 'ceil'
         return interp1d(ts, xs, t, mode_str, equidistant)
     else:
-        if mode == 1:
-            xs = xs[:-1]  # block-forward
-        else:
-            xs = xs[1:]  # block-backward
+        # This interpolation routine may fail when there are nan values in the data xs.
+        ts = ca.MX(ts)
+        xs = ca.MX(xs)
         t = ca.MX(t)
-        if t.size1() > 1:
-            t_ = ca.MX.sym('t')
-            xs_ = ca.MX.sym('xs', xs.size1())
-            f = ca.Function('interpolant', [t_, xs_], [ca.mtimes(ca.transpose((t_ >= ts[:-1]) * (t_ < ts[1:])), xs_)])
-            f = f.map(t.size1(), 'serial')
-            return ca.transpose(f(ca.transpose(t), ca.repmat(xs, 1, t.size1())))
+
+        n_intervals = ts.numel() - 1
+        n_evaluate = t.numel()
+
+        left_ts = ca.repmat(ca.transpose(ts[:-1]), n_evaluate, 1)
+        right_ts = ca.repmat(ca.transpose(ts[1:]), n_evaluate, 1)
+        left_xs = xs[:-1]
+        right_xs = xs[1:]
+        t_mat = ca.repmat(t, 1, n_intervals)
+        if mode == 0:
+            is_in_interval = (left_ts <= t_mat) * (t_mat < right_ts)
+            weight_left = (right_ts - t_mat) / (right_ts - left_ts)
+            weight_right = (t_mat - left_ts) / (right_ts - left_ts)
+            weight_left = weight_left * is_in_interval
+            weight_right = weight_right * is_in_interval
+            result = ca.mtimes(weight_left, left_xs)
+            result += ca.mtimes(weight_right, right_xs)
+            result += (t < ts[0]) * xs[0]
+            result += (ts[-1] <= t) * xs[-1]
+        elif mode == 1:
+            is_in_interval = (left_ts <= t_mat) * (t_mat < right_ts)
+            result = ca.mtimes(is_in_interval, left_xs)
+            result += (t < ts[0]) * xs[0]
+            result += (ts[-1] <= t) * xs[-1]
         else:
-            return ca.mtimes(ca.transpose((t >= ts[:-1]) * (t < ts[1:])), xs)
+            is_in_interval = (left_ts < t_mat) * (t_mat <= right_ts)
+            result = ca.mtimes(is_in_interval, right_xs)
+            result += (t <= ts[0]) * xs[0]
+            result += (ts[-1] < t) * xs[-1]
+        return result

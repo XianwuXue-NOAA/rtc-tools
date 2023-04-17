@@ -1,6 +1,9 @@
 import logging
 from abc import ABCMeta, abstractmethod, abstractproperty
 from typing import Any, Dict, Iterator, List, Tuple, Union
+import pickle
+import os, shutil
+import textwrap
 
 import casadi as ca
 
@@ -18,6 +21,150 @@ logger = logging.getLogger("rtctools")
 # Typical type for a bound on a variable
 BT = Union[float, np.ndarray, Timeseries]
 
+def casadi_to_lp(ps_i):
+    try:
+        with open(ps_i, 'rb') as f:
+            d = pickle.load(f)
+
+        pickleid= os.path.basename(ps_i).split('.')[0].rsplit('_',1)[1]
+
+        indices = d['indices'][0]
+        expand_f_g = d['func']
+        lbx, ubx, lbg, ubg, x0 = d['other']
+        X = ca.SX.sym('X', expand_f_g.nnz_in())
+        f, g = expand_f_g(X)
+
+        in_var = X
+        out = []
+        for o in [f, g]:
+            Af = ca.Function('Af', [in_var], [ca.jacobian(o, in_var)])
+            bf = ca.Function('bf', [in_var], [o])
+
+            A = Af(0)
+            A = ca.sparsify(A)
+
+            b = bf(0)
+            b = ca.sparsify(b)
+            out.append((A, b))
+
+        var_names = []
+        for k, v in indices.items():
+            if isinstance(v, int):
+                var_names.append('{}__{}'.format(k, v))
+            else:
+                for i in range(0, v.stop - v.start, 1 if v.step is None else v.step):
+                    var_names.append('{}__{}'.format(k, i))
+
+        n_derivatives = expand_f_g.nnz_in() - len(var_names)
+        for i in range(n_derivatives):
+            var_names.append("DERIVATIVE__{}".format(i))
+
+
+        # CPLEX does not like [] in variable names
+        import re
+        for i, v in enumerate(var_names):
+            v = v.replace("[", "_I")
+            v = v.replace("]", "I_")
+            var_names[i] = v
+
+        # OBJECTIVE
+        try:
+            A, b = out[0]
+            objective = []
+            ind = np.array(A)[0, :]
+
+            for v, c in zip(var_names, ind):
+                if c != 0:
+                    objective.extend(['+' if c > 0 else '-', str(abs(c)), v])
+
+            if objective[0] == "-":
+                objective[1] = "-" + objective[1]
+
+            objective.pop(0)
+            objective_str = " ".join(objective)
+            objective_str = "  " + objective_str
+        except:
+            print("set objective string to 1")
+            objective_str = "1"
+
+        # CONSTRAINTS
+        A, b = out[1]
+        ca.veccat(*lbg)
+        lbg = np.array(ca.veccat(*lbg))[:, 0]
+        ubg = np.array(ca.veccat(*ubg))[:, 0]
+
+
+        A_csc = A.tocsc()
+        A_coo = A_csc.tocoo()
+        b = np.array(b)[:, 0]
+
+        constraints = [[] for i in range(A.shape[0])]
+
+        for i, j, c in zip(A_coo.row, A_coo.col, A_coo.data):
+            constraints[i].extend(['+' if c > 0 else '-', str(abs(c)), var_names[j]])
+
+        for i in range(len(constraints)):
+            cur_constr = constraints[i]
+            l, u, b_i = lbg[i], ubg[i], b[i]
+
+            if len(cur_constr) > 0:
+                if cur_constr[0] == "-":
+                    cur_constr[1] = "-" + cur_constr[1]
+                cur_constr.pop(0)
+
+            c_str = " ".join(cur_constr)
+
+            if np.isfinite(l) and np.isfinite(u) and l == u:
+                constraints[i] = "{} = {}".format(c_str, l - b_i)
+            elif np.isfinite(l) and np.isfinite(u):
+                constraints[i] = "{} <= {} <= {}".format(l - b_i, c_str, u - b_i)
+            elif np.isfinite(l):
+                constraints[i] = "{} >= {}".format(c_str, l - b_i)
+            elif np.isfinite(u):
+                constraints[i] = "{} <= {}".format(c_str, u - b_i)
+            else:
+                raise Exception(l, b, constraints[i])
+
+        constraints_str = "  " + "\n  ".join(constraints)
+
+        # Bounds
+        bounds = []
+        for v, l, u in zip(var_names, lbx, ubx):
+            bounds.append("{} <= {} <= {}".format(l, v, u))
+        bounds_str = "  " + "\n  ".join(bounds)
+
+        with open("myproblem_{}.lp".format(pickleid), 'w') as o:
+            o.write("Minimize\n")
+            for x in textwrap.wrap(objective_str, width=255):  # lp-format has max length of 255 chars
+                o.write(x + "\n")
+        #    o.write(objective_str + "\n")
+            o.write("Subject To\n")
+            o.write(constraints_str + "\n")
+            o.write("Bounds\n")
+            o.write(bounds_str + "\n")
+            o.write("End")
+        with open("constraints.lp", 'w') as o:
+            o.write(constraints_str + "\n")
+
+        shutil.copy("myproblem_{}.lp".format(pickleid), "myproblem.lp")
+        nrows = A_coo.shape[0]
+
+        ratios = []
+        minmaxs = []
+
+        # shutil.copy("myproblem.lp", r"C:\myproblem.lp")
+
+        #for i in range(nrows):
+        #    d = np.abs(A_coo.getrow(i).data)
+        #    m, M = min(d), max(d)
+        #    minmaxs.append((m, M))
+        #    ratios.append(abs(M/m))
+
+        #print(max(ratios))
+
+        return constraints
+    except:
+        print("failed!")
 
 class LookupTable:
     """
@@ -93,7 +240,7 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
 
         logger.debug("Creating solver")
 
-        if options.pop('expand', False):
+        if options.pop('expand', False) or True:
             # NOTE: CasADi only supports the "expand" option for nlpsol. To
             # also be able to expand with e.g. qpsol, we do the expansion
             # ourselves here.
@@ -106,6 +253,34 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
             nlp['f'] = f_sx
             nlp['g'] = g_sx
             nlp['x'] = X_sx
+
+            import pickle
+
+            import time
+
+            expand_f_g = ca.Function('f_g', [nlp['x']], [nlp['f'], nlp['g']]).expand()
+
+            pickle_name = "nlp_func_{}.pickle".format(int(time.time()))
+            with open(pickle_name, 'wb') as pck:
+
+                myd = {}
+
+                myd['indices'] = self._CollocatedIntegratedOptimizationProblem__indices
+
+                myd['func'] = expand_f_g
+
+                myd['other'] = (lbx, ubx, lbg, ubg, x0)
+
+
+                in_var = ca.SX.sym('X', expand_f_g.nnz_in())
+                bf = ca.Function('bf', [in_var], [expand_f_g(in_var)[1]])
+                b = bf(0)
+                b = ca.sparsify(b)
+                b = np.array(b)[:, 0]
+
+                pickle.dump(myd, pck)
+
+            constraints = casadi_to_lp(pickle_name)
 
         # Debug check for non-linearity in constraints
         self.__debug_check_linearity_constraints(nlp)
@@ -184,6 +359,99 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
                 logger.log(log_level, "Solver succeeded with status {} ({}).".format(
                     return_status, wall_clock_time))
 
+        # You can evaluate the constraints wrt to the optimized solution
+        x_optimized = np.array(results['x']).ravel()
+        expand_f_g = ca.Function('f_g', [nlp['x']], [nlp['f'], nlp['g']]).expand()
+        X_sx = ca.SX.sym('X', *nlp['x'].shape)
+        f_sx, g_sx = expand_f_g(X_sx)
+        eval_g = ca.Function('g_eval', [X_sx], [g_sx]).expand()
+        evaluated_g = [x[0] for x in np.array(eval_g(x_optimized))]
+        lam_g = [x[0] for x in np.array(results['lam_g'])]
+        lam_x = [x[0] for x in np.array(results['lam_x'])]
+
+        atol = 1e-7
+        rtol = 1e-7
+        ubg_hits = [np.allclose(evaluated_i,ubg_i,rtol=rtol,atol=atol) for evaluated_i, ubg_i, b_i in zip(evaluated_g, ubg, b)]
+        lbg_hits = [np.allclose(evaluated_i,lbg_i,rtol=rtol,atol=atol) for evaluated_i, lbg_i, b_i in zip(evaluated_g, lbg, b)]
+
+        violates_ubg = [evaluated_i > (ubg_i*(1+rtol)+atol) for evaluated_i, ubg_i in zip(evaluated_g, ubg)]
+        violates_lbg = [evaluated_i < (lbg_i*(1-rtol)-atol) for evaluated_i, lbg_i in zip(evaluated_g, lbg)]
+
+        if any(violates_ubg):
+            print("Violation of upper bound!")
+        if any(violates_lbg):
+            print("Violation of lbg!")
+
+        hit_type = [1*lbg_hit + 2*ubg_hit for lbg_hit, ubg_hit in zip(lbg_hits, ubg_hits)]
+        hit_type_str = {0: "", 1: "only lower bound", 2: "only upper bound", 3: "both bounds"}
+        smaller_than_zero = 0
+        larger_than_zero = 0
+
+        # # DEBUGGING:
+        # for i in range(0,len(evaluated_g)):
+        #     if hit_type[i]:
+        #         if lam_g[i] < 0:
+        #             smaller_than_zero +=1
+        #             print(f"smaller THAN ZERO! {lam_g[i]}")
+        #         else:
+        #             print(f"larger  THAN ZERO: {lam_g[i]}!")
+        #             larger_than_zero +=1
+        #         print(f"-> Constraint {i} is active ({hit_type_str[hit_type[i]]}): {lbg[i]} < {round(evaluated_g[i],100)} < {ubg[i]} (lam_g: {lam_g[i]})")
+
+        #     else:
+        #         # continue
+        #         print(f"Constraint {i} is not active: {lbg[i]} < {round(evaluated_g[i],100)} < {ubg[i]} (lam_g: {lam_g[i]})")
+        #     if lam_g[i] < -1e-5:
+        #         if hit_type[i] == 1 or hit_type[i] == 3:
+        #             print("Yes")
+        #         else:
+        #             if lam_g[i] < -1:
+        #                 print("STRANGE: lagrange mult smaller than 2, while we do not hit lower bound!")
+        #     elif lam_g[i] > 1e-5:
+        #         if hit_type[i] == 2 or hit_type[i] == 3:
+        #             print("Yes")
+        #         else:
+        #             if lam_g[i] > 1:
+        #                 print("STRANGE: lagrange mult larger than 2, while we do not hit upper bound!")
+        #     else:
+        #         print(f"lagrange mult approx 0 ({lam_g[i]})")
+        #         if hit_type[i] != 0:
+        #             print("! BUT we do hit a bound...")
+        #         else:
+        #             print("and we do not hit a bound, as expected...")
+        #     if lam_g[i] < -2 or lam_g[i] > 2:
+        #         print("LAGRANGE MULT HAS A LARGE MAGNITUDE!")
+
+
+
+        #     if violates_lbg[i]:
+        #         print(f"Constraint {i} violates lbg: {lbg[i]} < {round(evaluated_g[i],100)} < {ubg[i]}")
+        #     if violates_ubg[i]:
+        #         print(f"Constraint {i} violates ubg: {lbg[i]} < {round(evaluated_g[i],100)} < {ubg[i]}")
+
+        self.activated_lower_bounds = [True if lagrange_mult < -1.5 else False for lagrange_mult in lam_g]
+        self.activated_upper_bounds = [True if lagrange_mult > 1.5 else False for lagrange_mult in lam_g]
+
+        self.activated_lower_bounds_only = [True if lagrange_mult < -1.5 and hit_t != 3 else False for lagrange_mult, hit_t in zip(lam_g, hit_type)]
+        self.activated_upper_bounds_only = [True if lagrange_mult > 1.5 and hit_t != 3 else False for lagrange_mult, hit_t in zip(lam_g, hit_type)]
+
+        print(f"Number of activated lower bounds (only): {self.activated_lower_bounds_only.count(True)}")
+        print(f"Number of activated upper bounds (only): {self.activated_upper_bounds_only.count(True)}")
+        n_prints=0
+        self._textual_constraints = constraints
+        for i in range(0,len(evaluated_g)):
+            if self.activated_lower_bounds_only[i]:
+                print("hit lower bound: " + str(i))
+                print(f"-> Constraint {i} is active ({hit_type_str[hit_type[i]]}): {lbg[i]} < {round(evaluated_g[i],100)} < {ubg[i]} (lam_g: {lam_g[i]})")
+                print(constraints[i])
+                n_prints+=1
+            if self.activated_upper_bounds_only[i]:
+                print("hit upper bound: " + str(i))
+                print(f"-> Constraint {i} is active ({hit_type_str[hit_type[i]]}): {lbg[i]} < {round(evaluated_g[i],100)} < {ubg[i]} (lam_g: {lam_g[i]})")
+                print(constraints[i])
+                n_prints+=1
+            if n_prints > 10:
+                break
         # Do any postprocessing
         if postprocessing:
             self.post()
@@ -195,6 +463,7 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
         logger.info("Done with optimize()")
 
         return success
+
 
     def __check_bounds_control_input(self) -> None:
         # Checks if at the control inputs have bounds, log warning when a control input is not bounded.

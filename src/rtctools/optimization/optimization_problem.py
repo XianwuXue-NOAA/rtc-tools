@@ -4,6 +4,7 @@ from typing import Any, Dict, Iterator, List, Tuple, Union
 import pickle
 import os, shutil
 import textwrap
+import copy
 
 import casadi as ca
 
@@ -103,6 +104,8 @@ def casadi_to_lp(ps_i):
         for i, j, c in zip(A_coo.row, A_coo.col, A_coo.data):
             constraints[i].extend(['+' if c > 0 else '-', str(abs(c)), var_names[j]])
 
+
+        constraints_original = copy.deepcopy(constraints)
         for i in range(len(constraints)):
             cur_constr = constraints[i]
             l, u, b_i = lbg[i], ubg[i], b[i]
@@ -162,7 +165,7 @@ def casadi_to_lp(ps_i):
 
         #print(max(ratios))
 
-        return constraints
+        return constraints, constraints_original
     except:
         print("failed!")
 
@@ -280,7 +283,7 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
 
                 pickle.dump(myd, pck)
 
-            constraints = casadi_to_lp(pickle_name)
+            constraints, constraints_original = casadi_to_lp(pickle_name)
 
         # Debug check for non-linearity in constraints
         self.__debug_check_linearity_constraints(nlp)
@@ -371,11 +374,11 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
 
         atol = 1e-7
         rtol = 1e-7
-        ubg_hits = [np.allclose(evaluated_i,ubg_i,rtol=rtol,atol=atol) for evaluated_i, ubg_i, b_i in zip(evaluated_g, ubg, b)]
-        lbg_hits = [np.allclose(evaluated_i,lbg_i,rtol=rtol,atol=atol) for evaluated_i, lbg_i, b_i in zip(evaluated_g, lbg, b)]
+        ubg_hits = [np.allclose(evaluated_i,ubg_i-b_i,rtol=rtol,atol=atol) for evaluated_i, ubg_i, b_i in zip(evaluated_g, ubg, b)]
+        lbg_hits = [np.allclose(evaluated_i,lbg_i-b_i,rtol=rtol,atol=atol) for evaluated_i, lbg_i, b_i in zip(evaluated_g, lbg, b)]
 
-        violates_ubg = [evaluated_i > (ubg_i*(1+rtol)+atol) for evaluated_i, ubg_i in zip(evaluated_g, ubg)]
-        violates_lbg = [evaluated_i < (lbg_i*(1-rtol)-atol) for evaluated_i, lbg_i in zip(evaluated_g, lbg)]
+        violates_ubg = [evaluated_i > ((ubg_i-b_i)*(1+rtol)+atol) for evaluated_i, ubg_i, b_i in zip(evaluated_g, ubg, b)]
+        violates_lbg = [evaluated_i < ((lbg_i-b_i)*(1-rtol)-atol) for evaluated_i, lbg_i, b_i in zip(evaluated_g, lbg, b)]
 
         if any(violates_ubg):
             print("Violation of upper bound!")
@@ -439,19 +442,62 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
         print(f"Number of activated upper bounds (only): {self.activated_upper_bounds_only.count(True)}")
         n_prints=0
         self._textual_constraints = constraints
+
+        positive_effect = []
+        negative_effect = []
+
         for i in range(0,len(evaluated_g)):
             if self.activated_lower_bounds_only[i]:
                 print("hit lower bound: " + str(i))
                 print(f"-> Constraint {i} is active ({hit_type_str[hit_type[i]]}): {lbg[i]} < {round(evaluated_g[i],100)} < {ubg[i]} (lam_g: {lam_g[i]})")
+                print(f"-> Constraint {i} is ACTIVE ({hit_type_str[hit_type[i]]}): {lbg[i]-b[i]} < {round(evaluated_g[i]-b[i],100)} < {ubg[i]-b[i]} (lam_g: {lam_g[i]}) (b {b[i]})")
                 print(constraints[i])
+                constrain_list = constraints_original[i]
+                for var_i in range(int(len(constrain_list)/3)):
+                    var_sign  = constrain_list[  var_i*3]
+                    var_value = constrain_list[1+var_i*3]
+                    var_name   = constrain_list[2+var_i*3]
+                    if var_sign == "-":
+                        positive_effect.append(var_name)
+                    else:
+                        negative_effect.append(var_name)
                 n_prints+=1
             if self.activated_upper_bounds_only[i]:
                 print("hit upper bound: " + str(i))
                 print(f"-> Constraint {i} is active ({hit_type_str[hit_type[i]]}): {lbg[i]} < {round(evaluated_g[i],100)} < {ubg[i]} (lam_g: {lam_g[i]})")
+                print(f"-> Constraint {i} is ACTIVE ({hit_type_str[hit_type[i]]}): {lbg[i]-b[i]} < {round(evaluated_g[i]-b[i],100)} < {ubg[i]-b[i]} (lam_g: {lam_g[i]}) (b {b[i]})")
                 print(constraints[i])
+                constrain_list = constraints_original[i]
+                for var_i in range(int(len(constrain_list)/3)):
+                    var_sign  = constrain_list[  var_i*3]
+                    var_value = constrain_list[1+var_i*3]
+                    var_name   = constrain_list[2+var_i*3]
+                    if var_sign == "+":
+                        positive_effect.append(var_name)
+                    else:
+                        negative_effect.append(var_name)
                 n_prints+=1
-            if n_prints > 10:
+            if n_prints > 1000:
                 break
+
+        positive_effect_split = [var.split("__") for var in positive_effect ]
+        positive_effect_dict = {}
+        for var in positive_effect_split:
+            if var[0] not in positive_effect_dict:
+                 positive_effect_dict[var[0]] = [var[1]]
+            else:
+                 positive_effect_dict[var[0]].append(var[1])
+
+        negative_effect_split = [var.split("__") for var in negative_effect ]
+        negative_effect_dict = {}
+        for var in negative_effect_split:
+            if var[0] not in negative_effect_dict:
+                 negative_effect_dict[var[0]] = [var[1]]
+            else:
+                 negative_effect_dict[var[0]].append(var[1])
+
+        self.negative_effect_dict = negative_effect_dict
+        self.positive_effect_dict = positive_effect_dict
         # Do any postprocessing
         if postprocessing:
             self.post()

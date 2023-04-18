@@ -9,6 +9,11 @@ import os
 logger = logging.getLogger("rtctools")
 
 class Plotting:
+    def pre(self):
+        super().pre()
+        self.intermediate_results = []
+
+
     def plot_goal_results_from_dict(self, result_dict, priority=None):
         self.plot_goals_results(
             result_dict["timeseries_import_times"],

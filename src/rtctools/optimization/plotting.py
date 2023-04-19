@@ -190,6 +190,8 @@ class Plotting:
         def list_to_ranges(lst):
             ranges = []
             start = None
+            if len(lst) == 1:
+                return [(int(lst[0]),int(lst[0]))]
             for i in range(len(lst)):
                 if start is None:
                     start = lst[i]

@@ -372,6 +372,8 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
         lam_g = [x[0] for x in np.array(results['lam_g'])]
         lam_x = [x[0] for x in np.array(results['lam_x'])]
 
+
+        # -------------------------------------------------- OLD ------------------------------------------------
         atol = 1e-7
         rtol = 1e-7
         ubg_hits = [np.allclose(evaluated_i,ubg_i-b_i,rtol=rtol,atol=atol) for evaluated_i, ubg_i, b_i in zip(evaluated_g, ubg, b)]
@@ -480,6 +482,7 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
             if n_prints > 1000:
                 break
 
+        # ------- FOR BOTH -------
         def convert_to_dict_per_var(constrain_list):
             def add_to_dict(variable, new_dict):
                 splitted_var = variable.split("__")
@@ -504,6 +507,11 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
         self.negative_effect_dict = negative_effect_dict
         self.positive_effect_dict = positive_effect_dict
 
+
+        # -------------------------
+        # --------  NEW  ----------
+        # -------------------------
+
         def find_lambda_exceedence(exceedence_list, lowers, uppers, variable_names, variable_values):
             variables_exceeding = []
             if any(exceedence_list):
@@ -514,75 +522,44 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
                         variables_exceeding.append(variable_names[i])
             return variables_exceeding
 
-        # # bounds:
-        # # varnames:
-        # variable_names[i]
-        # # lower bound
-        # lbx
-        # # upper bound
-        # ubx
-        # # variable_value
-        # x_optimized[i]
         def larger_than_zero(in_list, tol):
             return [x > tol for x in in_list]
+
         def smaller_than_zero(in_list, tol):
             return [x < -tol for x in in_list]
+
         lam_x_tol = 1.5
+        # Bounds
         lam_x_larger_than_zero  = larger_than_zero(lam_x, lam_x_tol)
         lam_x_smaller_than_zero = smaller_than_zero(lam_x, lam_x_tol)
-        # self.lower_bound_variable_hits = []
-        # self.upper_bound_variable_hits = []
-        # if any(lam_x_larger_than_zero):
-        #     print("lam x larger than zero")
-        #     for i, larger_than_zero in enumerate(lam_x_larger_than_zero):
-        #         if larger_than_zero:
-        #             print(f'Upperbound for variable {variable_names[i]}={x_optimized[i]} was hit!"')
-        #             print(f'{lbx[i]} < {variable_names[i]} < {ubx[i]}')
-        #             self.upper_bound_variable_hits.append(variable_names[i])
-        # if any(lam_x_smaller_than_zero):
-        #     print("lam x smaller than zero")
-        #     for i, smaller_than_zero in enumerate(lam_x_smaller_than_zero):
-        #         if smaller_than_zero:
-        #             print(f'Lowerbound for variable {variable_names[i]}={x_optimized[i]} was hit!"')
-        #             print(f'{lbx[i]} < {variable_names[i]} < {ubx[i]}')
-        #             self.lower_bound_variable_hits.append(variable_names[i])
         self.upper_bound_variable_hits = find_lambda_exceedence(lam_x_larger_than_zero, lbx, ubx, variable_names, x_optimized)
         self.lower_bound_variable_hits = find_lambda_exceedence(lam_x_smaller_than_zero, lbx, ubx, variable_names, x_optimized)
         self.upper_bound_dict = convert_to_dict_per_var(self.upper_bound_variable_hits)
         self.lower_bound_dict = convert_to_dict_per_var(self.lower_bound_variable_hits)
 
-        # constraints (v2)
-        # # varnames:
-        # constraints_original[i] #multiple names, in a list with signs
-        # # lower bound
-        # lbg[i]
-        # # upper bound
-        # ubg[i]
-        # # variable_value/evaluated expression
-        # evaluated_g[i]
-
+        # Constraints (v2)
         lam_g_tol = lam_x_tol
         lam_g_larger_than_zero = larger_than_zero(lam_g, lam_g_tol)
         lam_g_smaller_than_zero = smaller_than_zero(lam_g, lam_g_tol)
         self.upper_constraint_variable_hits = find_lambda_exceedence(lam_g_larger_than_zero, lbg, ubg, constraints_original, evaluated_g)
         self.lower_constraint_variable_hits = find_lambda_exceedence(lam_g_smaller_than_zero, lbg, ubg, constraints_original, evaluated_g)
-
-        def get_variables_in_constraints(constraints):
-            variables_in_constraints = []
-            for constraint in constraints:
-                variables_in_constraints.append([])
-                for var_i in range(int(len(constraint)/3)):
-                    var_sign  = constraint[  var_i*3]
-                    var_value = constraint[1+var_i*3]
-                    var_name  = constraint[2+var_i*3]
-                    variables_in_constraints[-1].append(var_name)
-            return variables_in_constraints
-
-        get_variables_in_constraints(self.upper_constraint_variable_hits)
         self.upper_constraint_dict = convert_to_dict_per_var(self.upper_constraint_variable_hits)
         self.lower_constraint_dict = convert_to_dict_per_var(self.lower_constraint_variable_hits)
         pass
 
+
+        # --> Unused function, but could be useful for refactoring convert_to_dict_per_var
+        # get_variables_in_constraints(self.upper_constraint_variable_hits)
+        # def get_variables_in_constraints(constraints):
+        #     variables_in_constraints = []
+        #     for constraint in constraints:
+        #         variables_in_constraints.append([])
+        #         for var_i in range(int(len(constraint)/3)):
+        #             var_sign  = constraint[  var_i*3]
+        #             var_value = constraint[1+var_i*3]
+        #             var_name  = constraint[2+var_i*3]
+        #             variables_in_constraints[-1].append(var_name)
+        #     return variables_in_constraints
 
         # Do any postprocessing
         if postprocessing:

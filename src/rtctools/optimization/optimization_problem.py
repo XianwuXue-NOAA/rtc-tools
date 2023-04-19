@@ -480,14 +480,23 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
             if n_prints > 1000:
                 break
 
-        def convert_to_dict_per_var(variable_list):
-            splitted = [var.split("__") for var in variable_list ]
-            new_dict = {}
-            for var in splitted:
-                if var[0] not in new_dict:
-                    new_dict[var[0]] = [var[1]]
+        def convert_to_dict_per_var(constrain_list):
+            def add_to_dict(variable, new_dict):
+                splitted_var = variable.split("__")
+                if splitted_var[0] not in new_dict:
+                    new_dict[splitted_var[0]] = [splitted_var[1]]
                 else:
-                    new_dict[var[0]].append(var[1])
+                    new_dict[splitted_var[0]].append(splitted_var[1])
+                return new_dict
+
+            new_dict = {}
+            for constrain in constrain_list:
+                if isinstance(constrain, list):
+                    for variable in constrain[2::3]:
+                        add_to_dict(variable, new_dict)
+                else:
+                    variable = constrain
+                    add_to_dict(variable, new_dict)
             return new_dict
 
         positive_effect_dict = convert_to_dict_per_var(positive_effect)
@@ -518,7 +527,7 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
             return [x > tol for x in in_list]
         def smaller_than_zero(in_list, tol):
             return [x < -tol for x in in_list]
-        lam_x_tol = 1e-3
+        lam_x_tol = 1.5
         lam_x_larger_than_zero  = larger_than_zero(lam_x, lam_x_tol)
         lam_x_smaller_than_zero = smaller_than_zero(lam_x, lam_x_tol)
         # self.lower_bound_variable_hits = []
@@ -553,10 +562,26 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
         # evaluated_g[i]
 
         lam_g_tol = lam_x_tol
-        lam_g_larger_than_zero = larger_than_zero(lam_g, lam_x_tol)
-        lam_g_smaller_than_zero =  smaller_than_zero(lam_g, lam_x_tol)
+        lam_g_larger_than_zero = larger_than_zero(lam_g, lam_g_tol)
+        lam_g_smaller_than_zero = smaller_than_zero(lam_g, lam_g_tol)
+        self.upper_constraint_variable_hits = find_lambda_exceedence(lam_g_larger_than_zero, lbg, ubg, constraints_original, evaluated_g)
+        self.lower_constraint_variable_hits = find_lambda_exceedence(lam_g_smaller_than_zero, lbg, ubg, constraints_original, evaluated_g)
 
+        def get_variables_in_constraints(constraints):
+            variables_in_constraints = []
+            for constraint in constraints:
+                variables_in_constraints.append([])
+                for var_i in range(int(len(constraint)/3)):
+                    var_sign  = constraint[  var_i*3]
+                    var_value = constraint[1+var_i*3]
+                    var_name  = constraint[2+var_i*3]
+                    variables_in_constraints[-1].append(var_name)
+            return variables_in_constraints
 
+        get_variables_in_constraints(self.upper_constraint_variable_hits)
+        self.upper_constraint_dict = convert_to_dict_per_var(self.upper_constraint_variable_hits)
+        self.lower_constraint_dict = convert_to_dict_per_var(self.lower_constraint_variable_hits)
+        pass
 
 
         # Do any postprocessing

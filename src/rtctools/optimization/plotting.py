@@ -146,7 +146,11 @@ class Plotting:
                     "activated_upper_bounds": self.activated_upper_bounds,
                     "textual_constraints": self._textual_constraints,
                     "positive_effect_dict": self.positive_effect_dict,
-                    "negative_effect_dict": self.negative_effect_dict
+                    "negative_effect_dict": self.negative_effect_dict,
+                    "upper_bound_variable_hits": self.upper_bound_variable_hits,
+                    "lower_bound_variable_hits": self.lower_bound_variable_hits,
+                    "upper_bound_dict": self.upper_bound_dict,
+                    "lower_bound_dict": self.lower_bound_dict,
                     }
         self.intermediate_results.append(to_store)
 
@@ -180,17 +184,25 @@ class Plotting:
             self.plot_goal_results_from_dict(intermediate_result)
             priority = intermediate_result['priority']
             print(f"\nRESULTS FOR PRIORITY {priority}")
-            for i in range(len(intermediate_result['textual_constraints'])):
-                if intermediate_result['activated_lower_bounds'][i]:
-                    print("hit lower bound for:")
-                    print(intermediate_result['textual_constraints'][i])
-                if intermediate_result['activated_upper_bounds'][i]:
-                    print("hit upper bound for:")
-                    print(intermediate_result['textual_constraints'][i])
+            # for i in range(len(intermediate_result['textual_constraints'])):
+            #     if intermediate_result['activated_lower_bounds'][i]:
+            #         print("hit lower bound for:")
+            #         print(intermediate_result['textual_constraints'][i])
+            #     if intermediate_result['activated_upper_bounds'][i]:
+            #         print("hit upper bound for:")
+            #         print(intermediate_result['textual_constraints'][i])
             import pprint
             pos_eff_range_dict = convert_lists_in_dict(intermediate_result['positive_effect_dict'])
             neg_eff_range_dict = convert_lists_in_dict(intermediate_result['negative_effect_dict'])
-            print("\nPostive effect dict:")
+            print("\nPostive effect dict constraints:")
             pprint.pprint(pos_eff_range_dict)
-            print("\nNegative effect dict:")
+            print("\nNegative effect dict constraints:")
             pprint.pprint(neg_eff_range_dict)
+
+            lowerbound_range_dict = convert_lists_in_dict(intermediate_result['upper_bound_dict'])
+            upperbound_range_dict = convert_lists_in_dict(intermediate_result['lower_bound_dict'])
+            print("\nLowerbounds:")
+            pprint.pprint(lowerbound_range_dict)
+            print("\nUpperbounds")
+            pprint.pprint(upperbound_range_dict)
+

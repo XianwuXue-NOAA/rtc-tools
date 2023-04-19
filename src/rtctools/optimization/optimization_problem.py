@@ -165,7 +165,7 @@ def casadi_to_lp(ps_i):
 
         #print(max(ratios))
 
-        return constraints, constraints_original
+        return constraints, constraints_original, list(zip(var_names, lbx, ubx))
     except:
         print("failed!")
 
@@ -283,7 +283,7 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
 
                 pickle.dump(myd, pck)
 
-            constraints, constraints_original = casadi_to_lp(pickle_name)
+            constraints, constraints_original, bounds = casadi_to_lp(pickle_name)
 
         # Debug check for non-linearity in constraints
         self.__debug_check_linearity_constraints(nlp)
@@ -480,24 +480,43 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
             if n_prints > 1000:
                 break
 
-        positive_effect_split = [var.split("__") for var in positive_effect ]
-        positive_effect_dict = {}
-        for var in positive_effect_split:
-            if var[0] not in positive_effect_dict:
-                 positive_effect_dict[var[0]] = [var[1]]
-            else:
-                 positive_effect_dict[var[0]].append(var[1])
+        def convert_to_dict_per_var(variable_list):
+            splitted = [var.split("__") for var in variable_list ]
+            new_dict = {}
+            for var in splitted:
+                if var[0] not in new_dict:
+                    new_dict[var[0]] = [var[1]]
+                else:
+                    new_dict[var[0]].append(var[1])
+            return new_dict
 
-        negative_effect_split = [var.split("__") for var in negative_effect ]
-        negative_effect_dict = {}
-        for var in negative_effect_split:
-            if var[0] not in negative_effect_dict:
-                 negative_effect_dict[var[0]] = [var[1]]
-            else:
-                 negative_effect_dict[var[0]].append(var[1])
-
+        positive_effect_dict = convert_to_dict_per_var(positive_effect)
+        negative_effect_dict = convert_to_dict_per_var(negative_effect)
         self.negative_effect_dict = negative_effect_dict
         self.positive_effect_dict = positive_effect_dict
+
+        lam_x_tol = 1e-3
+        lam_x_larger_than_zero =  [lam_x_i > lam_x_tol for lam_x_i in lam_x]
+        lam_x_smaller_than_zero =  [lam_x_i < -lam_x_tol for lam_x_i in lam_x]
+        self.lower_bound_variable_hits = []
+        self.upper_bound_variable_hits = []
+        if any(lam_x_larger_than_zero):
+            print("lam x larger than zero")
+            for i, larger_than_zero in enumerate(lam_x_larger_than_zero):
+                if larger_than_zero:
+                    print(f'Upperbound for variable {bounds[i][0]}={x_optimized[i]} was hit!"')
+                    print(f'{bounds[i][1]} < {bounds[i][0]} < {bounds[i][2]}')
+                    self.upper_bound_variable_hits.append(bounds[i][0])
+        if any(lam_x_smaller_than_zero):
+            print("lam x smaller than zero")
+            for i, smaller_than_zero in enumerate(lam_x_smaller_than_zero):
+                if smaller_than_zero:
+                    print(f'Lowerbound for variable {bounds[i][0]}={x_optimized[i]} was hit!"')
+                    print(f'{bounds[i][1]} < {bounds[i][0]} < {bounds[i][2]}')
+                    self.lower_bound_variable_hits.append(bounds[i][0])
+        self.upper_bound_dict = convert_to_dict_per_var(self.upper_bound_variable_hits)
+        self.lower_bound_dict = convert_to_dict_per_var(self.lower_bound_variable_hits)
+
         # Do any postprocessing
         if postprocessing:
             self.post()

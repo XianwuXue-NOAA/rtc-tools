@@ -165,7 +165,7 @@ def casadi_to_lp(ps_i):
 
         #print(max(ratios))
 
-        return constraints, constraints_original, list(zip(var_names, lbx, ubx))
+        return constraints, constraints_original, list(var_names)
     except:
         print("failed!")
 
@@ -283,7 +283,7 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
 
                 pickle.dump(myd, pck)
 
-            constraints, constraints_original, bounds = casadi_to_lp(pickle_name)
+            constraints, constraints_original, variable_names = casadi_to_lp(pickle_name)
 
         # Debug check for non-linearity in constraints
         self.__debug_check_linearity_constraints(nlp)
@@ -495,27 +495,69 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
         self.negative_effect_dict = negative_effect_dict
         self.positive_effect_dict = positive_effect_dict
 
+        def find_lambda_exceedence(exceedence_list, lowers, uppers, variable_names, variable_values):
+            variables_exceeding = []
+            if any(exceedence_list):
+                for i, larger_than_zero in enumerate(exceedence_list):
+                    if larger_than_zero:
+                        print(f'Bound for variable {variable_names[i]}={variable_values[i]} was hit!"')
+                        print(f'{lowers[i]} < {variable_values[i]} < {uppers[i]}')
+                        variables_exceeding.append(variable_names[i])
+            return variables_exceeding
+
+        # # bounds:
+        # # varnames:
+        # variable_names[i]
+        # # lower bound
+        # lbx
+        # # upper bound
+        # ubx
+        # # variable_value
+        # x_optimized[i]
+        def larger_than_zero(in_list, tol):
+            return [x > tol for x in in_list]
+        def smaller_than_zero(in_list, tol):
+            return [x < -tol for x in in_list]
         lam_x_tol = 1e-3
-        lam_x_larger_than_zero =  [lam_x_i > lam_x_tol for lam_x_i in lam_x]
-        lam_x_smaller_than_zero =  [lam_x_i < -lam_x_tol for lam_x_i in lam_x]
-        self.lower_bound_variable_hits = []
-        self.upper_bound_variable_hits = []
-        if any(lam_x_larger_than_zero):
-            print("lam x larger than zero")
-            for i, larger_than_zero in enumerate(lam_x_larger_than_zero):
-                if larger_than_zero:
-                    print(f'Upperbound for variable {bounds[i][0]}={x_optimized[i]} was hit!"')
-                    print(f'{bounds[i][1]} < {bounds[i][0]} < {bounds[i][2]}')
-                    self.upper_bound_variable_hits.append(bounds[i][0])
-        if any(lam_x_smaller_than_zero):
-            print("lam x smaller than zero")
-            for i, smaller_than_zero in enumerate(lam_x_smaller_than_zero):
-                if smaller_than_zero:
-                    print(f'Lowerbound for variable {bounds[i][0]}={x_optimized[i]} was hit!"')
-                    print(f'{bounds[i][1]} < {bounds[i][0]} < {bounds[i][2]}')
-                    self.lower_bound_variable_hits.append(bounds[i][0])
+        lam_x_larger_than_zero  = larger_than_zero(lam_x, lam_x_tol)
+        lam_x_smaller_than_zero = smaller_than_zero(lam_x, lam_x_tol)
+        # self.lower_bound_variable_hits = []
+        # self.upper_bound_variable_hits = []
+        # if any(lam_x_larger_than_zero):
+        #     print("lam x larger than zero")
+        #     for i, larger_than_zero in enumerate(lam_x_larger_than_zero):
+        #         if larger_than_zero:
+        #             print(f'Upperbound for variable {variable_names[i]}={x_optimized[i]} was hit!"')
+        #             print(f'{lbx[i]} < {variable_names[i]} < {ubx[i]}')
+        #             self.upper_bound_variable_hits.append(variable_names[i])
+        # if any(lam_x_smaller_than_zero):
+        #     print("lam x smaller than zero")
+        #     for i, smaller_than_zero in enumerate(lam_x_smaller_than_zero):
+        #         if smaller_than_zero:
+        #             print(f'Lowerbound for variable {variable_names[i]}={x_optimized[i]} was hit!"')
+        #             print(f'{lbx[i]} < {variable_names[i]} < {ubx[i]}')
+        #             self.lower_bound_variable_hits.append(variable_names[i])
+        self.upper_bound_variable_hits = find_lambda_exceedence(lam_x_larger_than_zero, lbx, ubx, variable_names, x_optimized)
+        self.lower_bound_variable_hits = find_lambda_exceedence(lam_x_smaller_than_zero, lbx, ubx, variable_names, x_optimized)
         self.upper_bound_dict = convert_to_dict_per_var(self.upper_bound_variable_hits)
         self.lower_bound_dict = convert_to_dict_per_var(self.lower_bound_variable_hits)
+
+        # constraints (v2)
+        # # varnames:
+        # constraints_original[i] #multiple names, in a list with signs
+        # # lower bound
+        # lbg[i]
+        # # upper bound
+        # ubg[i]
+        # # variable_value/evaluated expression
+        # evaluated_g[i]
+
+        lam_g_tol = lam_x_tol
+        lam_g_larger_than_zero = larger_than_zero(lam_g, lam_x_tol)
+        lam_g_smaller_than_zero =  smaller_than_zero(lam_g, lam_x_tol)
+
+
+
 
         # Do any postprocessing
         if postprocessing:

@@ -5,6 +5,8 @@ import numpy as np
 import logging
 import matplotlib.dates as mdates
 import os
+import pandas as pd
+import copy
 
 logger = logging.getLogger("rtctools")
 
@@ -75,7 +77,7 @@ class Plotting:
             }
             if goal_variable in positive_dict:
                 bounded_at = positive_dict[goal_variable]
-                for xr in positive_dict[goal_variable]:
+                for xr in positive_dict[goal_variable]['timesteps']:
                     # axs[i_r, i_c].vlines(x=t_datetime[int(xr)], color='r', linestyle ='--',ymin= axs[i_r, i_c].get_ylim()[0],ymax= axs[i_r, i_c].get_ylim()[1])
                     label = f"Increase to improve {prio}"
                     if label in axs[i_r, i_c].get_legend_handles_labels()[1]:
@@ -90,7 +92,7 @@ class Plotting:
                         label=label,
                     )
             if goal_variable in negative_dict:
-                for xr in negative_dict[goal_variable]:
+                for xr in negative_dict[goal_variable]['timesteps']:
                     label = f"Decrease to improve {prio}"
                     if label in axs[i_r, i_c].get_legend_handles_labels()[1]:
                         label = "_nolegend_"
@@ -204,18 +206,19 @@ class Plotting:
             return ranges
 
         def convert_lists_in_dict(dic):
-            new_dic = {}
+            new_dic = copy.deepcopy(dic)
             for key, val in dic.items():
-                new_dic[key] = list_to_ranges(val)
+                new_dic[key]['timesteps'] = list_to_ranges(val['timesteps'])
             return new_dic
 
         # Plot all intermediate results
 
         # Convert effect dicts to ranges
+        result_text = ""
         for intermediate_result in self.intermediate_results:
             self.plot_goal_results_from_dict(intermediate_result)
             priority = intermediate_result["priority"]
-            print(f"\nRESULTS FOR PRIORITY {priority}")
+            result_text += f"\n-------------------------------- Priority {priority} --------------------------------"
             # for i in range(len(intermediate_result['textual_constraints'])):
             #     if intermediate_result['activated_lower_bounds'][i]:
             #         print("hit lower bound for:")
@@ -223,18 +226,41 @@ class Plotting:
             #     if intermediate_result['activated_upper_bounds'][i]:
             #         print("hit upper bound for:")
             #         print(intermediate_result['textual_constraints'][i])
-            import pprint
 
-            pos_eff_range_dict = convert_lists_in_dict(intermediate_result["upper_constraint_dict"])
-            neg_eff_range_dict = convert_lists_in_dict(intermediate_result["lower_constraint_dict"])
-            print("\nVariables :")
-            pprint.pprint(pos_eff_range_dict)
-            print("\nNegative effect dict constraints:")
-            pprint.pprint(neg_eff_range_dict)
+            upperconstr_range_dict = convert_lists_in_dict(intermediate_result["upper_constraint_dict"])
+            lowerconstr_range_dict = convert_lists_in_dict(intermediate_result["lower_constraint_dict"])
+            upper_constraints_df = pd.DataFrame.from_dict(upperconstr_range_dict, orient="index")
+            lower_constraints_df = pd.DataFrame.from_dict(lowerconstr_range_dict, orient="index")
+            if len(lower_constraints_df):
+                result_text += "\nLower constraints:\n"
+                result_text += lower_constraints_df.to_string()
+                result_text += "\n"
+            else:
+                result_text += "\nNo active lower constraints\n"
+            if len(upper_constraints_df):
+                result_text += "\nUpper constraints:\n"
+                result_text += upper_constraints_df.to_string()
+                result_text += "\n"
+            else:
+                result_text += "\nNo active upper constraints\n"
+
 
             lowerbound_range_dict = convert_lists_in_dict(intermediate_result["upper_bound_dict"])
             upperbound_range_dict = convert_lists_in_dict(intermediate_result["lower_bound_dict"])
-            print("\nLowerbounds:")
-            pprint.pprint(lowerbound_range_dict)
-            print("\nUpperbounds")
-            pprint.pprint(upperbound_range_dict)
+            lowerbounds_df = pd.DataFrame.from_dict(lowerbound_range_dict, orient="index")
+            upperbounds_df = pd.DataFrame.from_dict(upperbound_range_dict, orient="index")
+            if len(lowerbounds_df):
+                result_text += "\nLower bounds:\n"
+                result_text += lowerbounds_df.to_string()
+                result_text += "\n"
+            else:
+                result_text += "\nNo active lower bounds\n"
+            if len(upperbounds_df):
+                result_text += "\nUpper bounds:\n"
+                result_text += upperbounds_df.to_string()
+                result_text += "\n"
+            else:
+                result_text += "\nNo active upper bounds\n"
+        with open('bounding-values.txt', 'w') as f:
+            f.write(result_text)
+        print(result_text)

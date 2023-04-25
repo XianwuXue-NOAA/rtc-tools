@@ -484,26 +484,29 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
 
         # ------- FOR BOTH -------
         def convert_to_dict_per_var(constrain_list):
-            def add_to_dict(variable, new_dict, sign = "+"):
+            def add_to_dict(new_dict, variable, sign="+"):
                 splitted_var = variable.split("__")
-                splitted_var[0] = sign + splitted_var[0]
                 if splitted_var[0] not in new_dict:
-                    new_dict[splitted_var[0]] = [int(splitted_var[1])]
+                    new_dict[splitted_var[0]] = {
+                        'timesteps': [int(splitted_var[1])],
+                        'effect_direction': sign
+                    }
                 else:
-                    new_dict[splitted_var[0]].append(int(splitted_var[1]))
+                    new_dict[splitted_var[0]]['timesteps'].append(int(splitted_var[1]))
                 return new_dict
 
             new_dict = {}
             for constrain in constrain_list:
                 if isinstance(constrain, list):
                     for i, variable in enumerate(constrain[2::3]):
-                        add_to_dict(variable, new_dict, constrain[i*3])
+                        add_to_dict(new_dict, variable, constrain[i*3])
                 else:
                     variable = constrain
-                    add_to_dict(variable, new_dict)
+                    add_to_dict(new_dict, variable)
 
             # SORT VALUES, REMOVE DUPLICATES:
-            new_dict = {key: sorted(set(value)) for key, value in new_dict.items()}
+            for var_name in new_dict:
+                new_dict[var_name]['timesteps'] = sorted(set(new_dict[var_name]['timesteps']))
             return new_dict
 
         positive_effect_dict = convert_to_dict_per_var(positive_effect)

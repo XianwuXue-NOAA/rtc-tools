@@ -12,6 +12,7 @@ logger = logging.getLogger("rtctools")
 
 
 class Plotting:
+    plotting_and_active_constraints = True
     def pre(self):
         super().pre()
         self.intermediate_results = []

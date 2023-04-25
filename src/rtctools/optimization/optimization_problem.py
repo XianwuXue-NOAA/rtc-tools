@@ -22,24 +22,21 @@ logger = logging.getLogger("rtctools")
 # Typical type for a bound on a variable
 BT = Union[float, np.ndarray, Timeseries]
 
-def casadi_to_lp(ps_i):
+
+def casadi_to_lp(pickle_content, lp_name=None):
     try:
-        with open(ps_i, 'rb') as f:
-            d = pickle.load(f)
-
-        pickleid= os.path.basename(ps_i).split('.')[0].rsplit('_',1)[1]
-
-        indices = d['indices'][0]
-        expand_f_g = d['func']
-        lbx, ubx, lbg, ubg, x0 = d['other']
-        X = ca.SX.sym('X', expand_f_g.nnz_in())
+        d = pickle_content
+        indices = d["indices"][0]
+        expand_f_g = d["func"]
+        lbx, ubx, lbg, ubg, x0 = d["other"]
+        X = ca.SX.sym("X", expand_f_g.nnz_in())
         f, g = expand_f_g(X)
 
         in_var = X
         out = []
         for o in [f, g]:
-            Af = ca.Function('Af', [in_var], [ca.jacobian(o, in_var)])
-            bf = ca.Function('bf', [in_var], [o])
+            Af = ca.Function("Af", [in_var], [ca.jacobian(o, in_var)])
+            bf = ca.Function("bf", [in_var], [o])
 
             A = Af(0)
             A = ca.sparsify(A)
@@ -51,18 +48,18 @@ def casadi_to_lp(ps_i):
         var_names = []
         for k, v in indices.items():
             if isinstance(v, int):
-                var_names.append('{}__{}'.format(k, v))
+                var_names.append("{}__{}".format(k, v))
             else:
                 for i in range(0, v.stop - v.start, 1 if v.step is None else v.step):
-                    var_names.append('{}__{}'.format(k, i))
+                    var_names.append("{}__{}".format(k, i))
 
         n_derivatives = expand_f_g.nnz_in() - len(var_names)
         for i in range(n_derivatives):
             var_names.append("DERIVATIVE__{}".format(i))
 
-
         # CPLEX does not like [] in variable names
         import re
+
         for i, v in enumerate(var_names):
             v = v.replace("[", "_I")
             v = v.replace("]", "I_")
@@ -76,7 +73,7 @@ def casadi_to_lp(ps_i):
 
             for v, c in zip(var_names, ind):
                 if c != 0:
-                    objective.extend(['+' if c > 0 else '-', str(abs(c)), v])
+                    objective.extend(["+" if c > 0 else "-", str(abs(c)), v])
 
             if objective[0] == "-":
                 objective[1] = "-" + objective[1]
@@ -85,7 +82,7 @@ def casadi_to_lp(ps_i):
             objective_str = " ".join(objective)
             objective_str = "  " + objective_str
         except:
-            print("set objective string to 1")
+            logger.warning("set objective string to 1")
             objective_str = "1"
 
         # CONSTRAINTS
@@ -94,7 +91,6 @@ def casadi_to_lp(ps_i):
         lbg = np.array(ca.veccat(*lbg))[:, 0]
         ubg = np.array(ca.veccat(*ubg))[:, 0]
 
-
         A_csc = A.tocsc()
         A_coo = A_csc.tocoo()
         b = np.array(b)[:, 0]
@@ -102,8 +98,7 @@ def casadi_to_lp(ps_i):
         constraints = [[] for i in range(A.shape[0])]
 
         for i, j, c in zip(A_coo.row, A_coo.col, A_coo.data):
-            constraints[i].extend(['+' if c > 0 else '-', str(abs(c)), var_names[j]])
-
+            constraints[i].extend(["+" if c > 0 else "-", str(abs(c)), var_names[j]])
 
         constraints_original = copy.deepcopy(constraints)
         for i in range(len(constraints)):
@@ -135,39 +130,25 @@ def casadi_to_lp(ps_i):
         for v, l, u in zip(var_names, lbx, ubx):
             bounds.append("{} <= {} <= {}".format(l, v, u))
         bounds_str = "  " + "\n  ".join(bounds)
+        if lp_name:
+            with open("myproblem_{}.lp".format(lp_name), "w") as o:
+                o.write("Minimize\n")
+                for x in textwrap.wrap(objective_str, width=255):  # lp-format has max length of 255 chars
+                    o.write(x + "\n")
+                o.write("Subject To\n")
+                o.write(constraints_str + "\n")
+                o.write("Bounds\n")
+                o.write(bounds_str + "\n")
+                o.write("End")
+            with open("constraints.lp", "w") as o:
+                o.write(constraints_str + "\n")
 
-        with open("myproblem_{}.lp".format(pickleid), 'w') as o:
-            o.write("Minimize\n")
-            for x in textwrap.wrap(objective_str, width=255):  # lp-format has max length of 255 chars
-                o.write(x + "\n")
-        #    o.write(objective_str + "\n")
-            o.write("Subject To\n")
-            o.write(constraints_str + "\n")
-            o.write("Bounds\n")
-            o.write(bounds_str + "\n")
-            o.write("End")
-        with open("constraints.lp", 'w') as o:
-            o.write(constraints_str + "\n")
-
-        shutil.copy("myproblem_{}.lp".format(pickleid), "myproblem.lp")
         nrows = A_coo.shape[0]
-
-        ratios = []
-        minmaxs = []
-
-        # shutil.copy("myproblem.lp", r"C:\myproblem.lp")
-
-        #for i in range(nrows):
-        #    d = np.abs(A_coo.getrow(i).data)
-        #    m, M = min(d), max(d)
-        #    minmaxs.append((m, M))
-        #    ratios.append(abs(M/m))
-
-        #print(max(ratios))
-
         return constraints, constraints_original, list(var_names)
-    except:
-        print("failed!")
+
+    except Exception as e:
+        logger.error(f"Error occured while converting to lp file! {e}")
+
 
 class LookupTable:
     """
@@ -203,8 +184,9 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
 
         self.__mixed_integer = False
 
-    def optimize(self, preprocessing: bool = True, postprocessing: bool = True,
-                 log_solver_failure_as_error: bool = True) -> bool:
+    def optimize(
+        self, preprocessing: bool = True, postprocessing: bool = True, log_solver_failure_as_error: bool = True
+    ) -> bool:
         """
         Perform one initialize-transcribe-solve-finalize cycle.
 
@@ -215,7 +197,7 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
         """
 
         # Deprecations / removals
-        if hasattr(self, 'initial_state'):
+        if hasattr(self, "initial_state"):
             raise RuntimeError("Support for `initial_state()` has been removed. Please use `history()` instead.")
 
         logger.info("Entering optimize()")
@@ -228,8 +210,7 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
             # Check if control inputs are bounded
             self.__check_bounds_control_input()
         else:
-            logger.debug(
-                'Skipping Preprocessing in OptimizationProblem.optimize()')
+            logger.debug("Skipping Preprocessing in OptimizationProblem.optimize()")
 
         # Transcribe problem
         discrete, lbx, ubx, lbg, ubg, x0, nlp = self.transcribe()
@@ -242,48 +223,31 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
         options.update(self.solver_options())  # Create a copy
 
         logger.debug("Creating solver")
-
-        if options.pop('expand', False) or True:
+        if options.pop("expand", False) or self.plotting_and_active_constraints:
             # NOTE: CasADi only supports the "expand" option for nlpsol. To
             # also be able to expand with e.g. qpsol, we do the expansion
             # ourselves here.
             logger.debug("Expanding objective and constraints to SX")
 
-            expand_f_g = ca.Function('f_g', [nlp['x']], [nlp['f'], nlp['g']]).expand()
-            X_sx = ca.SX.sym('X', *nlp['x'].shape)
+            expand_f_g = ca.Function("f_g", [nlp["x"]], [nlp["f"], nlp["g"]]).expand()
+            X_sx = ca.SX.sym("X", *nlp["x"].shape)
             f_sx, g_sx = expand_f_g(X_sx)
 
-            nlp['f'] = f_sx
-            nlp['g'] = g_sx
-            nlp['x'] = X_sx
+            nlp["f"] = f_sx
+            nlp["g"] = g_sx
+            nlp["x"] = X_sx
 
-            import pickle
-
-            import time
-
-            expand_f_g = ca.Function('f_g', [nlp['x']], [nlp['f'], nlp['g']]).expand()
-
-            pickle_name = "nlp_func_{}.pickle".format(int(time.time()))
-            with open(pickle_name, 'wb') as pck:
-
-                myd = {}
-
-                myd['indices'] = self._CollocatedIntegratedOptimizationProblem__indices
-
-                myd['func'] = expand_f_g
-
-                myd['other'] = (lbx, ubx, lbg, ubg, x0)
-
-
-                in_var = ca.SX.sym('X', expand_f_g.nnz_in())
-                bf = ca.Function('bf', [in_var], [expand_f_g(in_var)[1]])
-                b = bf(0)
-                b = ca.sparsify(b)
-                b = np.array(b)[:, 0]
-
-                pickle.dump(myd, pck)
-
-            constraints, constraints_original, variable_names = casadi_to_lp(pickle_name)
+            expand_f_g = ca.Function("f_g", [nlp["x"]], [nlp["f"], nlp["g"]]).expand()
+            myd = {}
+            myd["indices"] = self._CollocatedIntegratedOptimizationProblem__indices
+            myd["func"] = expand_f_g
+            myd["other"] = (lbx, ubx, lbg, ubg, x0)
+            in_var = ca.SX.sym("X", expand_f_g.nnz_in())
+            bf = ca.Function("bf", [in_var], [expand_f_g(in_var)[1]])
+            b = bf(0)
+            b = ca.sparsify(b)
+            b = np.array(b)[:, 0]
+            constraints, constraints_original, variable_names = casadi_to_lp(myd)
 
         # Debug check for non-linearity in constraints
         self.__debug_check_linearity_constraints(nlp)
@@ -292,34 +256,34 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
         self.__debug_check_linear_independence(lbx, ubx, lbg, ubg, nlp)
 
         # Solver option
-        my_solver = options['solver']
-        del options['solver']
+        my_solver = options["solver"]
+        del options["solver"]
 
         # Already consumed
-        del options['optimized_num_dir']
+        del options["optimized_num_dir"]
 
         # Iteration callback
-        iteration_callback = options.pop('iteration_callback', None)
+        iteration_callback = options.pop("iteration_callback", None)
 
         # CasADi solver to use
-        casadi_solver = options.pop('casadi_solver')
+        casadi_solver = options.pop("casadi_solver")
         if isinstance(casadi_solver, str):
             casadi_solver = getattr(ca, casadi_solver)
 
         nlpsol_options = {**options}
 
         if self.__mixed_integer:
-            nlpsol_options['discrete'] = discrete
+            nlpsol_options["discrete"] = discrete
         if iteration_callback:
-            nlpsol_options['iteration_callback'] = iteration_callback
+            nlpsol_options["iteration_callback"] = iteration_callback
 
         # Remove ipopt and bonmin defaults if they are not used
-        if my_solver != 'ipopt':
-            nlpsol_options.pop('ipopt', None)
-        if my_solver != 'bonmin':
-            nlpsol_options.pop('bonmin', None)
+        if my_solver != "ipopt":
+            nlpsol_options.pop("ipopt", None)
+        if my_solver != "bonmin":
+            nlpsol_options.pop("bonmin", None)
 
-        solver = casadi_solver('nlp', my_solver, nlp, nlpsol_options)
+        solver = casadi_solver("nlp", my_solver, nlp, nlpsol_options)
 
         # Solve NLP
         logger.info("Calling solver")
@@ -327,24 +291,23 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
         results = solver(x0=x0, lbx=lbx, ubx=ubx, lbg=ca.veccat(*lbg), ubg=ca.veccat(*ubg))
 
         # Extract relevant stats
-        self.__objective_value = float(results['f'])
-        self.__solver_output = np.array(results['x']).ravel()
+        self.__objective_value = float(results["f"])
+        self.__solver_output = np.array(results["x"]).ravel()
         self.__solver_stats = solver.stats()
 
         success, log_level = self.solver_success(self.__solver_stats, log_solver_failure_as_error)
 
-        return_status = self.__solver_stats['return_status']
-        if 'secondary_return_status' in self.__solver_stats:
-            return_status = "{}: {}".format(return_status, self.__solver_stats['secondary_return_status'])
+        return_status = self.__solver_stats["return_status"]
+        if "secondary_return_status" in self.__solver_stats:
+            return_status = "{}: {}".format(return_status, self.__solver_stats["secondary_return_status"])
         wall_clock_time = "elapsed time not read"
-        if 't_wall_total' in self.__solver_stats:
-            wall_clock_time = "{} seconds".format(self.__solver_stats['t_wall_total'])
-        elif 't_wall_solver' in self.__solver_stats:
-            wall_clock_time = "{} seconds".format(self.__solver_stats['t_wall_solver'])
+        if "t_wall_total" in self.__solver_stats:
+            wall_clock_time = "{} seconds".format(self.__solver_stats["t_wall_total"])
+        elif "t_wall_solver" in self.__solver_stats:
+            wall_clock_time = "{} seconds".format(self.__solver_stats["t_wall_solver"])
 
         if success:
-            logger.log(log_level, "Solver succeeded with status {} ({}).".format(
-                return_status, wall_clock_time))
+            logger.log(log_level, "Solver succeeded with status {} ({}).".format(return_status, wall_clock_time))
         else:
             try:
                 ii = [y[0] for y in self.loop_over_error].index(self.priority)
@@ -362,198 +325,85 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
                 logger.log(log_level, "Solver succeeded with status {} ({}).".format(
                     return_status, wall_clock_time))
 
-        # You can evaluate the constraints wrt to the optimized solution
-        x_optimized = np.array(results['x']).ravel()
-        expand_f_g = ca.Function('f_g', [nlp['x']], [nlp['f'], nlp['g']]).expand()
-        X_sx = ca.SX.sym('X', *nlp['x'].shape)
-        f_sx, g_sx = expand_f_g(X_sx)
-        eval_g = ca.Function('g_eval', [X_sx], [g_sx]).expand()
-        evaluated_g = [x[0] for x in np.array(eval_g(x_optimized))]
-        lam_g = [x[0] for x in np.array(results['lam_g'])]
-        lam_x = [x[0] for x in np.array(results['lam_x'])]
+        if self.plotting_and_active_constraints:
+            # Evaluate the constraints wrt to the optimized solution
+            x_optimized = np.array(results["x"]).ravel()
+            expand_f_g = ca.Function("f_g", [nlp["x"]], [nlp["f"], nlp["g"]]).expand()
+            X_sx = ca.SX.sym("X", *nlp["x"].shape)
+            f_sx, g_sx = expand_f_g(X_sx)
+            eval_g = ca.Function("g_eval", [X_sx], [g_sx]).expand()
+            evaluated_g = [x[0] for x in np.array(eval_g(x_optimized))]
+            lam_g = [x[0] for x in np.array(results["lam_g"])]
+            lam_x = [x[0] for x in np.array(results["lam_x"])]
 
-
-        # -------------------------------------------------- OLD ------------------------------------------------
-        atol = 1e-7
-        rtol = 1e-7
-        ubg_hits = [np.allclose(evaluated_i,ubg_i-b_i,rtol=rtol,atol=atol) for evaluated_i, ubg_i, b_i in zip(evaluated_g, ubg, b)]
-        lbg_hits = [np.allclose(evaluated_i,lbg_i-b_i,rtol=rtol,atol=atol) for evaluated_i, lbg_i, b_i in zip(evaluated_g, lbg, b)]
-
-        violates_ubg = [evaluated_i > ((ubg_i-b_i)*(1+rtol)+atol) for evaluated_i, ubg_i, b_i in zip(evaluated_g, ubg, b)]
-        violates_lbg = [evaluated_i < ((lbg_i-b_i)*(1-rtol)-atol) for evaluated_i, lbg_i, b_i in zip(evaluated_g, lbg, b)]
-
-        if any(violates_ubg):
-            print("Violation of upper bound!")
-        if any(violates_lbg):
-            print("Violation of lbg!")
-
-        hit_type = [1*lbg_hit + 2*ubg_hit for lbg_hit, ubg_hit in zip(lbg_hits, ubg_hits)]
-        hit_type_str = {0: "", 1: "only lower bound", 2: "only upper bound", 3: "both bounds"}
-        smaller_than_zero = 0
-        larger_than_zero = 0
-
-        # # DEBUGGING:
-        # for i in range(0,len(evaluated_g)):
-        #     if hit_type[i]:
-        #         if lam_g[i] < 0:
-        #             smaller_than_zero +=1
-        #             print(f"smaller THAN ZERO! {lam_g[i]}")
-        #         else:
-        #             print(f"larger  THAN ZERO: {lam_g[i]}!")
-        #             larger_than_zero +=1
-        #         print(f"-> Constraint {i} is active ({hit_type_str[hit_type[i]]}): {lbg[i]} < {round(evaluated_g[i],100)} < {ubg[i]} (lam_g: {lam_g[i]})")
-
-        #     else:
-        #         # continue
-        #         print(f"Constraint {i} is not active: {lbg[i]} < {round(evaluated_g[i],100)} < {ubg[i]} (lam_g: {lam_g[i]})")
-        #     if lam_g[i] < -1e-5:
-        #         if hit_type[i] == 1 or hit_type[i] == 3:
-        #             print("Yes")
-        #         else:
-        #             if lam_g[i] < -1:
-        #                 print("STRANGE: lagrange mult smaller than 2, while we do not hit lower bound!")
-        #     elif lam_g[i] > 1e-5:
-        #         if hit_type[i] == 2 or hit_type[i] == 3:
-        #             print("Yes")
-        #         else:
-        #             if lam_g[i] > 1:
-        #                 print("STRANGE: lagrange mult larger than 2, while we do not hit upper bound!")
-        #     else:
-        #         print(f"lagrange mult approx 0 ({lam_g[i]})")
-        #         if hit_type[i] != 0:
-        #             print("! BUT we do hit a bound...")
-        #         else:
-        #             print("and we do not hit a bound, as expected...")
-        #     if lam_g[i] < -2 or lam_g[i] > 2:
-        #         print("LAGRANGE MULT HAS A LARGE MAGNITUDE!")
-
-
-
-        #     if violates_lbg[i]:
-        #         print(f"Constraint {i} violates lbg: {lbg[i]} < {round(evaluated_g[i],100)} < {ubg[i]}")
-        #     if violates_ubg[i]:
-        #         print(f"Constraint {i} violates ubg: {lbg[i]} < {round(evaluated_g[i],100)} < {ubg[i]}")
-
-        self.activated_lower_bounds = [True if lagrange_mult < -1.5 else False for lagrange_mult in lam_g]
-        self.activated_upper_bounds = [True if lagrange_mult > 1.5 else False for lagrange_mult in lam_g]
-
-        self.activated_lower_bounds_only = [True if lagrange_mult < -1.5 and hit_t != 3 else False for lagrange_mult, hit_t in zip(lam_g, hit_type)]
-        self.activated_upper_bounds_only = [True if lagrange_mult > 1.5 and hit_t != 3 else False for lagrange_mult, hit_t in zip(lam_g, hit_type)]
-
-        print(f"Number of activated lower bounds (only): {self.activated_lower_bounds_only.count(True)}")
-        print(f"Number of activated upper bounds (only): {self.activated_upper_bounds_only.count(True)}")
-        n_prints=0
-        self._textual_constraints = constraints
-
-        positive_effect = []
-        negative_effect = []
-
-        for i in range(0,len(evaluated_g)):
-            if self.activated_lower_bounds_only[i]:
-                print("hit lower bound: " + str(i))
-                print(f"-> Constraint {i} is active ({hit_type_str[hit_type[i]]}): {lbg[i]} < {round(evaluated_g[i],100)} < {ubg[i]} (lam_g: {lam_g[i]})")
-                print(f"-> Constraint {i} is ACTIVE ({hit_type_str[hit_type[i]]}): {lbg[i]-b[i]} < {round(evaluated_g[i]-b[i],100)} < {ubg[i]-b[i]} (lam_g: {lam_g[i]}) (b {b[i]})")
-                print(constraints[i])
-                constrain_list = constraints_original[i]
-                for var_i in range(int(len(constrain_list)/3)):
-                    var_sign  = constrain_list[  var_i*3]
-                    var_value = constrain_list[1+var_i*3]
-                    var_name   = constrain_list[2+var_i*3]
-                    if var_sign == "-":
-                        positive_effect.append(var_name)
+            def convert_to_dict_per_var(constrain_list):
+                def add_to_dict(new_dict, variable, sign="+"):
+                    splitted_var = variable.split("__")
+                    if splitted_var[0] not in new_dict:
+                        new_dict[splitted_var[0]] = {"timesteps": [int(splitted_var[1])], "effect_direction": sign}
                     else:
-                        negative_effect.append(var_name)
-                n_prints+=1
-            if self.activated_upper_bounds_only[i]:
-                print("hit upper bound: " + str(i))
-                print(f"-> Constraint {i} is active ({hit_type_str[hit_type[i]]}): {lbg[i]} < {round(evaluated_g[i],100)} < {ubg[i]} (lam_g: {lam_g[i]})")
-                print(f"-> Constraint {i} is ACTIVE ({hit_type_str[hit_type[i]]}): {lbg[i]-b[i]} < {round(evaluated_g[i]-b[i],100)} < {ubg[i]-b[i]} (lam_g: {lam_g[i]}) (b {b[i]})")
-                print(constraints[i])
-                constrain_list = constraints_original[i]
-                for var_i in range(int(len(constrain_list)/3)):
-                    var_sign  = constrain_list[  var_i*3]
-                    var_value = constrain_list[1+var_i*3]
-                    var_name   = constrain_list[2+var_i*3]
-                    if var_sign == "+":
-                        positive_effect.append(var_name)
-                    else:
-                        negative_effect.append(var_name)
-                n_prints+=1
-            if n_prints > 1000:
-                break
+                        new_dict[splitted_var[0]]["timesteps"].append(int(splitted_var[1]))
+                    return new_dict
 
-        # ------- FOR BOTH -------
-        def convert_to_dict_per_var(constrain_list):
-            def add_to_dict(new_dict, variable, sign="+"):
-                splitted_var = variable.split("__")
-                if splitted_var[0] not in new_dict:
-                    new_dict[splitted_var[0]] = {
-                        'timesteps': [int(splitted_var[1])],
-                        'effect_direction': sign
-                    }
-                else:
-                    new_dict[splitted_var[0]]['timesteps'].append(int(splitted_var[1]))
+                new_dict = {}
+                for constrain in constrain_list:
+                    if isinstance(constrain, list):
+                        for i, variable in enumerate(constrain[2::3]):
+                            add_to_dict(new_dict, variable, constrain[i * 3])
+                    else:
+                        variable = constrain
+                        add_to_dict(new_dict, variable)
+
+                # SORT VALUES, REMOVE DUPLICATES:
+                for var_name in new_dict:
+                    new_dict[var_name]["timesteps"] = sorted(set(new_dict[var_name]["timesteps"]))
                 return new_dict
 
-            new_dict = {}
-            for constrain in constrain_list:
-                if isinstance(constrain, list):
-                    for i, variable in enumerate(constrain[2::3]):
-                        add_to_dict(new_dict, variable, constrain[i*3])
-                else:
-                    variable = constrain
-                    add_to_dict(new_dict, variable)
+            # -------------------------
+            # --------  NEW  ----------
+            # -------------------------
 
-            # SORT VALUES, REMOVE DUPLICATES:
-            for var_name in new_dict:
-                new_dict[var_name]['timesteps'] = sorted(set(new_dict[var_name]['timesteps']))
-            return new_dict
+            def find_lambda_exceedence(exceedence_list, lowers, uppers, variable_names, variable_values):
+                variables_exceeding = []
+                if any(exceedence_list):
+                    for i, larger_than_zero in enumerate(exceedence_list):
+                        if larger_than_zero:
+                            logger.debug(f'Bound for variable {variable_names[i]}={variable_values[i]} was hit!"')
+                            logger.debug(f"{lowers[i]} < {variable_values[i]} < {uppers[i]}")
+                            variables_exceeding.append(variable_names[i])
+                return variables_exceeding
 
-        positive_effect_dict = convert_to_dict_per_var(positive_effect)
-        negative_effect_dict = convert_to_dict_per_var(negative_effect)
-        self.negative_effect_dict = negative_effect_dict
-        self.positive_effect_dict = positive_effect_dict
+            def larger_than_zero(in_list, tol):
+                return [x > tol for x in in_list]
 
+            def smaller_than_zero(in_list, tol):
+                return [x < -tol for x in in_list]
 
-        # -------------------------
-        # --------  NEW  ----------
-        # -------------------------
+            lam_x_tol = 1.5
+            # Bounds
+            lam_x_larger_than_zero = larger_than_zero(lam_x, lam_x_tol)
+            lam_x_smaller_than_zero = smaller_than_zero(lam_x, lam_x_tol)
+            self.upper_bound_variable_hits = find_lambda_exceedence(
+                lam_x_larger_than_zero, lbx, ubx, variable_names, x_optimized
+            )
+            self.lower_bound_variable_hits = find_lambda_exceedence(
+                lam_x_smaller_than_zero, lbx, ubx, variable_names, x_optimized
+            )
+            self.upper_bound_dict = convert_to_dict_per_var(self.upper_bound_variable_hits)
+            self.lower_bound_dict = convert_to_dict_per_var(self.lower_bound_variable_hits)
 
-        def find_lambda_exceedence(exceedence_list, lowers, uppers, variable_names, variable_values):
-            variables_exceeding = []
-            if any(exceedence_list):
-                for i, larger_than_zero in enumerate(exceedence_list):
-                    if larger_than_zero:
-                        print(f'Bound for variable {variable_names[i]}={variable_values[i]} was hit!"')
-                        print(f'{lowers[i]} < {variable_values[i]} < {uppers[i]}')
-                        variables_exceeding.append(variable_names[i])
-            return variables_exceeding
-
-        def larger_than_zero(in_list, tol):
-            return [x > tol for x in in_list]
-
-        def smaller_than_zero(in_list, tol):
-            return [x < -tol for x in in_list]
-
-        lam_x_tol = 1.5
-        # Bounds
-        lam_x_larger_than_zero  = larger_than_zero(lam_x, lam_x_tol)
-        lam_x_smaller_than_zero = smaller_than_zero(lam_x, lam_x_tol)
-        self.upper_bound_variable_hits = find_lambda_exceedence(lam_x_larger_than_zero, lbx, ubx, variable_names, x_optimized)
-        self.lower_bound_variable_hits = find_lambda_exceedence(lam_x_smaller_than_zero, lbx, ubx, variable_names, x_optimized)
-        self.upper_bound_dict = convert_to_dict_per_var(self.upper_bound_variable_hits)
-        self.lower_bound_dict = convert_to_dict_per_var(self.lower_bound_variable_hits)
-
-        # Constraints (v2)
-        lam_g_tol = lam_x_tol
-        lam_g_larger_than_zero = larger_than_zero(lam_g, lam_g_tol)
-        lam_g_smaller_than_zero = smaller_than_zero(lam_g, lam_g_tol)
-        self.upper_constraint_variable_hits = find_lambda_exceedence(lam_g_larger_than_zero, lbg, ubg, constraints_original, evaluated_g)
-        self.lower_constraint_variable_hits = find_lambda_exceedence(lam_g_smaller_than_zero, lbg, ubg, constraints_original, evaluated_g)
-        self.upper_constraint_dict = convert_to_dict_per_var(self.upper_constraint_variable_hits)
-        self.lower_constraint_dict = convert_to_dict_per_var(self.lower_constraint_variable_hits)
-        pass
-
+            # Constraints (v2)
+            lam_g_tol = lam_x_tol
+            lam_g_larger_than_zero = larger_than_zero(lam_g, lam_g_tol)
+            lam_g_smaller_than_zero = smaller_than_zero(lam_g, lam_g_tol)
+            self.upper_constraint_variable_hits = find_lambda_exceedence(
+                lam_g_larger_than_zero, lbg, ubg, constraints_original, evaluated_g
+            )
+            self.lower_constraint_variable_hits = find_lambda_exceedence(
+                lam_g_smaller_than_zero, lbg, ubg, constraints_original, evaluated_g
+            )
+            self.upper_constraint_dict = convert_to_dict_per_var(self.upper_constraint_variable_hits)
+            self.lower_constraint_dict = convert_to_dict_per_var(self.lower_constraint_variable_hits)
 
         # --> Unused function, but could be useful for refactoring convert_to_dict_per_var
         # get_variables_in_constraints(self.upper_constraint_variable_hits)
@@ -572,28 +422,26 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
         if postprocessing:
             self.post()
         else:
-            logger.debug(
-                'Skipping Postprocessing in OptimizationProblem.optimize()')
+            logger.debug("Skipping Postprocessing in OptimizationProblem.optimize()")
 
         # Done
         logger.info("Done with optimize()")
 
         return success
 
-
     def __check_bounds_control_input(self) -> None:
         # Checks if at the control inputs have bounds, log warning when a control input is not bounded.
         bounds = self.bounds()
 
-        for variable in self.dae_variables['control_inputs']:
+        for variable in self.dae_variables["control_inputs"]:
             variable = variable.name()
             if variable not in bounds:
-                logger.warning(
-                    "OptimizationProblem: control input {} has no bounds.".format(variable))
+                logger.warning("OptimizationProblem: control input {} has no bounds.".format(variable))
 
     @abstractmethod
-    def transcribe(self) -> Tuple[
-            np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, Dict[str, ca.MX]]:
+    def transcribe(
+        self,
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, Dict[str, ca.MX]]:
         """
         Transcribe the continuous optimization problem to a discretized, solver-ready
         optimization problem.
@@ -610,28 +458,26 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
         :returns: A dictionary of solver options. See the CasADi and
                   respective solver documentation for details.
         """
-        options = {'error_on_fail': False,
-                   'optimized_num_dir': 3,
-                   'casadi_solver': ca.nlpsol}
+        options = {"error_on_fail": False, "optimized_num_dir": 3, "casadi_solver": ca.nlpsol}
 
         if self.__mixed_integer:
-            options['solver'] = 'bonmin'
+            options["solver"] = "bonmin"
 
-            bonmin_options = options['bonmin'] = {}
-            bonmin_options['algorithm'] = 'B-BB'
-            bonmin_options['nlp_solver'] = 'Ipopt'
-            bonmin_options['nlp_log_level'] = 2
-            bonmin_options['linear_solver'] = 'mumps'
+            bonmin_options = options["bonmin"] = {}
+            bonmin_options["algorithm"] = "B-BB"
+            bonmin_options["nlp_solver"] = "Ipopt"
+            bonmin_options["nlp_log_level"] = 2
+            bonmin_options["linear_solver"] = "mumps"
         else:
-            options['solver'] = 'ipopt'
+            options["solver"] = "ipopt"
 
-            ipopt_options = options['ipopt'] = {}
-            ipopt_options['linear_solver'] = 'mumps'
+            ipopt_options = options["ipopt"] = {}
+            ipopt_options["linear_solver"] = "mumps"
         return options
 
-    def solver_success(self,
-                       solver_stats: Dict[str, Union[str, bool]],
-                       log_solver_failure_as_error: bool) -> Tuple[bool, int]:
+    def solver_success(
+        self, solver_stats: Dict[str, Union[str, bool]], log_solver_failure_as_error: bool
+    ) -> Tuple[bool, int]:
         """
         Translates the returned solver statistics into a boolean and log level
         to indicate whether the solve was succesful, and how to log it.
@@ -659,11 +505,12 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
 
         :returns: A tuple indicating whether or not the solver has succeeded, and what level to log it with.
         """
-        success = solver_stats['success']
+        success = solver_stats["success"]
         log_level = logging.INFO if success else logging.ERROR
 
-        if (self.solver_options()['solver'].lower() in ['bonmin', 'ipopt']
-                and solver_stats['return_status'] in ['Not_Enough_Degrees_Of_Freedom']):
+        if self.solver_options()["solver"].lower() in ["bonmin", "ipopt"] and solver_stats["return_status"] in [
+            "Not_Enough_Degrees_Of_Freedom"
+        ]:
             log_level = logging.WARNING
 
         if log_level == logging.ERROR and not log_solver_failure_as_error:
@@ -881,8 +728,7 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
                 all_bounds[i] = Timeseries(v2.times, np.full_like(v2.values, v1))
             elif isinstance(v1, np.ndarray) and isinstance(v2, Timeseries):
                 if v2.values.ndim != 2 or len(v1) != v2.values.shape[1]:
-                    raise Exception(
-                        "Mismatching vector size when upcasting to Timeseries, {} vs. {}.".format(v1, v2))
+                    raise Exception("Mismatching vector size when upcasting to Timeseries, {} vs. {}.".format(v1, v2))
                 all_bounds[i] = Timeseries(v2.times, np.broadcast_to(v1, v2.values.shape))
             elif isinstance(v1, (int, float)) and isinstance(v2, np.ndarray):
                 all_bounds[i] = np.full_like(v2, v1)
@@ -1044,8 +890,9 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
         """
         return ca.MX(0)
 
-    def constraints(self, ensemble_member: int) -> List[
-            Tuple[ca.MX, Union[float, np.ndarray], Union[float, np.ndarray]]]:
+    def constraints(
+        self, ensemble_member: int
+    ) -> List[Tuple[ca.MX, Union[float, np.ndarray], Union[float, np.ndarray]]]:
         """
         Returns a list of constraints for the given ensemble member.
 
@@ -1072,8 +919,9 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
         """
         return []
 
-    def path_constraints(self, ensemble_member: int) -> List[
-            Tuple[ca.MX, Union[float, np.ndarray], Union[float, np.ndarray]]]:
+    def path_constraints(
+        self, ensemble_member: int
+    ) -> List[Tuple[ca.MX, Union[float, np.ndarray], Union[float, np.ndarray]]]:
         """
         Returns a list of path constraints.
 
@@ -1118,13 +966,14 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
     INTERPOLATION_PIECEWISE_CONSTANT_BACKWARD = 2
 
     def interpolate(
-            self,
-            t: Union[float, np.ndarray],
-            ts: np.ndarray,
-            fs: np.ndarray,
-            f_left: float = np.nan,
-            f_right: float = np.nan,
-            mode: int = INTERPOLATION_LINEAR) -> Union[float, np.ndarray]:
+        self,
+        t: Union[float, np.ndarray],
+        ts: np.ndarray,
+        fs: np.ndarray,
+        f_left: float = np.nan,
+        f_right: float = np.nan,
+        mode: int = INTERPOLATION_LINEAR,
+    ) -> Union[float, np.ndarray]:
         """
         Linear interpolation over time.
 
@@ -1148,7 +997,7 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
 
             fs_int = [self.interpolate(t, ts, fs[:, i], f_left, f_right, mode) for i in range(fs.shape[1])]
             return np.stack(fs_int, axis=1)
-        elif hasattr(t, '__iter__'):
+        elif hasattr(t, "__iter__"):
             if len(t) == len(ts) and np.all(t == ts):
                 # Early termination; nothing to interpolate
                 return fs.copy()
@@ -1163,37 +1012,37 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
 
     def __interpolate(self, t, ts, fs, f_left=np.nan, f_right=np.nan, mode=INTERPOLATION_LINEAR):
         """
-        Linear interpolation over time.
+                Linear interpolation over time.
 
-        :param t:       Time at which to evaluate the interpolant.
-        :type t:        float or vector of floats
-        :param ts:      Time stamps.
-        :type ts:       numpy array
-        :param fs:      Function values at time stamps ts.
-        :param f_left:  Function value left of leftmost time stamp.
-        :param f_right: Function value right of rightmost time stamp.
-        :param mode:    Interpolation mode.
+                :param t:       Time at which to evaluate the interpolant.
+                :type t:        float or vector of floats
+                :param ts:      Time stamps.
+                :type ts:       numpy array
+                :param fs:      Function values at time stamps ts.
+                :param f_left:  Function value left of leftmost time stamp.
+                :param f_right: Function value right of rightmost time stamp.
+                :param mode:    Interpolation mode.
 
-        Note that it is assumed that `ts` is sorted. No such assumption is made for `t`
-.
-        :returns: The interpolated value.
+                Note that it is assumed that `ts` is sorted. No such assumption is made for `t`
+        .
+                :returns: The interpolated value.
         """
 
         if f_left is None:
-            if (min(t) if hasattr(t, '__iter__') else t) < ts[0]:
+            if (min(t) if hasattr(t, "__iter__") else t) < ts[0]:
                 raise Exception("Interpolation: Point {} left of range".format(t))
 
         if f_right is None:
-            if (max(t) if hasattr(t, '__iter__') else t) > ts[-1]:
+            if (max(t) if hasattr(t, "__iter__") else t) > ts[-1]:
                 raise Exception("Interpolation: Point {} right of range".format(t))
 
         if mode == self.INTERPOLATION_LINEAR:
             # No need to handle f_left / f_right; NumPy already does this for us
             return np.interp(t, ts, fs, f_left, f_right)
         elif mode == self.INTERPOLATION_PIECEWISE_CONSTANT_FORWARD:
-            v = fs[np.maximum(np.searchsorted(ts, t, side='right') - 1, 0)]
+            v = fs[np.maximum(np.searchsorted(ts, t, side="right") - 1, 0)]
         elif mode == self.INTERPOLATION_PIECEWISE_CONSTANT_BACKWARD:
-            v = fs[np.minimum(np.searchsorted(ts, t, side='left'), len(ts) - 1)]
+            v = fs[np.minimum(np.searchsorted(ts, t, side="left"), len(ts) - 1)]
         else:
             raise NotImplementedError
 
@@ -1217,8 +1066,9 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def discretize_controls(self, resolved_bounds: AliasDict) -> Tuple[
-            int, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    def discretize_controls(
+        self, resolved_bounds: AliasDict
+    ) -> Tuple[int, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """
         Performs the discretization of the control inputs, filling lower and upper
         bound vectors for the resulting optimization variables, as well as an initial guess.
@@ -1311,8 +1161,9 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def discretize_states(self, resolved_bounds: AliasDict) -> Tuple[
-            int, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    def discretize_states(
+        self, resolved_bounds: AliasDict
+    ) -> Tuple[int, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """
         Perform the discretization of the states.
 
@@ -1471,12 +1322,13 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
         raise NotImplementedError
 
     def set_timeseries(
-            self,
-            variable: str,
-            timeseries: Timeseries,
-            ensemble_member: int = 0,
-            output: bool = True,
-            check_consistency: bool = True) -> None:
+        self,
+        variable: str,
+        timeseries: Timeseries,
+        ensemble_member: int = 0,
+        output: bool = True,
+        check_consistency: bool = True,
+    ) -> None:
         """
         Sets a timeseries in the internal data store.
 
@@ -1516,19 +1368,19 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
 
     @debug_check(DebugLevel.HIGH)
     def __debug_check_linearity_constraints(self, nlp):
-        x = nlp['x']
-        f = nlp['f']
-        g = nlp['g']
+        x = nlp["x"]
+        f = nlp["f"]
+        g = nlp["g"]
 
-        expand_f_g = ca.Function('f_g', [x], [f, g]).expand()
-        X_sx = ca.SX.sym('X', *x.shape)
+        expand_f_g = ca.Function("f_g", [x], [f, g]).expand()
+        X_sx = ca.SX.sym("X", *x.shape)
         f_sx, g_sx = expand_f_g(X_sx)
 
-        jac = ca.Function('j', [X_sx], [ca.jacobian(g_sx, X_sx)]).expand()
+        jac = ca.Function("j", [X_sx], [ca.jacobian(g_sx, X_sx)]).expand()
         if jac(np.nan).is_regular():
             logger.info("The constraints are linear")
         else:
-            hes = ca.Function('j', [X_sx], [ca.jacobian(ca.jacobian(g_sx, X_sx), X_sx)]).expand()
+            hes = ca.Function("j", [X_sx], [ca.jacobian(ca.jacobian(g_sx, X_sx), X_sx)]).expand()
             if hes(np.nan).is_regular():
                 logger.info("The constraints are quadratic")
             else:
@@ -1536,12 +1388,12 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
 
     @debug_check(DebugLevel.VERYHIGH)
     def __debug_check_linear_independence(self, lbx, ubx, lbg, ubg, nlp):
-        x = nlp['x']
-        f = nlp['f']
-        g = nlp['g']
+        x = nlp["x"]
+        f = nlp["f"]
+        g = nlp["g"]
 
-        expand_f_g = ca.Function('f_g', [x], [f, g]).expand()
-        x_sx = ca.SX.sym('X', *x.shape)
+        expand_f_g = ca.Function("f_g", [x], [f, g]).expand()
+        x_sx = ca.SX.sym("X", *x.shape)
         f_sx, g_sx = expand_f_g(x_sx)
 
         x, f, g = x_sx, f_sx, g_sx
@@ -1550,18 +1402,18 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
         ubg = np.array(ca.vertsplit(ca.veccat(*ubg))).ravel()
 
         # Find the linear constraints
-        g_sjac = ca.Function('Af', [x], [ca.jtimes(g, x, x.ones(*x.shape))])
+        g_sjac = ca.Function("Af", [x], [ca.jtimes(g, x, x.ones(*x.shape))])
 
         res = g_sjac(np.nan)
         res = np.array(res).ravel()
         g_is_linear = ~np.isnan(res)
 
         # Find the rows in the jacobian with only a single entry
-        g_jac_csr = ca.DM(ca.Function('tmp', [x], [g]).sparsity_jac(0, 0)).tocsc().tocsr()
-        g_single_variable = (np.diff(g_jac_csr.indptr) == 1)
+        g_jac_csr = ca.DM(ca.Function("tmp", [x], [g]).sparsity_jac(0, 0)).tocsc().tocsr()
+        g_single_variable = np.diff(g_jac_csr.indptr) == 1
 
         # Find the rows which are equality constraints
-        g_eq_constraint = (lbg == ubg)
+        g_eq_constraint = lbg == ubg
 
         # The intersection of all selections are constraints like we want
         g_constant_assignment = g_is_linear & g_single_variable & g_eq_constraint
@@ -1588,7 +1440,10 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
 
         for vi in x_inds:
             if vi in var_index_assignment:
-                logger.info("Variable '{}' has equal bounds (value = {}), but also the following equality constraints:"
-                            .format(var_names[vi], lbx[vi]))
+                logger.info(
+                    "Variable '{}' has equal bounds (value = {}), but also the following equality constraints:".format(
+                        var_names[vi], lbx[vi]
+                    )
+                )
                 for g_i in var_index_assignment[vi]:
                     logger.info("row {}: {} = {}".format(g_i, named_g[g_i], lbg[g_i]))

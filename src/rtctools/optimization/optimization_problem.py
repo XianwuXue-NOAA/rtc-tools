@@ -484,22 +484,26 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
 
         # ------- FOR BOTH -------
         def convert_to_dict_per_var(constrain_list):
-            def add_to_dict(variable, new_dict):
+            def add_to_dict(variable, new_dict, sign = "+"):
                 splitted_var = variable.split("__")
+                splitted_var[0] = sign + splitted_var[0]
                 if splitted_var[0] not in new_dict:
-                    new_dict[splitted_var[0]] = [splitted_var[1]]
+                    new_dict[splitted_var[0]] = [int(splitted_var[1])]
                 else:
-                    new_dict[splitted_var[0]].append(splitted_var[1])
+                    new_dict[splitted_var[0]].append(int(splitted_var[1]))
                 return new_dict
 
             new_dict = {}
             for constrain in constrain_list:
                 if isinstance(constrain, list):
-                    for variable in constrain[2::3]:
-                        add_to_dict(variable, new_dict)
+                    for i, variable in enumerate(constrain[2::3]):
+                        add_to_dict(variable, new_dict, constrain[i*3])
                 else:
                     variable = constrain
                     add_to_dict(variable, new_dict)
+
+            # SORT VALUES, REMOVE DUPLICATES:
+            new_dict = {key: sorted(set(value)) for key, value in new_dict.items()}
             return new_dict
 
         positive_effect_dict = convert_to_dict_per_var(positive_effect)

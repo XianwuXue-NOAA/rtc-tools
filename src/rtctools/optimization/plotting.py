@@ -172,11 +172,12 @@ class Plotting:
             "activated_upper_bounds": self.activated_upper_bounds,
             "textual_constraints": self._textual_constraints,
             "positive_effect_dict": self.positive_effect_dict,
-            "upper_constraint_dict": self.upper_constraint_dict,
             "negative_effect_dict": self.negative_effect_dict,
-            "lower_constraint_dict": self.lower_constraint_dict,
             "upper_bound_variable_hits": self.upper_bound_variable_hits,
             "lower_bound_variable_hits": self.lower_bound_variable_hits,
+            "new": 'hey!',
+            "upper_constraint_dict": self.upper_constraint_dict,
+            "lower_constraint_dict": self.lower_constraint_dict,
             "upper_bound_dict": self.upper_bound_dict,
             "lower_bound_dict": self.lower_bound_dict,
         }
@@ -224,9 +225,9 @@ class Plotting:
             #         print(intermediate_result['textual_constraints'][i])
             import pprint
 
-            pos_eff_range_dict = convert_lists_in_dict(intermediate_result["positive_effect_dict"])
-            neg_eff_range_dict = convert_lists_in_dict(intermediate_result["negative_effect_dict"])
-            print("\nPostive effect dict constraints:")
+            pos_eff_range_dict = convert_lists_in_dict(intermediate_result["upper_constraint_dict"])
+            neg_eff_range_dict = convert_lists_in_dict(intermediate_result["lower_constraint_dict"])
+            print("\nVariables :")
             pprint.pprint(pos_eff_range_dict)
             print("\nNegative effect dict constraints:")
             pprint.pprint(neg_eff_range_dict)

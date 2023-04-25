@@ -167,23 +167,12 @@ class Plotting:
             "min_q_goals": self.min_q_goals,
             "timeseries_import_times": self.timeseries_import.times,
             "priority": priority,
-            # "activated_lower_bounds": self.activated_lower_bounds,
-            # "activated_upper_bounds": self.activated_upper_bounds,
-            # "textual_constraints": self._textual_constraints,
-            # "positive_effect_dict": self.positive_effect_dict,
-            # "negative_effect_dict": self.negative_effect_dict,
-            # "upper_bound_variable_hits": self.upper_bound_variable_hits,
-            # "lower_bound_variable_hits": self.lower_bound_variable_hits,
-            # "new": 'hey!',
             "upper_constraint_dict": self.upper_constraint_dict,
             "lower_constraint_dict": self.lower_constraint_dict,
             "upper_bound_dict": self.upper_bound_dict,
             "lower_bound_dict": self.lower_bound_dict,
         }
         self.intermediate_results.append(to_store)
-
-        # plot current results
-        # self.plot_goal_results_from_self(priority)
         super().priority_completed(priority)
 
     def post(self):
@@ -216,14 +205,6 @@ class Plotting:
             self.plot_goal_results_from_dict(intermediate_result)
             priority = intermediate_result["priority"]
             result_text += f"\n-------------------------------- Priority {priority} --------------------------------"
-            # for i in range(len(intermediate_result['textual_constraints'])):
-            #     if intermediate_result['activated_lower_bounds'][i]:
-            #         print("hit lower bound for:")
-            #         print(intermediate_result['textual_constraints'][i])
-            #     if intermediate_result['activated_upper_bounds'][i]:
-            #         print("hit upper bound for:")
-            #         print(intermediate_result['textual_constraints'][i])
-
             upperconstr_range_dict = convert_lists_in_dict(intermediate_result["upper_constraint_dict"])
             lowerconstr_range_dict = convert_lists_in_dict(intermediate_result["lower_constraint_dict"])
             upper_constraints_df = pd.DataFrame.from_dict(upperconstr_range_dict, orient="index")

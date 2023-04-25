@@ -11,8 +11,9 @@ import copy
 logger = logging.getLogger("rtctools")
 
 
-class Plotting:
+class PlotGoals:
     plotting_and_active_constraints = True
+    lam_x_tol = 0.1
     def pre(self):
         super().pre()
         self.intermediate_results = []

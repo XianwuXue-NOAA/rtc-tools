@@ -174,7 +174,8 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
     """
     Base class for all optimization problems.
     """
-
+    plotting_and_active_constraints = False
+    lam_x_tol = 1.5
     _debug_check_level = DebugLevel.MEDIUM
     _debug_check_options = {}
 
@@ -336,74 +337,63 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
             lam_g = [x[0] for x in np.array(results["lam_g"])]
             lam_x = [x[0] for x in np.array(results["lam_x"])]
 
-            def convert_to_dict_per_var(constrain_list):
-                def add_to_dict(new_dict, variable, sign="+"):
-                    splitted_var = variable.split("__")
-                    if splitted_var[0] not in new_dict:
-                        new_dict[splitted_var[0]] = {"timesteps": [int(splitted_var[1])], "effect_direction": sign}
-                    else:
-                        new_dict[splitted_var[0]]["timesteps"].append(int(splitted_var[1]))
-                    return new_dict
+            def extract_var_name_timestep(variable):
+                """Split the variable name into its original name and its timestep"""
+                var_name, _, timestep_str = variable.partition("__")
+                return var_name, int(timestep_str)
 
+            def add_to_dict(new_dict, var_name, timestep, sign="+"):
+                """Add variable to dict grouped by variable names"""
+                if var_name not in new_dict:
+                    new_dict[var_name] = {"timesteps": [timestep], "effect_direction": sign}
+                else:
+                    new_dict[var_name]["timesteps"].append(timestep)
+                return new_dict
+
+            def convert_to_dict_per_var(constrain_list):
+                """Convert list of ungrouped variables to a dict per variable name,
+                with as values the time-indices where the variable was active"""
                 new_dict = {}
                 for constrain in constrain_list:
                     if isinstance(constrain, list):
                         for i, variable in enumerate(constrain[2::3]):
-                            add_to_dict(new_dict, variable, constrain[i * 3])
+                            var_name, timestep = extract_var_name_timestep(variable)
+                            add_to_dict(new_dict, var_name, timestep, constrain[i * 3])
                     else:
-                        variable = constrain
-                        add_to_dict(new_dict, variable)
-
-                # SORT VALUES, REMOVE DUPLICATES:
+                        var_name, timestep = extract_var_name_timestep(constrain)
+                        add_to_dict(new_dict, var_name, timestep)
+                # Sort values and remove duplicates
                 for var_name in new_dict:
                     new_dict[var_name]["timesteps"] = sorted(set(new_dict[var_name]["timesteps"]))
                 return new_dict
 
-            # -------------------------
-            # --------  NEW  ----------
-            # -------------------------
+            def check_lambda_exceedence(lam, tol):
+                return [x > tol for x in lam], [x < -tol for x in lam]
 
-            def find_lambda_exceedence(exceedence_list, lowers, uppers, variable_names, variable_values):
-                variables_exceeding = []
-                if any(exceedence_list):
-                    for i, larger_than_zero in enumerate(exceedence_list):
-                        if larger_than_zero:
-                            logger.debug(f'Bound for variable {variable_names[i]}={variable_values[i]} was hit!"')
-                            logger.debug(f"{lowers[i]} < {variable_values[i]} < {uppers[i]}")
-                            variables_exceeding.append(variable_names[i])
-                return variables_exceeding
+            def find_variable_hits(exceedance_list, lowers, uppers, variable_names, variable_values):
+                variable_hits = []
+                for i, hit in enumerate(exceedance_list):
+                    if hit:
+                        logger.debug(f"Bound for variable {variable_names[i]}={variable_values[i]} was hit!")
+                        logger.debug(f"{lowers[i]} < {variable_values[i]} < {uppers[i]}")
+                        variable_hits.append(variable_names[i])
+                return variable_hits
 
-            def larger_than_zero(in_list, tol):
-                return [x > tol for x in in_list]
-
-            def smaller_than_zero(in_list, tol):
-                return [x < -tol for x in in_list]
-
-            lam_x_tol = 1.5
-            # Bounds
-            lam_x_larger_than_zero = larger_than_zero(lam_x, lam_x_tol)
-            lam_x_smaller_than_zero = smaller_than_zero(lam_x, lam_x_tol)
-            self.upper_bound_variable_hits = find_lambda_exceedence(
-                lam_x_larger_than_zero, lbx, ubx, variable_names, x_optimized
-            )
-            self.lower_bound_variable_hits = find_lambda_exceedence(
-                lam_x_smaller_than_zero, lbx, ubx, variable_names, x_optimized
-            )
+            # Upper and lower bounds
+            lam_x_larger_than_zero, lam_x_smaller_than_zero = check_lambda_exceedence(lam_x, self.lam_x_tol)
+            self.upper_bound_variable_hits = find_variable_hits(lam_x_larger_than_zero, lbx, ubx, variable_names, x_optimized)
+            self.lower_bound_variable_hits = find_variable_hits(lam_x_smaller_than_zero, lbx, ubx, variable_names, x_optimized)
             self.upper_bound_dict = convert_to_dict_per_var(self.upper_bound_variable_hits)
             self.lower_bound_dict = convert_to_dict_per_var(self.lower_bound_variable_hits)
 
-            # Constraints (v2)
+            # Upper and lower constraints
             lam_g_tol = lam_x_tol
-            lam_g_larger_than_zero = larger_than_zero(lam_g, lam_g_tol)
-            lam_g_smaller_than_zero = smaller_than_zero(lam_g, lam_g_tol)
-            self.upper_constraint_variable_hits = find_lambda_exceedence(
-                lam_g_larger_than_zero, lbg, ubg, constraints_original, evaluated_g
-            )
-            self.lower_constraint_variable_hits = find_lambda_exceedence(
-                lam_g_smaller_than_zero, lbg, ubg, constraints_original, evaluated_g
-            )
+            lam_g_larger_than_zero, lam_g_smaller_than_zero = check_lambda_exceedence(lam_g, self.lam_g_tol)
+            self.upper_constraint_variable_hits = find_variable_hits(lam_g_larger_than_zero, lbg, ubg, constraints_original, evaluated_g)
+            self.lower_constraint_variable_hits = find_variable_hits(lam_g_smaller_than_zero, lbg, ubg, constraints_original, evaluated_g)
             self.upper_constraint_dict = convert_to_dict_per_var(self.upper_constraint_variable_hits)
             self.lower_constraint_dict = convert_to_dict_per_var(self.lower_constraint_variable_hits)
+
 
         # --> Unused function, but could be useful for refactoring convert_to_dict_per_var
         # get_variables_in_constraints(self.upper_constraint_variable_hits)

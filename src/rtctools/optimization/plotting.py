@@ -67,45 +67,42 @@ class Plotting:
             goal_variable = g[0]
             axs[i_r, i_c].plot(t_datetime, results[goal_variable], label=goal_variable)
 
-            result_dict["positive_effect_dict"].keys()
             prio = result_dict["priority"]
-            positive_dict = {
-                name.replace(".", "_"): value for name, value in result_dict["positive_effect_dict"].items()
+
+            def add_variable_effects(constraints):
+                if goal_variable in constraints:
+                    for xr in constraints[goal_variable]['timesteps']:
+                        if constraints[goal_variable]['effect_direction'] == "+":
+                            modification = "Increase"
+                            marker_type = matplotlib.markers.CARETUPBASE
+                            marker_color = 'g'
+
+                        else:
+                            modification = "Decrease"
+                            marker_type = matplotlib.markers.CARETDOWNBASE
+                            marker_color = 'r'
+
+                        label = f"{modification} {goal_variable} to improve {prio}"
+                        if label in axs[i_r, i_c].get_legend_handles_labels()[1]:
+                            label = "_nolegend_"
+                        axs[i_r, i_c].plot(
+                            t_datetime[int(xr)],
+                            results[goal_variable][int(xr)],
+                            marker=marker_type,
+                            color=marker_color,
+                            label=label,
+                            markersize=5,
+                            alpha=0.6
+                        )
+            upper_constraints = {
+                name.replace(".", "_"): value for name, value in result_dict["upper_constraint_dict"].items()
             }
-            negative_dict = {
-                name.replace(".", "_"): value for name, value in result_dict["negative_effect_dict"].items()
+            lower_constraints = {
+                name.replace(".", "_"): value for name, value in result_dict["lower_constraint_dict"].items()
             }
-            if goal_variable in positive_dict:
-                bounded_at = positive_dict[goal_variable]
-                for xr in positive_dict[goal_variable]['timesteps']:
-                    # axs[i_r, i_c].vlines(x=t_datetime[int(xr)], color='r', linestyle ='--',ymin= axs[i_r, i_c].get_ylim()[0],ymax= axs[i_r, i_c].get_ylim()[1])
-                    label = f"Increase to improve {prio}"
-                    if label in axs[i_r, i_c].get_legend_handles_labels()[1]:
-                        label = "_nolegend_"
-                    # else:
-                    #     existing_labels.append(label)
-                    axs[i_r, i_c].plot(
-                        t_datetime[int(xr)],
-                        results[goal_variable][int(xr)],
-                        marker=matplotlib.markers.CARETUPBASE,
-                        color="r",
-                        label=label,
-                    )
-            if goal_variable in negative_dict:
-                for xr in negative_dict[goal_variable]['timesteps']:
-                    label = f"Decrease to improve {prio}"
-                    if label in axs[i_r, i_c].get_legend_handles_labels()[1]:
-                        label = "_nolegend_"
-                    # else:
-                    #     existing_labels.append(label)
-                    axs[i_r, i_c].plot(
-                        t_datetime[int(xr)],
-                        results[goal_variable][int(xr)],
-                        marker=matplotlib.markers.CARETDOWNBASE,
-                        color="b",
-                        label=label,
-                    )
-                    # axs[i_r, i_c].vlines(x=t_datetime[int(xr)], color='r', linestyle ='--',ymin= axs[i_r, i_c].get_ylim()[0],ymax= axs[i_r, i_c].get_ylim()[1])
+            add_variable_effects(upper_constraints)
+            add_variable_effects(lower_constraints)
+
             return i_c, i_r
 
         def apply_additional_settings(goal_settings):
@@ -170,14 +167,14 @@ class Plotting:
             "min_q_goals": self.min_q_goals,
             "timeseries_import_times": self.timeseries_import.times,
             "priority": priority,
-            "activated_lower_bounds": self.activated_lower_bounds,
-            "activated_upper_bounds": self.activated_upper_bounds,
-            "textual_constraints": self._textual_constraints,
-            "positive_effect_dict": self.positive_effect_dict,
-            "negative_effect_dict": self.negative_effect_dict,
-            "upper_bound_variable_hits": self.upper_bound_variable_hits,
-            "lower_bound_variable_hits": self.lower_bound_variable_hits,
-            "new": 'hey!',
+            # "activated_lower_bounds": self.activated_lower_bounds,
+            # "activated_upper_bounds": self.activated_upper_bounds,
+            # "textual_constraints": self._textual_constraints,
+            # "positive_effect_dict": self.positive_effect_dict,
+            # "negative_effect_dict": self.negative_effect_dict,
+            # "upper_bound_variable_hits": self.upper_bound_variable_hits,
+            # "lower_bound_variable_hits": self.lower_bound_variable_hits,
+            # "new": 'hey!',
             "upper_constraint_dict": self.upper_constraint_dict,
             "lower_constraint_dict": self.lower_constraint_dict,
             "upper_bound_dict": self.upper_bound_dict,
@@ -244,7 +241,6 @@ class Plotting:
             else:
                 result_text += "\nNo active upper constraints\n"
 
-
             lowerbound_range_dict = convert_lists_in_dict(intermediate_result["upper_bound_dict"])
             upperbound_range_dict = convert_lists_in_dict(intermediate_result["lower_bound_dict"])
             lowerbounds_df = pd.DataFrame.from_dict(lowerbound_range_dict, orient="index")
@@ -261,6 +257,7 @@ class Plotting:
                 result_text += "\n"
             else:
                 result_text += "\nNo active upper bounds\n"
+
         with open('bounding-values.txt', 'w') as f:
             f.write(result_text)
         print(result_text)

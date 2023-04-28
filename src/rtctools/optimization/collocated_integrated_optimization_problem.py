@@ -443,7 +443,7 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
         theta = self.theta
         if theta < 1:
             warnings.warn("Explicit collocation is deprecated and will be removed in a future version.",
-                          FutureWarning, stacklevel=1)
+                          FutureWarning, stacklevel=2)
 
         # Set CasADi function options
         options = self.solver_options()

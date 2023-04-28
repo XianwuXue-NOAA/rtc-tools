@@ -1,12 +1,16 @@
-import math
-import matplotlib.pyplot as plt
-import matplotlib
-import numpy as np
-import logging
-import matplotlib.dates as mdates
-import os
-import pandas as pd
 import copy
+import logging
+import math
+import os
+
+import matplotlib
+import matplotlib.dates as mdates
+import matplotlib.pyplot as plt
+
+import numpy as np
+
+import pandas as pd
+
 
 logger = logging.getLogger("rtctools")
 
@@ -14,6 +18,7 @@ logger = logging.getLogger("rtctools")
 class PlotGoals:
     plotting_and_active_constraints = True
     lam_tol = 0.1
+
     def pre(self):
         super().pre()
         self.intermediate_results = []
@@ -73,16 +78,16 @@ class PlotGoals:
 
             def add_variable_effects(constraints):
                 if goal_variable in constraints:
-                    for xr in constraints[goal_variable]['timesteps']:
-                        if constraints[goal_variable]['effect_direction'] == "+":
+                    for xr in constraints[goal_variable]["timesteps"]:
+                        if constraints[goal_variable]["effect_direction"] == "+":
                             modification = "Increase"
                             marker_type = matplotlib.markers.CARETUPBASE
-                            marker_color = 'g'
+                            marker_color = "g"
 
                         else:
                             modification = "Decrease"
                             marker_type = matplotlib.markers.CARETDOWNBASE
-                            marker_color = 'r'
+                            marker_color = "r"
 
                         label = f"{modification} {goal_variable} to improve {prio}"
                         if label in axs[i_r, i_c].get_legend_handles_labels()[1]:
@@ -94,8 +99,9 @@ class PlotGoals:
                             color=marker_color,
                             label=label,
                             markersize=5,
-                            alpha=0.6
+                            alpha=0.6,
                         )
+
             upper_constraints = {
                 name.replace(".", "_"): value for name, value in result_dict["upper_constraint_dict"].items()
             }
@@ -184,7 +190,7 @@ class PlotGoals:
             ranges = []
             start = None
             if len(lst) == 1:
-                return [(int(lst[0]),int(lst[0]))]
+                return [(int(lst[0]), int(lst[0]))]
             for i in range(len(lst)):
                 if start is None:
                     start = lst[i]
@@ -196,7 +202,7 @@ class PlotGoals:
         def convert_lists_in_dict(dic):
             new_dic = copy.deepcopy(dic)
             for key, val in dic.items():
-                new_dic[key]['timesteps'] = list_to_ranges(val['timesteps'])
+                new_dic[key]["timesteps"] = list_to_ranges(val["timesteps"])
             return new_dic
 
         # Plot all intermediate results
@@ -241,6 +247,6 @@ class PlotGoals:
             else:
                 result_text += "\nNo active upper bounds\n"
 
-        with open('bounding-values.txt', 'w') as f:
+        with open("bounding-values.txt", "w") as f:
             f.write(result_text)
         print(result_text)

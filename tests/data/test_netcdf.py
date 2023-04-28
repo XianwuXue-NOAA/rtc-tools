@@ -97,7 +97,7 @@ class TestInputDataset_requirements(TestCase):
         self._variables[0] = ['time', 'station', 'ensemble']
         self._variable_associated_dimensions[0] = {var: [pd] for (var, pd)
                                                    in zip(self._variables[0], self._dimensions[0])}
-        self._variable_associated_attribute_requirements[0] = {var: atr_reqs for (var, atr_reqs)
+        self._variable_associated_attribute_requirements[0] = {var: atr_reqs for (var, atr_reqs)  # noqa: C416
                                                                in zip(self._variables[0],
                                                                ({'axis': 'T', 'standard_name': 'time'},
                                                                 {'cf_role': 'timeseries_id'}, None))}

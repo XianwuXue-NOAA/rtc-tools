@@ -1,10 +1,8 @@
+import copy
 import logging
+import textwrap
 from abc import ABCMeta, abstractmethod, abstractproperty
 from typing import Any, Dict, Iterator, List, Tuple, Union
-import pickle
-import os, shutil
-import textwrap
-import copy
 
 import casadi as ca
 
@@ -58,7 +56,6 @@ def casadi_to_lp(pickle_content, lp_name=None):
             var_names.append("DERIVATIVE__{}".format(i))
 
         # CPLEX does not like [] in variable names
-        import re
 
         for i, v in enumerate(var_names):
             v = v.replace("[", "_I")
@@ -81,7 +78,7 @@ def casadi_to_lp(pickle_content, lp_name=None):
             objective.pop(0)
             objective_str = " ".join(objective)
             objective_str = "  " + objective_str
-        except:
+        except Exception:
             logger.warning("set objective string to 1")
             objective_str = "1"
 
@@ -103,7 +100,7 @@ def casadi_to_lp(pickle_content, lp_name=None):
         constraints_original = copy.deepcopy(constraints)
         for i in range(len(constraints)):
             cur_constr = constraints[i]
-            l, u, b_i = lbg[i], ubg[i], b[i]
+            lower, upper, b_i = lbg[i], ubg[i], b[i]
 
             if len(cur_constr) > 0:
                 if cur_constr[0] == "-":
@@ -112,23 +109,23 @@ def casadi_to_lp(pickle_content, lp_name=None):
 
             c_str = " ".join(cur_constr)
 
-            if np.isfinite(l) and np.isfinite(u) and l == u:
-                constraints[i] = "{} = {}".format(c_str, l - b_i)
-            elif np.isfinite(l) and np.isfinite(u):
-                constraints[i] = "{} <= {} <= {}".format(l - b_i, c_str, u - b_i)
-            elif np.isfinite(l):
-                constraints[i] = "{} >= {}".format(c_str, l - b_i)
-            elif np.isfinite(u):
-                constraints[i] = "{} <= {}".format(c_str, u - b_i)
+            if np.isfinite(lower) and np.isfinite(upper) and lower == upper:
+                constraints[i] = "{} = {}".format(c_str, lower - b_i)
+            elif np.isfinite(lower) and np.isfinite(upper):
+                constraints[i] = "{} <= {} <= {}".format(lower - b_i, c_str, upper - b_i)
+            elif np.isfinite(lower):
+                constraints[i] = "{} >= {}".format(c_str, lower - b_i)
+            elif np.isfinite(upper):
+                constraints[i] = "{} <= {}".format(c_str, upper - b_i)
             else:
-                raise Exception(l, b, constraints[i])
+                raise Exception(lower, b, constraints[i])
 
         constraints_str = "  " + "\n  ".join(constraints)
 
         # Bounds
         bounds = []
-        for v, l, u in zip(var_names, lbx, ubx):
-            bounds.append("{} <= {} <= {}".format(l, v, u))
+        for v, lower, upper in zip(var_names, lbx, ubx):
+            bounds.append("{} <= {} <= {}".format(lower, v, upper))
         bounds_str = "  " + "\n  ".join(bounds)
         if lp_name:
             with open("myproblem_{}.lp".format(lp_name), "w") as o:
@@ -143,7 +140,6 @@ def casadi_to_lp(pickle_content, lp_name=None):
             with open("constraints.lp", "w") as o:
                 o.write(constraints_str + "\n")
 
-        nrows = A_coo.shape[0]
         return constraints, constraints_original, list(var_names)
 
     except Exception as e:
@@ -248,7 +244,7 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
             b = bf(0)
             b = ca.sparsify(b)
             b = np.array(b)[:, 0]
-            constraints, constraints_original, variable_names = casadi_to_lp(myd)
+            _, constraints_original, variable_names = casadi_to_lp(myd)
 
         # Debug check for non-linearity in constraints
         self.__debug_check_linearity_constraints(nlp)
@@ -381,18 +377,21 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
 
             # Upper and lower bounds
             lam_x_larger_than_zero, lam_x_smaller_than_zero = check_lambda_exceedence(lam_x, self.lam_tol)
-            self.upper_bound_variable_hits = find_variable_hits(lam_x_larger_than_zero, lbx, ubx, variable_names, x_optimized, lam_x)
-            self.lower_bound_variable_hits = find_variable_hits(lam_x_smaller_than_zero, lbx, ubx, variable_names, x_optimized, lam_x)
+            self.upper_bound_variable_hits = find_variable_hits(
+                lam_x_larger_than_zero, lbx, ubx, variable_names, x_optimized, lam_x)
+            self.lower_bound_variable_hits = find_variable_hits(
+                lam_x_smaller_than_zero, lbx, ubx, variable_names, x_optimized, lam_x)
             self.upper_bound_dict = convert_to_dict_per_var(self.upper_bound_variable_hits)
             self.lower_bound_dict = convert_to_dict_per_var(self.lower_bound_variable_hits)
 
             # Upper and lower constraints
             lam_g_larger_than_zero, lam_g_smaller_than_zero = check_lambda_exceedence(lam_g, self.lam_tol)
-            self.upper_constraint_variable_hits = find_variable_hits(lam_g_larger_than_zero, lbg, ubg, constraints_original, evaluated_g, lam_g)
-            self.lower_constraint_variable_hits = find_variable_hits(lam_g_smaller_than_zero, lbg, ubg, constraints_original, evaluated_g, lam_g)
+            self.upper_constraint_variable_hits = find_variable_hits(
+                lam_g_larger_than_zero, lbg, ubg, constraints_original, evaluated_g, lam_g)
+            self.lower_constraint_variable_hits = find_variable_hits(
+                lam_g_smaller_than_zero, lbg, ubg, constraints_original, evaluated_g, lam_g)
             self.upper_constraint_dict = convert_to_dict_per_var(self.upper_constraint_variable_hits)
             self.lower_constraint_dict = convert_to_dict_per_var(self.lower_constraint_variable_hits)
-
 
         # --> Unused function, but could be useful for refactoring convert_to_dict_per_var
         # get_variables_in_constraints(self.upper_constraint_variable_hits)

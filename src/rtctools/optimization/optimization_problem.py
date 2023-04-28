@@ -143,7 +143,7 @@ def casadi_to_lp(pickle_content, lp_name=None):
         return constraints, constraints_original, list(var_names)
 
     except Exception as e:
-        logger.error(f"Error occured while converting to lp file! {e}")
+        logger.error("Error occured while converting to lp file! {}".format(e))
 
 
 class LookupTable:
@@ -370,8 +370,9 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
                 variable_hits = []
                 for i, hit in enumerate(exceedance_list):
                     if hit:
-                        logger.debug(f"Bound for variable {variable_names[i]}={variable_values[i]} was hit! Lam={lam}")
-                        logger.debug(f"{lowers[i]} < {variable_values[i]} < {uppers[i]}")
+                        logger.debug("Bound for variable {}={} was hit! Lam={}".format(
+                            variable_names[i], variable_values[i], lam))
+                        logger.debug("{} < {} < {}".format(lowers[i], variable_values[i], uppers[i]))
                         variable_hits.append(variable_names[i])
                 return variable_hits
 

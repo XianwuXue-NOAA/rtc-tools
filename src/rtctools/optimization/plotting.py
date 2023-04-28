@@ -89,7 +89,7 @@ class PlotGoals:
                             marker_type = matplotlib.markers.CARETDOWNBASE
                             marker_color = "r"
 
-                        label = f"{modification} {goal_variable} to improve {prio}"
+                        label = "{} {} to improve {}".format(modification, goal_variable, prio)
                         if label in axs[i_r, i_c].get_legend_handles_labels()[1]:
                             label = "_nolegend_"
                         axs[i_r, i_c].plot(
@@ -122,7 +122,7 @@ class PlotGoals:
                 axs[i_row, i_col].plot(t_datetime, results[var], linestyle="solid", linewidth="0.5", label=var)
             axs[i_row, i_col].set_ylabel(add_settings[0])
             axs[i_row, i_col].legend()
-            axs[i_row, i_col].set_title(f"Priority {goal_settings[4]}")
+            axs[i_row, i_col].set_title("Priority {}".format(goal_settings[4]))
             dateFormat = mdates.DateFormatter("%d%b%H")
             axs[i_row, i_col].xaxis.set_major_formatter(dateFormat)
             axs[i_row, i_col].grid(which="both", axis="x")
@@ -164,7 +164,7 @@ class PlotGoals:
             axs[n_rows - 1, i].set_xlabel("Time")
         os.makedirs("goal_figures", exist_ok=True)
         fig.tight_layout()
-        fig.savefig(f"goal_figures/after_priority_{priority}.png")
+        fig.savefig("goal_figures/after_priority_{}.png".format(priority))
         # plt.show()
 
     def priority_completed(self, priority: int) -> None:
@@ -212,7 +212,7 @@ class PlotGoals:
         for intermediate_result in self.intermediate_results:
             self.plot_goal_results_from_dict(intermediate_result)
             priority = intermediate_result["priority"]
-            result_text += f"\n-------------------------------- Priority {priority} --------------------------------"
+            result_text += "\n----------------------- Priority {} -------------------------".format(priority)
             upperconstr_range_dict = convert_lists_in_dict(intermediate_result["upper_constraint_dict"])
             lowerconstr_range_dict = convert_lists_in_dict(intermediate_result["lower_constraint_dict"])
             upper_constraints_df = pd.DataFrame.from_dict(upperconstr_range_dict, orient="index")

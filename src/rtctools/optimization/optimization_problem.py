@@ -175,7 +175,7 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
     Base class for all optimization problems.
     """
     plotting_and_active_constraints = False
-    lam_x_tol = 1.5
+    lam_tol = 1.5
     _debug_check_level = DebugLevel.MEDIUM
     _debug_check_options = {}
 
@@ -370,27 +370,26 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
             def check_lambda_exceedence(lam, tol):
                 return [x > tol for x in lam], [x < -tol for x in lam]
 
-            def find_variable_hits(exceedance_list, lowers, uppers, variable_names, variable_values):
+            def find_variable_hits(exceedance_list, lowers, uppers, variable_names, variable_values, lam):
                 variable_hits = []
                 for i, hit in enumerate(exceedance_list):
                     if hit:
-                        logger.debug(f"Bound for variable {variable_names[i]}={variable_values[i]} was hit!")
+                        logger.debug(f"Bound for variable {variable_names[i]}={variable_values[i]} was hit! Lam={lam}")
                         logger.debug(f"{lowers[i]} < {variable_values[i]} < {uppers[i]}")
                         variable_hits.append(variable_names[i])
                 return variable_hits
 
             # Upper and lower bounds
-            lam_x_larger_than_zero, lam_x_smaller_than_zero = check_lambda_exceedence(lam_x, self.lam_x_tol)
-            self.upper_bound_variable_hits = find_variable_hits(lam_x_larger_than_zero, lbx, ubx, variable_names, x_optimized)
-            self.lower_bound_variable_hits = find_variable_hits(lam_x_smaller_than_zero, lbx, ubx, variable_names, x_optimized)
+            lam_x_larger_than_zero, lam_x_smaller_than_zero = check_lambda_exceedence(lam_x, self.lam_tol)
+            self.upper_bound_variable_hits = find_variable_hits(lam_x_larger_than_zero, lbx, ubx, variable_names, x_optimized, lam_x)
+            self.lower_bound_variable_hits = find_variable_hits(lam_x_smaller_than_zero, lbx, ubx, variable_names, x_optimized, lam_x)
             self.upper_bound_dict = convert_to_dict_per_var(self.upper_bound_variable_hits)
             self.lower_bound_dict = convert_to_dict_per_var(self.lower_bound_variable_hits)
 
             # Upper and lower constraints
-            lam_g_tol = lam_x_tol
-            lam_g_larger_than_zero, lam_g_smaller_than_zero = check_lambda_exceedence(lam_g, self.lam_g_tol)
-            self.upper_constraint_variable_hits = find_variable_hits(lam_g_larger_than_zero, lbg, ubg, constraints_original, evaluated_g)
-            self.lower_constraint_variable_hits = find_variable_hits(lam_g_smaller_than_zero, lbg, ubg, constraints_original, evaluated_g)
+            lam_g_larger_than_zero, lam_g_smaller_than_zero = check_lambda_exceedence(lam_g, self.lam_tol)
+            self.upper_constraint_variable_hits = find_variable_hits(lam_g_larger_than_zero, lbg, ubg, constraints_original, evaluated_g, lam_g)
+            self.lower_constraint_variable_hits = find_variable_hits(lam_g_smaller_than_zero, lbg, ubg, constraints_original, evaluated_g, lam_g)
             self.upper_constraint_dict = convert_to_dict_per_var(self.upper_constraint_variable_hits)
             self.lower_constraint_dict = convert_to_dict_per_var(self.lower_constraint_variable_hits)
 

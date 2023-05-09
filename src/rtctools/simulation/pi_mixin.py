@@ -143,7 +143,11 @@ class PIMixin(IOMixin):
         # For all variables that are output variables the values are
         # extracted from the results.
         for variable in self._io_output_variables:
-            for alias in self.alias_relation.aliases(variable):
+            aliases = self.alias_relation.aliases(variable).copy()
+            # Ensure that variable is the first in the list of aliases
+            aliases.remove(variable)
+            aliases = [variable, *aliases]
+            for alias in aliases:
                 values = np.array(self._io_output[alias])
                 # Check if ID mapping is present
                 try:

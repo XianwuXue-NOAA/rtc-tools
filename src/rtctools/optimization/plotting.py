@@ -187,16 +187,17 @@ class PlotGoals:
         super().post()
 
         def list_to_ranges(lst):
+            if not lst:
+                return []
             ranges = []
-            start = None
-            if len(lst) == 1:
-                return [(int(lst[0]), int(lst[0]))]
-            for i in range(len(lst)):
-                if start is None:
-                    start = lst[i]
-                elif i == len(lst) - 1 or int(lst[i]) + 1 != int(lst[i + 1]):
-                    ranges.append((int(start), int(lst[i])))
-                    start = None
+            start = end = lst[0]
+            for i in range(1, len(lst)):
+                if lst[i] == end + 1:
+                    end = lst[i]
+                else:
+                    ranges.append((start, end))
+                    start = end = lst[i]
+            ranges.append((start, end))
             return ranges
 
         def convert_lists_in_dict(dic):

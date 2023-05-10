@@ -219,6 +219,12 @@ class PlotGoals:
                     parts.append(part)
             return " ".join(parts)
 
+        def add_symbol_before_line(lines, symbol):
+            return '\n'.join([f'{symbol} {line}' for line in lines.split('\n')])
+
+        def add_blockquote(lines):
+            return add_symbol_before_line(lines, ">")
+
         def group_variables(equations):
 
             unique_equations = {}
@@ -261,25 +267,23 @@ class PlotGoals:
             lower_constraints_df = pd.DataFrame.from_dict(lowerconstr_range_dict, orient="index")
             result_text += "## Lower constraints:\n"
             if len(lower_constraints_df):
-                result_text += "### Active variables:\n"
-                result_text += lower_constraints_df.to_markdown()
-                result_text += "\n"
-                result_text += "### from active constraints:\n"
+                result_text += ">### Active variables:\n"
+                result_text += add_blockquote(lower_constraints_df.to_markdown()) + "\n"
+                result_text += ">### from active constraints:\n"
                 for eq, timesteps in group_variables(intermediate_result["active_lower_constraints"]).items():
-                    result_text += f"- `{eq}`: {timesteps}\n"
+                    result_text += f">- `{eq}`: {timesteps}\n"
             else:
-                result_text += "No active lower constraints\n"
+                result_text += ">No active lower constraints\n"
 
             result_text += "\n## Upper constraints:\n"
             if len(upper_constraints_df):
-                result_text += "### Active variables:\n"
-                result_text += upper_constraints_df.to_markdown()
-                result_text += "\n"
-                result_text += "### from active constraints:\n"
+                result_text += ">### Active variables:\n"
+                result_text += add_blockquote(upper_constraints_df.to_markdown()) + "\n"
+                result_text += ">### from active constraints:\n"
                 for eq, timesteps in group_variables(intermediate_result["active_upper_constraints"]).items():
-                    result_text += f"- `{eq}`: {timesteps}\n"
+                    result_text += f">- `{eq}`: {timesteps}\n"
             else:
-                result_text += "No active upper constraints\n"
+                result_text += ">No active upper constraints\n"
 
             lowerbound_range_dict = convert_lists_in_dict(intermediate_result["upper_bound_dict"])
             upperbound_range_dict = convert_lists_in_dict(intermediate_result["lower_bound_dict"])
@@ -287,18 +291,14 @@ class PlotGoals:
             upperbounds_df = pd.DataFrame.from_dict(upperbound_range_dict, orient="index")
             result_text += "\n ## Lower bounds:\n"
             if len(lowerbounds_df):
-                result_text += lowerbounds_df.to_markdown()
-                result_text += "\n"
+                result_text += add_blockquote(lowerbounds_df.to_markdown()) + "\n"
             else:
-                result_text += "\nNo active lower bounds\n"
+                result_text += ">No active lower bounds\n"
             result_text += "\n ## Upper bounds:\n"
             if len(upperbounds_df):
-                result_text += upperbounds_df.to_markdown()
-                result_text += "\n"
+                result_text += add_blockquote(upperbounds_df.to_markdown()) + "\n"
             else:
-                result_text += "\nNo active upper bounds\n"
-
-
+                result_text += ">No active upper bounds\n"
 
         with open("active_constraints_per_priority.md", "w") as f:
             f.write(result_text)

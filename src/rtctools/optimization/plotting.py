@@ -179,6 +179,8 @@ class PlotGoals:
             "lower_constraint_dict": self.lower_constraint_dict,
             "upper_bound_dict": self.upper_bound_dict,
             "lower_bound_dict": self.lower_bound_dict,
+            "active_lower_constraints": self.active_lower_constraints,
+            "active_upper_constraints": self.active_upper_constraints
         }
         self.intermediate_results.append(to_store)
         super().priority_completed(priority)
@@ -205,6 +207,45 @@ class PlotGoals:
             for key, val in dic.items():
                 new_dic[key]["timesteps"] = list_to_ranges(val["timesteps"])
             return new_dic
+
+        def strip_timestep(s):
+            parts = []
+            for part in s.split():
+                if "__" in part:
+                    name, _ = part.split("__")
+                    name += "__"
+                    parts.append(name)
+                else:
+                    parts.append(part)
+            return " ".join(parts)
+
+        def group_variables(equations):
+
+            unique_equations = {}
+            for equation in equations:
+                variables = {}
+                # Get all variables in equation
+                for var in equation.split():
+                    if "__" in var:
+                        var_name, var_suffix = var.split("__")
+                        if var_name in variables:
+                            if variables[var_name] != var_suffix:
+                                variables[var_name] = None
+                        else:
+                            variables[var_name] = var_suffix
+                variables = {k: v for k, v in variables.items() if v is not None}
+                key = strip_timestep(equation)
+
+                # Add equation to dict of unique equations
+                if key in unique_equations:
+                    unique_suffixes = unique_equations[key]
+                    for var_suffix in variables.values():
+                        if var_suffix not in unique_suffixes:
+                            unique_suffixes.append(var_suffix)
+                else:
+                    unique_equations[key] = [list(variables.values())[0]]
+
+            return unique_equations
 
         # Plot all intermediate results
 
@@ -248,6 +289,16 @@ class PlotGoals:
             else:
                 result_text += "\nNo active upper bounds\n"
 
-        with open("bounding-values.txt", "w") as f:
+            result_text += "\nActive lower constraints:\n"
+            for eq, timesteps in group_variables(intermediate_result["active_lower_constraints"]).items():
+                result_text += f"{eq}: {timesteps}\n"
+            result_text += "\n"
+
+            result_text += "Active upper constraints:\n"
+            for eq, timesteps in group_variables(intermediate_result["active_upper_constraints"]).items():
+                result_text += f"{eq}: {timesteps}\n"
+            result_text += "\n"
+
+        with open("active_constraints_per_priority.txt", "w") as f:
             f.write(result_text)
         print(result_text)

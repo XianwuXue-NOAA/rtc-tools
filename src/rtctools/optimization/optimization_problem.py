@@ -22,7 +22,7 @@ BT = Union[float, np.ndarray, Timeseries]
 
 
 def casadi_to_lp(pickle_content, lp_name=None):
-    n_dec = 4 # number of decimals
+    n_dec = 4  # number of decimals
     try:
         d = pickle_content
         indices = d["indices"][0]
@@ -96,7 +96,7 @@ def casadi_to_lp(pickle_content, lp_name=None):
         constraints = [[] for i in range(A.shape[0])]
 
         for i, j, c in zip(A_coo.row, A_coo.col, A_coo.data):
-            constraints[i].extend(["+" if c > 0 else "-", str(abs(round(c,n_dec))), var_names[j]])
+            constraints[i].extend(["+" if c > 0 else "-", str(abs(round(c, n_dec))), var_names[j]])
 
         constraints_original = copy.deepcopy(constraints)
         for i in range(len(constraints)):
@@ -245,7 +245,7 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
             b = bf(0)
             b = ca.sparsify(b)
             b = np.array(b)[:, 0]
-            _, constraints_original, variable_names = casadi_to_lp(myd)
+            converted_constraints, constraints_original, variable_names = casadi_to_lp(myd)
 
         # Debug check for non-linearity in constraints
         self.__debug_check_linearity_constraints(nlp)
@@ -394,6 +394,14 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
                 lam_g_smaller_than_zero, lbg, ubg, constraints_original, evaluated_g, lam_g)
             self.upper_constraint_dict = convert_to_dict_per_var(self.upper_constraint_variable_hits)
             self.lower_constraint_dict = convert_to_dict_per_var(self.lower_constraint_variable_hits)
+
+            # Also save list of active constraints
+            self.active_upper_constraints = [
+                constraint for i, constraint in enumerate(converted_constraints) if lam_g_larger_than_zero[i]
+                ]
+            self.active_lower_constraints = [
+                constraint for i, constraint in enumerate(converted_constraints) if lam_g_smaller_than_zero[i]
+                ]
 
         # --> Unused function, but could be useful for refactoring convert_to_dict_per_var
         # get_variables_in_constraints(self.upper_constraint_variable_hits)

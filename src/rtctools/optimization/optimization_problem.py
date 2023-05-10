@@ -22,6 +22,7 @@ BT = Union[float, np.ndarray, Timeseries]
 
 
 def casadi_to_lp(pickle_content, lp_name=None):
+    n_dec = 4 # number of decimals
     try:
         d = pickle_content
         indices = d["indices"][0]
@@ -95,12 +96,12 @@ def casadi_to_lp(pickle_content, lp_name=None):
         constraints = [[] for i in range(A.shape[0])]
 
         for i, j, c in zip(A_coo.row, A_coo.col, A_coo.data):
-            constraints[i].extend(["+" if c > 0 else "-", str(abs(c)), var_names[j]])
+            constraints[i].extend(["+" if c > 0 else "-", str(abs(round(c,n_dec))), var_names[j]])
 
         constraints_original = copy.deepcopy(constraints)
         for i in range(len(constraints)):
             cur_constr = constraints[i]
-            lower, upper, b_i = lbg[i], ubg[i], b[i]
+            lower, upper, b_i = round(lbg[i], n_dec), round(ubg[i], n_dec), round(b[i], n_dec)
 
             if len(cur_constr) > 0:
                 if cur_constr[0] == "-":

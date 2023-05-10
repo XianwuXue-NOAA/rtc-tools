@@ -254,51 +254,52 @@ class PlotGoals:
         for intermediate_result in self.intermediate_results:
             self.plot_goal_results_from_dict(intermediate_result)
             priority = intermediate_result["priority"]
-            result_text += "\n----------------------- Priority {} -------------------------".format(priority)
+            result_text += "\n# Priority {}\n".format(priority)
             upperconstr_range_dict = convert_lists_in_dict(intermediate_result["upper_constraint_dict"])
             lowerconstr_range_dict = convert_lists_in_dict(intermediate_result["lower_constraint_dict"])
             upper_constraints_df = pd.DataFrame.from_dict(upperconstr_range_dict, orient="index")
             lower_constraints_df = pd.DataFrame.from_dict(lowerconstr_range_dict, orient="index")
+            result_text += "## Lower constraints:\n"
             if len(lower_constraints_df):
-                result_text += "\nLower constraints:\n"
-                result_text += lower_constraints_df.to_string()
+                result_text += "### Active variables:\n"
+                result_text += lower_constraints_df.to_markdown()
                 result_text += "\n"
+                result_text += "### from active constraints:\n"
+                for eq, timesteps in group_variables(intermediate_result["active_lower_constraints"]).items():
+                    result_text += f"- `{eq}`: {timesteps}\n"
             else:
-                result_text += "\nNo active lower constraints\n"
+                result_text += "No active lower constraints\n"
+
+            result_text += "\n## Upper constraints:\n"
             if len(upper_constraints_df):
-                result_text += "\nUpper constraints:\n"
-                result_text += upper_constraints_df.to_string()
+                result_text += "### Active variables:\n"
+                result_text += upper_constraints_df.to_markdown()
                 result_text += "\n"
+                result_text += "### from active constraints:\n"
+                for eq, timesteps in group_variables(intermediate_result["active_upper_constraints"]).items():
+                    result_text += f"- `{eq}`: {timesteps}\n"
             else:
-                result_text += "\nNo active upper constraints\n"
+                result_text += "No active upper constraints\n"
 
             lowerbound_range_dict = convert_lists_in_dict(intermediate_result["upper_bound_dict"])
             upperbound_range_dict = convert_lists_in_dict(intermediate_result["lower_bound_dict"])
             lowerbounds_df = pd.DataFrame.from_dict(lowerbound_range_dict, orient="index")
             upperbounds_df = pd.DataFrame.from_dict(upperbound_range_dict, orient="index")
+            result_text += "\n ## Lower bounds:\n"
             if len(lowerbounds_df):
-                result_text += "\nLower bounds:\n"
-                result_text += lowerbounds_df.to_string()
+                result_text += lowerbounds_df.to_markdown()
                 result_text += "\n"
             else:
                 result_text += "\nNo active lower bounds\n"
+            result_text += "\n ## Upper bounds:\n"
             if len(upperbounds_df):
-                result_text += "\nUpper bounds:\n"
-                result_text += upperbounds_df.to_string()
+                result_text += upperbounds_df.to_markdown()
                 result_text += "\n"
             else:
                 result_text += "\nNo active upper bounds\n"
 
-            result_text += "\nActive lower constraints:\n"
-            for eq, timesteps in group_variables(intermediate_result["active_lower_constraints"]).items():
-                result_text += f"{eq}: {timesteps}\n"
-            result_text += "\n"
 
-            result_text += "Active upper constraints:\n"
-            for eq, timesteps in group_variables(intermediate_result["active_upper_constraints"]).items():
-                result_text += f"{eq}: {timesteps}\n"
-            result_text += "\n"
 
-        with open("active_constraints_per_priority.txt", "w") as f:
+        with open("active_constraints_per_priority.md", "w") as f:
             f.write(result_text)
         print(result_text)

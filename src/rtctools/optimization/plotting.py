@@ -23,38 +23,29 @@ class PlotGoals:
         super().pre()
         self.intermediate_results = []
 
-    def plot_goal_results_from_dict(self, result_dict, priority=None):
-        self.plot_goals_results(
-            result_dict["timeseries_import_times"],
-            result_dict["extract_result"],
-            result_dict["range_goals"],
-            result_dict["min_q_goals"],
-            result_dict["priority"],
-            result_dict,
-        )
+    def plot_goal_results_from_dict(self, result_dict, results_dict_prev=None):
+        self.plot_goals_results(result_dict, results_dict_prev)
 
     def plot_goal_results_from_self(self, priority=None):
-        self.plot_goals_results(
-            self.timeseries_import.times,
-            self.extract_results(),
-            self.min_q_goals,
-            self.range_goals,
-            priority,
-        )
+        result_dict = {
+            "timeseries_import_times": self.timeseries_import.times,
+            "extract_result": self.extract_results(),
+            "min_q_goals": self.min_q_goals,
+            "range_goals": self.range_goals,
+            "priority": priority,
+        }
+        self.plot_goals_results(result_dict)
 
-    def plot_goals_results(
-        self,
-        timeseries_import_times,
-        extract_result,
-        range_goals,
-        min_q_goals,
-        priority=None,
-        result_dict=None,
-    ):
+    def plot_goals_results(self, result_dict, results_dict_prev=None):
+        timeseries_import_times = result_dict["timeseries_import_times"]
+        extract_result = result_dict["extract_result"]
+        range_goals = result_dict["range_goals"]
+        min_q_goals = result_dict["min_q_goals"]
+        priority = result_dict["priority"]
+
         t = self.times()
         t_datetime = np.array(timeseries_import_times)
         results = extract_result
-        result_dict = result_dict
 
         # TODO: consider making labels prettier, though for debugging this is fine
 
@@ -62,7 +53,10 @@ class PlotGoals:
         n_plots = len(range_goals + min_q_goals)
         n_cols = math.ceil(n_plots / self.plot_max_rows)
         n_rows = math.ceil(n_plots / n_cols)
-        fig, axs = plt.subplots(nrows=n_rows, ncols=n_cols, figsize=(n_cols * 9, n_rows * 3), dpi=80, squeeze=False)
+        fig, axs = plt.subplots(
+            nrows=n_rows, ncols=n_cols, figsize=(n_cols * 9, n_rows * 3), dpi=80, squeeze=False
+        )
+        fig.suptitle("Results after optimizing until priority {}".format(priority), fontsize=14)
         i_plot = -1
 
         # Function to apply the general settings used by all goal types
@@ -73,6 +67,16 @@ class PlotGoals:
 
             goal_variable = g[0]
             axs[i_r, i_c].plot(t_datetime, results[goal_variable], label=goal_variable)
+
+            if results_dict_prev:
+                results_prev = results_dict_prev["extract_result"]
+                axs[i_r, i_c].plot(
+                    t_datetime,
+                    results_prev[goal_variable],
+                    label=goal_variable + " at previous priority optimization",
+                    color="gray",
+                    linestyle="dotted",
+                )
 
             prio = result_dict["priority"]
 
@@ -103,13 +107,15 @@ class PlotGoals:
                         )
 
             upper_constraints = {
-                name.replace(".", "_"): value for name, value in result_dict["upper_constraint_dict"].items()
+                name.replace(".", "_"): value
+                for name, value in result_dict["upper_constraint_dict"].items()
             }
             lower_constraints = {
-                name.replace(".", "_"): value for name, value in result_dict["lower_constraint_dict"].items()
+                name.replace(".", "_"): value
+                for name, value in result_dict["lower_constraint_dict"].items()
             }
-            add_variable_effects(upper_constraints)
-            add_variable_effects(lower_constraints)
+            # add_variable_effects(upper_constraints)
+            # add_variable_effects(lower_constraints)
 
             return i_c, i_r
 
@@ -119,10 +125,14 @@ class PlotGoals:
             for var in add_settings[1]:
                 axs[i_row, i_col].plot(t_datetime, results[var], label=var)
             for var in add_settings[2]:
-                axs[i_row, i_col].plot(t_datetime, results[var], linestyle="solid", linewidth="0.5", label=var)
+                axs[i_row, i_col].plot(
+                    t_datetime, results[var], linestyle="solid", linewidth="0.5", label=var
+                )
             axs[i_row, i_col].set_ylabel(add_settings[0])
             axs[i_row, i_col].legend()
-            axs[i_row, i_col].set_title("Priority {}".format(goal_settings[4]))
+            axs[i_row, i_col].set_title(
+                "Goal for {} (active from priority {})".format(goal_settings[0], goal_settings[4])
+            )
             dateFormat = mdates.DateFormatter("%d%b%H")
             axs[i_row, i_col].xaxis.set_major_formatter(dateFormat)
             axs[i_row, i_col].grid(which="both", axis="x")
@@ -180,7 +190,7 @@ class PlotGoals:
             "upper_bound_dict": self.upper_bound_dict,
             "lower_bound_dict": self.lower_bound_dict,
             "active_lower_constraints": self.active_lower_constraints,
-            "active_upper_constraints": self.active_upper_constraints
+            "active_upper_constraints": self.active_upper_constraints,
         }
         self.intermediate_results.append(to_store)
         super().priority_completed(priority)
@@ -220,13 +230,12 @@ class PlotGoals:
             return " ".join(parts)
 
         def add_symbol_before_line(lines, symbol):
-            return '\n'.join([f'{symbol} {line}' for line in lines.split('\n')])
+            return "\n".join([f"{symbol} {line}" for line in lines.split("\n")])
 
         def add_blockquote(lines):
             return add_symbol_before_line(lines, ">")
 
         def group_variables(equations):
-
             unique_equations = {}
             for equation in equations:
                 variables = {}
@@ -253,16 +262,19 @@ class PlotGoals:
 
             return unique_equations
 
-        # Plot all intermediate results
-
-        # Convert effect dicts to ranges
         result_text = ""
-        for intermediate_result in self.intermediate_results:
-            self.plot_goal_results_from_dict(intermediate_result)
+        for intermediate_result_prev, intermediate_result in zip(
+            [None] + self.intermediate_results[:-1], self.intermediate_results
+        ):
+            self.plot_goal_results_from_dict(intermediate_result, intermediate_result_prev)
             priority = intermediate_result["priority"]
             result_text += "\n# Priority {}\n".format(priority)
-            upperconstr_range_dict = convert_lists_in_dict(intermediate_result["upper_constraint_dict"])
-            lowerconstr_range_dict = convert_lists_in_dict(intermediate_result["lower_constraint_dict"])
+            upperconstr_range_dict = convert_lists_in_dict(
+                intermediate_result["upper_constraint_dict"]
+            )
+            lowerconstr_range_dict = convert_lists_in_dict(
+                intermediate_result["lower_constraint_dict"]
+            )
             upper_constraints_df = pd.DataFrame.from_dict(upperconstr_range_dict, orient="index")
             lower_constraints_df = pd.DataFrame.from_dict(lowerconstr_range_dict, orient="index")
             result_text += "## Lower constraints:\n"
@@ -270,7 +282,9 @@ class PlotGoals:
                 result_text += ">### Active variables:\n"
                 result_text += add_blockquote(lower_constraints_df.to_markdown()) + "\n"
                 result_text += ">### from active constraints:\n"
-                for eq, timesteps in group_variables(intermediate_result["active_lower_constraints"]).items():
+                for eq, timesteps in group_variables(
+                    intermediate_result["active_lower_constraints"]
+                ).items():
                     result_text += f">- `{eq}`: {timesteps}\n"
             else:
                 result_text += ">No active lower constraints\n"
@@ -280,7 +294,9 @@ class PlotGoals:
                 result_text += ">### Active variables:\n"
                 result_text += add_blockquote(upper_constraints_df.to_markdown()) + "\n"
                 result_text += ">### from active constraints:\n"
-                for eq, timesteps in group_variables(intermediate_result["active_upper_constraints"]).items():
+                for eq, timesteps in group_variables(
+                    intermediate_result["active_upper_constraints"]
+                ).items():
                     result_text += f">- `{eq}`: {timesteps}\n"
             else:
                 result_text += ">No active upper constraints\n"

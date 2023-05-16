@@ -263,6 +263,8 @@ class PlotGoals:
             return unique_equations
 
         result_text = ""
+        if len(self.intermediate_results) == 0:
+            result_text += "No completed priorities... Is the problem infeasible?"
         for intermediate_result_prev, intermediate_result in zip(
             [None] + self.intermediate_results[:-1], self.intermediate_results
         ):
@@ -318,4 +320,3 @@ class PlotGoals:
 
         with open("active_constraints_per_priority.md", "w") as f:
             f.write(result_text)
-        print(result_text)

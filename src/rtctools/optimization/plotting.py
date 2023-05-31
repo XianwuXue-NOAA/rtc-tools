@@ -25,8 +25,25 @@ class PlotGoals:
 
     def plot_goal_results_from_dict(self, result_dict, results_dict_prev=None):
         self.plot_goals_results(result_dict, results_dict_prev)
+    def plot_goal_results_from_dict(self, result_dict, results_dict_prev=None):
+        self.plot_goals_results(result_dict, results_dict_prev)
 
     def plot_goal_results_from_self(self, priority=None):
+        result_dict = {
+            "timeseries_import_times": self.timeseries_import.times,
+            "extract_result": self.extract_results(),
+            "min_q_goals": self.min_q_goals,
+            "range_goals": self.range_goals,
+            "priority": priority,
+        }
+        self.plot_goals_results(result_dict)
+
+    def plot_goals_results(self, result_dict, results_dict_prev=None):
+        timeseries_import_times = result_dict["timeseries_import_times"]
+        extract_result = result_dict["extract_result"]
+        range_goals = result_dict["range_goals"]
+        min_q_goals = result_dict["min_q_goals"]
+        priority = result_dict["priority"]
         result_dict = {
             "timeseries_import_times": self.timeseries_import.times,
             "extract_result": self.extract_results(),
@@ -57,6 +74,10 @@ class PlotGoals:
             nrows=n_rows, ncols=n_cols, figsize=(n_cols * 9, n_rows * 3), dpi=80, squeeze=False
         )
         fig.suptitle("Results after optimizing until priority {}".format(priority), fontsize=14)
+        fig, axs = plt.subplots(
+            nrows=n_rows, ncols=n_cols, figsize=(n_cols * 9, n_rows * 3), dpi=80, squeeze=False
+        )
+        fig.suptitle("Results after optimizing until priority {}".format(priority), fontsize=14)
         i_plot = -1
 
         # Function to apply the general settings used by all goal types
@@ -67,6 +88,16 @@ class PlotGoals:
 
             goal_variable = g[0]
             axs[i_r, i_c].plot(t_datetime, results[goal_variable], label=goal_variable)
+
+            if results_dict_prev:
+                results_prev = results_dict_prev["extract_result"]
+                axs[i_r, i_c].plot(
+                    t_datetime,
+                    results_prev[goal_variable],
+                    label=goal_variable + " at previous priority optimization",
+                    color="gray",
+                    linestyle="dotted",
+                )
 
             if results_dict_prev:
                 results_prev = results_dict_prev["extract_result"]
@@ -109,8 +140,12 @@ class PlotGoals:
             upper_constraints = {
                 name.replace(".", "_"): value
                 for name, value in result_dict["upper_constraint_dict"].items()
+                name.replace(".", "_"): value
+                for name, value in result_dict["upper_constraint_dict"].items()
             }
             lower_constraints = {
+                name.replace(".", "_"): value
+                for name, value in result_dict["lower_constraint_dict"].items()
                 name.replace(".", "_"): value
                 for name, value in result_dict["lower_constraint_dict"].items()
             }
@@ -125,6 +160,9 @@ class PlotGoals:
             for var in add_settings[1]:
                 axs[i_row, i_col].plot(t_datetime, results[var], label=var)
             for var in add_settings[2]:
+                axs[i_row, i_col].plot(
+                    t_datetime, results[var], linestyle="solid", linewidth="0.5", label=var
+                )
                 axs[i_row, i_col].plot(
                     t_datetime, results[var], linestyle="solid", linewidth="0.5", label=var
                 )
@@ -269,6 +307,8 @@ class PlotGoals:
             return unique_equations
 
         result_text = ""
+        if len(self.intermediate_results) == 0:
+            result_text += "No completed priorities... Is the problem infeasible?"
         for intermediate_result_prev, intermediate_result in zip(
             [None] + self.intermediate_results[:-1], self.intermediate_results
         ):
@@ -324,4 +364,3 @@ class PlotGoals:
 
         with open("active_constraints_per_priority.md", "w") as f:
             f.write(result_text)
-        print(result_text)

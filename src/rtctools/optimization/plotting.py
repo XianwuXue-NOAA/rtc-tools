@@ -130,9 +130,15 @@ class PlotGoals:
                 )
             axs[i_row, i_col].set_ylabel(add_settings[0])
             axs[i_row, i_col].legend()
-            axs[i_row, i_col].set_title(
-                "Goal for {} (active from priority {})".format(goal_settings[0], goal_settings[4])
-            )
+            if len(goal_settings)==8:
+                axs[i_row, i_col].set_title(
+                    "Goal for {} (active from priority {})".format(goal_settings[0], goal_settings[4])
+                )
+            else:
+                axs[i_row, i_col].set_title(
+                    "Goal for {} (active from priority {})".format(goal_settings[0], goal_settings[1])
+                )
+
             dateFormat = mdates.DateFormatter("%d%b%H")
             axs[i_row, i_col].xaxis.set_major_formatter(dateFormat)
             axs[i_row, i_col].grid(which="both", axis="x")

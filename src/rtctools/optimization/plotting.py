@@ -73,7 +73,7 @@ class PlotGoals:
                 axs[i_r, i_c].plot(
                     t_datetime,
                     results_prev[goal_variable],
-                    label=goal_variable + " at previous priority optimization",
+                    label=goal_variable + " (previous)",
                     color="gray",
                     linestyle="dotted",
                 )
@@ -129,7 +129,7 @@ class PlotGoals:
                     t_datetime, results[var], linestyle="solid", linewidth="0.5", label=var
                 )
             axs[i_row, i_col].set_ylabel(add_settings[0])
-            axs[i_row, i_col].legend()
+            axs[i_row, i_col].legend(bbox_to_anchor=(1.05, 1),loc='upper left', borderaxespad=0.)#legend()
             if len(goal_settings)==8:
                 axs[i_row, i_col].set_title(
                     "Goal for {} (active from priority {})".format(goal_settings[0], goal_settings[4])
@@ -264,7 +264,10 @@ class PlotGoals:
                         if var_suffix not in unique_suffixes:
                             unique_suffixes.append(var_suffix)
                 else:
-                    unique_equations[key] = [list(variables.values())[0]]
+                    try:
+                        unique_equations[key] = [list(variables.values())[0]]
+                    except:
+                        continue
 
             return unique_equations
 

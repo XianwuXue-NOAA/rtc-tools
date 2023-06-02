@@ -245,7 +245,10 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
             b = bf(0)
             b = ca.sparsify(b)
             b = np.array(b)[:, 0]
-            converted_constraints, constraints_original, variable_names = casadi_to_lp(myd)
+            try:
+                converted_constraints, constraints_original, variable_names = casadi_to_lp(myd, 'selfbrpriority')
+            except:
+                logger.debug("could not write .lp")
 
         # Debug check for non-linearity in constraints
         self.__debug_check_linearity_constraints(nlp)
@@ -376,32 +379,36 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
                         logger.debug("{} < {} < {}".format(lowers[i], variable_values[i], uppers[i]))
                         variable_hits.append(variable_names[i])
                 return variable_hits
+            
+            try:
 
-            # Upper and lower bounds
-            lam_x_larger_than_zero, lam_x_smaller_than_zero = check_lambda_exceedence(lam_x, self.lam_tol)
-            self.upper_bound_variable_hits = find_variable_hits(
-                lam_x_larger_than_zero, lbx, ubx, variable_names, x_optimized, lam_x)
-            self.lower_bound_variable_hits = find_variable_hits(
-                lam_x_smaller_than_zero, lbx, ubx, variable_names, x_optimized, lam_x)
-            self.upper_bound_dict = convert_to_dict_per_var(self.upper_bound_variable_hits)
-            self.lower_bound_dict = convert_to_dict_per_var(self.lower_bound_variable_hits)
+                # Upper and lower bounds
+                lam_x_larger_than_zero, lam_x_smaller_than_zero = check_lambda_exceedence(lam_x, self.lam_tol)
+                self.upper_bound_variable_hits = find_variable_hits(
+                    lam_x_larger_than_zero, lbx, ubx, variable_names, x_optimized, lam_x)
+                self.lower_bound_variable_hits = find_variable_hits(
+                    lam_x_smaller_than_zero, lbx, ubx, variable_names, x_optimized, lam_x)
+                self.upper_bound_dict = convert_to_dict_per_var(self.upper_bound_variable_hits)
+                self.lower_bound_dict = convert_to_dict_per_var(self.lower_bound_variable_hits)
 
-            # Upper and lower constraints
-            lam_g_larger_than_zero, lam_g_smaller_than_zero = check_lambda_exceedence(lam_g, self.lam_tol)
-            self.upper_constraint_variable_hits = find_variable_hits(
-                lam_g_larger_than_zero, lbg, ubg, constraints_original, evaluated_g, lam_g)
-            self.lower_constraint_variable_hits = find_variable_hits(
-                lam_g_smaller_than_zero, lbg, ubg, constraints_original, evaluated_g, lam_g)
-            self.upper_constraint_dict = convert_to_dict_per_var(self.upper_constraint_variable_hits)
-            self.lower_constraint_dict = convert_to_dict_per_var(self.lower_constraint_variable_hits)
+                # Upper and lower constraints
+                lam_g_larger_than_zero, lam_g_smaller_than_zero = check_lambda_exceedence(lam_g, self.lam_tol)
+                self.upper_constraint_variable_hits = find_variable_hits(
+                    lam_g_larger_than_zero, lbg, ubg, constraints_original, evaluated_g, lam_g)
+                self.lower_constraint_variable_hits = find_variable_hits(
+                    lam_g_smaller_than_zero, lbg, ubg, constraints_original, evaluated_g, lam_g)
+                self.upper_constraint_dict = convert_to_dict_per_var(self.upper_constraint_variable_hits)
+                self.lower_constraint_dict = convert_to_dict_per_var(self.lower_constraint_variable_hits)
 
-            # Also save list of active constraints
-            self.active_upper_constraints = [
-                constraint for i, constraint in enumerate(converted_constraints) if lam_g_larger_than_zero[i]
-                ]
-            self.active_lower_constraints = [
-                constraint for i, constraint in enumerate(converted_constraints) if lam_g_smaller_than_zero[i]
-                ]
+                # Also save list of active constraints
+                self.active_upper_constraints = [
+                    constraint for i, constraint in enumerate(converted_constraints) if lam_g_larger_than_zero[i]
+                    ]
+                self.active_lower_constraints = [
+                    constraint for i, constraint in enumerate(converted_constraints) if lam_g_smaller_than_zero[i]
+                    ]
+            except:
+                logger.debug("this failed")
 
         # --> Unused function, but could be useful for refactoring convert_to_dict_per_var
         # get_variables_in_constraints(self.upper_constraint_variable_hits)

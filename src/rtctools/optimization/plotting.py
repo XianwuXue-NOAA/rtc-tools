@@ -47,8 +47,6 @@ class PlotGoals:
         t_datetime = np.array(timeseries_import_times)
         results = extract_result
 
-        # TODO: consider making labels prettier, though for debugging this is fine
-
         # Prepare the plot
         n_plots = len(range_goals + min_q_goals)
         n_cols = math.ceil(n_plots / self.plot_max_rows)
@@ -60,8 +58,12 @@ class PlotGoals:
         i_plot = -1
 
         # Function to apply the general settings used by all goal types
-        # existing_labels = []
         def apply_general_settings():
+            """Add line with the results for a particular goal. If previous results
+            are available, a line with the timeseries for those results is also plotted.
+
+            Note that this function does also determine the current row and column index
+            """
             i_c = math.ceil((i_plot + 1) / n_rows) - 1
             i_r = i_plot - i_c * n_rows
 
@@ -120,6 +122,9 @@ class PlotGoals:
             return i_c, i_r
 
         def apply_additional_settings(goal_settings):
+            """ Sets some additional settings, like additional variables to plot.
+            The second list of variables has a specific style, the first not.
+            """
             add_settings = goal_settings[-1]
 
             for var in add_settings[1]:

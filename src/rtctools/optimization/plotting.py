@@ -3,7 +3,6 @@ import logging
 import math
 import os
 
-import matplotlib
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 

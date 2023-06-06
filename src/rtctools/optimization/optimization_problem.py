@@ -44,7 +44,7 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
     """
     Base class for all optimization problems.
     """
-    store_intermediate_results = False
+    store_intermediate_lp_info = False
     store_linear_problem = False
     lam_tol = 1.5
     _debug_check_level = DebugLevel.MEDIUM
@@ -95,7 +95,7 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
         options.update(self.solver_options())  # Create a copy
 
         logger.debug("Creating solver")
-        if options.pop("expand", False) or self.store_linear_problem or self.store_intermediate_results:
+        if options.pop("expand", False) or self.store_intermediate_lp_info:
             # NOTE: CasADi only supports the "expand" option for nlpsol. To
             # also be able to expand with e.g. qpsol, we do the expansion
             # ourselves here.
@@ -197,7 +197,7 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
                 logger.log(log_level, "Solver succeeded with status {} ({}).".format(
                     return_status, wall_clock_time))
 
-        if self.store_intermediate_results:
+        if self.store_intermediate_lp_info:
             # Evaluate the constraints wrt to the optimized solution
             x_optimized = np.array(results["x"]).ravel()
             expand_f_g = ca.Function("f_g", [nlp["x"]], [nlp["f"], nlp["g"]]).expand()

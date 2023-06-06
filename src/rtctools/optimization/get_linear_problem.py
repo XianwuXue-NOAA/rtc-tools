@@ -8,21 +8,15 @@ logger = logging.getLogger("rtctools")
 
 
 class GetLinearProblem:
-    store_intermediate_results = True
-    store_linear_problem = True
+    store_intermediate_lp_info = True
     lam_tol = 0.1
 
     def pre(self):
         super().pre()
-        self.intermediate_results = []
+        self.intermediate_lp_info = []
 
     def priority_completed(self, priority: int) -> None:
-        # Store results required for plotting
         to_store = {
-            "extract_result": self.extract_results(),
-            "range_goals": self.range_goals,
-            "min_q_goals": self.min_q_goals,
-            "timeseries_import_times": self.timeseries_import.times,
             "priority": priority,
             "upper_constraint_dict": self.upper_constraint_dict,
             "lower_constraint_dict": self.lower_constraint_dict,
@@ -31,7 +25,7 @@ class GetLinearProblem:
             "active_lower_constraints": self.active_lower_constraints,
             "active_upper_constraints": self.active_upper_constraints,
         }
-        self.intermediate_results.append(to_store)
+        self.intermediate_lp_info.append(to_store)
         super().priority_completed(priority)
 
     def post(self):
@@ -102,10 +96,10 @@ class GetLinearProblem:
             return unique_equations
 
         result_text = ""
-        if len(self.intermediate_results) == 0:
+        if len(self.intermediate_lp_info) == 0:
             result_text += "No completed priorities... Is the problem infeasible?"
         for intermediate_result_prev, intermediate_result in zip(
-            [None] + self.intermediate_results[:-1], self.intermediate_results
+            [None] + self.intermediate_lp_info[:-1], self.intermediate_lp_info
         ):
             priority = intermediate_result["priority"]
             result_text += "\n# Priority {}\n".format(priority)

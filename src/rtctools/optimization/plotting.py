@@ -14,8 +14,6 @@ logger = logging.getLogger("rtctools")
 
 
 class PlotGoals:
-    store_intermediate_results = True
-    store_linear_problem = True
     lam_tol = 0.1
 
     def pre(self):
@@ -79,44 +77,44 @@ class PlotGoals:
                     linestyle="dotted",
                 )
 
-            prio = result_dict["priority"]
+            # prio = result_dict["priority"]
 
-            def add_variable_effects(constraints):
-                if goal_variable in constraints:
-                    for xr in constraints[goal_variable]["timesteps"]:
-                        if constraints[goal_variable]["effect_direction"] == "+":
-                            modification = "Increase"
-                            marker_type = matplotlib.markers.CARETUPBASE
-                            marker_color = "g"
+            # def add_variable_effects(constraints):
+            #     if goal_variable in constraints:
+            #         for xr in constraints[goal_variable]["timesteps"]:
+            #             if constraints[goal_variable]["effect_direction"] == "+":
+            #                 modification = "Increase"
+            #                 marker_type = matplotlib.markers.CARETUPBASE
+            #                 marker_color = "g"
 
-                        else:
-                            modification = "Decrease"
-                            marker_type = matplotlib.markers.CARETDOWNBASE
-                            marker_color = "r"
+            #             else:
+            #                 modification = "Decrease"
+            #                 marker_type = matplotlib.markers.CARETDOWNBASE
+            #                 marker_color = "r"
 
-                        label = "{} {} to improve {}".format(modification, goal_variable, prio)
-                        if label in axs[i_r, i_c].get_legend_handles_labels()[1]:
-                            label = "_nolegend_"
-                        axs[i_r, i_c].plot(
-                            t_datetime[int(xr)],
-                            results[goal_variable][int(xr)],
-                            marker=marker_type,
-                            color=marker_color,
-                            label=label,
-                            markersize=5,
-                            alpha=0.6,
-                        )
+            #             label = "{} {} to improve {}".format(modification, goal_variable, prio)
+            #             if label in axs[i_r, i_c].get_legend_handles_labels()[1]:
+            #                 label = "_nolegend_"
+            #             axs[i_r, i_c].plot(
+            #                 t_datetime[int(xr)],
+            #                 results[goal_variable][int(xr)],
+            #                 marker=marker_type,
+            #                 color=marker_color,
+            #                 label=label,
+            #                 markersize=5,
+            #                 alpha=0.6,
+            #             )
 
-            upper_constraints = {
-                name.replace(".", "_"): value
-                for name, value in result_dict["upper_constraint_dict"].items()
-            }
-            lower_constraints = {
-                name.replace(".", "_"): value
-                for name, value in result_dict["lower_constraint_dict"].items()
-            }
-            add_variable_effects(upper_constraints)
-            add_variable_effects(lower_constraints)
+            # upper_constraints = {
+            #     name.replace(".", "_"): value
+            #     for name, value in result_dict["upper_constraint_dict"].items()
+            # }
+            # lower_constraints = {
+            #     name.replace(".", "_"): value
+            #     for name, value in result_dict["lower_constraint_dict"].items()
+            # }
+            # add_variable_effects(upper_constraints)
+            # add_variable_effects(lower_constraints)
 
             return i_c, i_r
 
@@ -188,21 +186,13 @@ class PlotGoals:
             "range_goals": self.range_goals,
             "min_q_goals": self.min_q_goals,
             "timeseries_import_times": self.timeseries_import.times,
-            "priority": priority,
-            "upper_constraint_dict": self.upper_constraint_dict,
-            "lower_constraint_dict": self.lower_constraint_dict,
-            "upper_bound_dict": self.upper_bound_dict,
-            "lower_bound_dict": self.lower_bound_dict,
-            "active_lower_constraints": self.active_lower_constraints,
-            "active_upper_constraints": self.active_upper_constraints,
+            "priority": priority
         }
         self.intermediate_results.append(to_store)
         super().priority_completed(priority)
 
     def post(self):
         super().post()
-        if len(self.intermediate_results) == 0:
-            result_text += "No completed priorities... Is the problem infeasible?"
         for intermediate_result_prev, intermediate_result in zip(
             [None] + self.intermediate_results[:-1], self.intermediate_results
         ):

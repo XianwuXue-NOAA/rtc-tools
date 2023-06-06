@@ -16,7 +16,8 @@ logger = logging.getLogger("rtctools")
 
 
 class PlotGoals:
-    plotting_and_active_constraints = True
+    store_intermediate_results = True
+    store_linear_problem = True
     lam_tol = 0.1
 
     def pre(self):

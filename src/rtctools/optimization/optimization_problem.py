@@ -44,7 +44,8 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
     """
     Base class for all optimization problems.
     """
-    plotting_and_active_constraints = False
+    store_intermediate_results = False
+    store_linear_problem = False
     lam_tol = 1.5
     _debug_check_level = DebugLevel.MEDIUM
     _debug_check_options = {}
@@ -94,7 +95,7 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
         options.update(self.solver_options())  # Create a copy
 
         logger.debug("Creating solver")
-        if options.pop("expand", False) or self.plotting_and_active_constraints:
+        if options.pop("expand", False) or self.store_linear_problem or self.store_intermediate_results:
             # NOTE: CasADi only supports the "expand" option for nlpsol. To
             # also be able to expand with e.g. qpsol, we do the expansion
             # ourselves here.
@@ -109,16 +110,16 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
             nlp["x"] = X_sx
 
             expand_f_g = ca.Function("f_g", [nlp["x"]], [nlp["f"], nlp["g"]]).expand()
-            myd = {}
-            myd["indices"] = self._CollocatedIntegratedOptimizationProblem__indices
-            myd["func"] = expand_f_g
-            myd["other"] = (lbx, ubx, lbg, ubg, x0)
+            casadi_equations = {}
+            casadi_equations["indices"] = self._CollocatedIntegratedOptimizationProblem__indices
+            casadi_equations["func"] = expand_f_g
+            casadi_equations["other"] = (lbx, ubx, lbg, ubg, x0)
             in_var = ca.SX.sym("X", expand_f_g.nnz_in())
             bf = ca.Function("bf", [in_var], [expand_f_g(in_var)[1]])
             b = bf(0)
             b = ca.sparsify(b)
             b = np.array(b)[:, 0]
-            converted_constraints, constraints_original, variable_names = casadi_to_lp(myd)
+            converted_constraints, constraints_original, variable_names = casadi_to_lp(casadi_equations)
 
         # Debug check for non-linearity in constraints
         self.__debug_check_linearity_constraints(nlp)
@@ -196,7 +197,7 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
                 logger.log(log_level, "Solver succeeded with status {} ({}).".format(
                     return_status, wall_clock_time))
 
-        if self.plotting_and_active_constraints:
+        if self.store_intermediate_results:
             # Evaluate the constraints wrt to the optimized solution
             x_optimized = np.array(results["x"]).ravel()
             expand_f_g = ca.Function("f_g", [nlp["x"]], [nlp["f"], nlp["g"]]).expand()

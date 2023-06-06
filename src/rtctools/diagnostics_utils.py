@@ -7,10 +7,13 @@ import copy
  
 logger = logging.getLogger("rtctools")
 
-def casadi_to_lp(pickle_content, lp_name=None):
+def casadi_to_lp(casadi_equations, lp_name=None):
+    """Convert the model as formulated with casadi types to a human-readable
+    format.
+    """
     n_dec = 4  # number of decimals
     try:
-        d = pickle_content
+        d = casadi_equations
         indices = d["indices"][0]
         expand_f_g = d["func"]
         lbx, ubx, lbg, ubg, x0 = d["other"]

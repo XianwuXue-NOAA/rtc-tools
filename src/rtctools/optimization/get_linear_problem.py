@@ -73,12 +73,27 @@ def convert_to_dict_per_var(constrain_list):
         new_dict[var_name]["timesteps"] = sorted(set(new_dict[var_name]["timesteps"]))
     return new_dict
 
+    # --> Unused function, but could be useful for refactoring convert_to_dict_per_var
+    # get_variables_in_constraints(self.upper_constraint_variable_hits)
+    # def get_variables_in_constraints(constraints):
+    #     variables_in_constraints = []
+    #     for constraint in constraints:
+    #         variables_in_constraints.append([])
+    #         for var_i in range(int(len(constraint)/3)):
+    #             var_sign  = constraint[  var_i*3]
+    #             var_value = constraint[1+var_i*3]
+    #             var_name  = constraint[2+var_i*3]
+    #             variables_in_constraints[-1].append(var_name)
+    #     return variables_in_constraints
+
 
 def check_lambda_exceedence(lam, tol):
     return [x > tol for x in lam], [x < -tol for x in lam]
 
 
-def find_variable_hits(exceedance_list, lowers, uppers, variable_names, variable_values, lam):
+def find_variable_hits(
+    exceedance_list, lowers, uppers, variable_names, variable_values, lam
+):
     variable_hits = []
     for i, hit in enumerate(exceedance_list):
         if hit:
@@ -87,7 +102,9 @@ def find_variable_hits(exceedance_list, lowers, uppers, variable_names, variable
                     variable_names[i], variable_values[i], lam
                 )
             )
-            logger.debug("{} < {} < {}".format(lowers[i], variable_values[i], uppers[i]))
+            logger.debug(
+                "{} < {} < {}".format(lowers[i], variable_values[i], uppers[i])
+            )
             variable_hits.append(variable_names[i])
     return variable_hits
 
@@ -95,20 +112,22 @@ def find_variable_hits(exceedance_list, lowers, uppers, variable_names, variable
 # part 1 functions
 def conversion_step_one(results, nlp, casadi_equations, lam_tol):
     constraints = get_constraints(casadi_equations)
-    lbx, ubx, lbg, ubg, x0 = casadi_equations["other"]
-    n_dec = 4
-    eq_systems = get_systems_of_equations(casadi_equations)
-    _A, b = eq_systems["constraints"]
-    converted_constraints = convert_constraints(constraints, lbg, ubg, b, n_dec)
-
+    lbx, ubx, lbg, ubg, _x0 = casadi_equations["other"]
     variable_names = get_varnames(casadi_equations)
 
     evaluated_g, lam_g, lam_x = evaluate_constraints(results, nlp, casadi_equations)
 
     # Upper and lower bounds
-    lam_x_larger_than_zero, lam_x_smaller_than_zero = check_lambda_exceedence(lam_x, lam_tol)
+    lam_x_larger_than_zero, lam_x_smaller_than_zero = check_lambda_exceedence(
+        lam_x, lam_tol
+    )
     upper_bound_variable_hits = find_variable_hits(
-        lam_x_larger_than_zero, lbx, ubx, variable_names, np.array(results["x"]).ravel(), lam_x
+        lam_x_larger_than_zero,
+        lbx,
+        ubx,
+        variable_names,
+        np.array(results["x"]).ravel(),
+        lam_x,
     )
     lower_bound_variable_hits = find_variable_hits(
         lam_x_smaller_than_zero,
@@ -122,7 +141,9 @@ def conversion_step_one(results, nlp, casadi_equations, lam_tol):
     lower_bound_dict = convert_to_dict_per_var(lower_bound_variable_hits)
 
     # Upper and lower constraints
-    lam_g_larger_than_zero, lam_g_smaller_than_zero = check_lambda_exceedence(lam_g, lam_tol)
+    lam_g_larger_than_zero, lam_g_smaller_than_zero = check_lambda_exceedence(
+        lam_g, lam_tol
+    )
     upper_constraint_variable_hits = find_variable_hits(
         lam_g_larger_than_zero, lbg, ubg, constraints, evaluated_g, lam_g
     )
@@ -132,7 +153,24 @@ def conversion_step_one(results, nlp, casadi_equations, lam_tol):
     upper_constraint_dict = convert_to_dict_per_var(upper_constraint_variable_hits)
     lower_constraint_dict = convert_to_dict_per_var(lower_constraint_variable_hits)
 
-    # Also save list of active constraints
+    return (
+        upper_bound_dict,
+        lower_bound_dict,
+        upper_constraint_dict,
+        lower_constraint_dict,
+    )
+
+
+def get_all_active_constraints(results, nlp, casadi_equations, lam_tol=0.1, n_dec=4):
+    constraints = get_constraints(casadi_equations)
+    _lbx, _ubx, lbg, ubg, _x0 = casadi_equations["other"]
+    eq_systems = get_systems_of_equations(casadi_equations)
+    _A, b = eq_systems["constraints"]
+    converted_constraints = convert_constraints(constraints, lbg, ubg, b, n_dec)
+    _evaluated_g, lam_g, _lam_x = evaluate_constraints(results, nlp, casadi_equations)
+    lam_g_larger_than_zero, lam_g_smaller_than_zero = check_lambda_exceedence(
+        lam_g, lam_tol
+    )
     active_upper_constraints = [
         constraint
         for i, constraint in enumerate(converted_constraints)
@@ -143,18 +181,9 @@ def conversion_step_one(results, nlp, casadi_equations, lam_tol):
         for i, constraint in enumerate(converted_constraints)
         if lam_g_smaller_than_zero[i]
     ]
-
-    return (
-        upper_bound_dict,
-        lower_bound_dict,
-        upper_constraint_dict,
-        lower_constraint_dict,
-        active_upper_constraints,
-        active_lower_constraints,
-    )
+    return active_lower_constraints, active_upper_constraints
 
 
-#  part 2 functions
 def list_to_ranges(lst):
     if not lst:
         return []
@@ -226,6 +255,55 @@ def group_variables(equations):
 
 
 # end part 2 functions
+def get_debug_markdown_per_prio(
+    lowerconstr_range_dict,
+    upperconstr_range_dict,
+    lowerbound_range_dict,
+    upperbound_range_dict,
+    active_lower_constraints,
+    active_upper_constraints,
+    priority="unknown",
+):
+    upper_constraints_df = pd.DataFrame.from_dict(
+        upperconstr_range_dict, orient="index"
+    )
+    lower_constraints_df = pd.DataFrame.from_dict(
+        lowerconstr_range_dict, orient="index"
+    )
+    lowerbounds_df = pd.DataFrame.from_dict(lowerbound_range_dict, orient="index")
+    upperbounds_df = pd.DataFrame.from_dict(upperbound_range_dict, orient="index")
+    result_text = "\n# Priority {}\n".format(priority)
+    result_text += "## Lower constraints:\n"
+    if len(lower_constraints_df):
+        result_text += ">### Active variables:\n"
+        result_text += add_blockquote(lower_constraints_df.to_markdown()) + "\n"
+        result_text += ">### from active constraints:\n"
+        for eq, timesteps in group_variables(active_lower_constraints).items():
+            result_text += f">- `{eq}`: {timesteps}\n"
+    else:
+        result_text += ">No active lower constraints\n"
+
+    result_text += "\n## Upper constraints:\n"
+    if len(upper_constraints_df):
+        result_text += ">### Active variables:\n"
+        result_text += add_blockquote(upper_constraints_df.to_markdown()) + "\n"
+        result_text += ">### from active constraints:\n"
+        for eq, timesteps in group_variables(active_upper_constraints).items():
+            result_text += f">- `{eq}`: {timesteps}\n"
+    else:
+        result_text += ">No active upper constraints\n"
+
+    result_text += "\n ## Lower bounds:\n"
+    if len(lowerbounds_df):
+        result_text += add_blockquote(lowerbounds_df.to_markdown()) + "\n"
+    else:
+        result_text += ">No active lower bounds\n"
+    result_text += "\n ## Upper bounds:\n"
+    if len(upperbounds_df):
+        result_text += add_blockquote(upperbounds_df.to_markdown()) + "\n"
+    else:
+        result_text += ">No active upper bounds\n"
+    return result_text
 
 
 class GetLinearProblem:
@@ -240,49 +318,20 @@ class GetLinearProblem:
         super().problem_and_results(nlp, results, lbx, ubx, lbg, ubg, x0)
         expand_f_g = ca.Function("f_g", [nlp["x"]], [nlp["f"], nlp["g"]]).expand()
         casadi_equations = {}
-        casadi_equations["indices"] = self._CollocatedIntegratedOptimizationProblem__indices
+        casadi_equations[
+            "indices"
+        ] = self._CollocatedIntegratedOptimizationProblem__indices
         casadi_equations["func"] = expand_f_g
         casadi_equations["other"] = (lbx, ubx, lbg, ubg, x0)
         self.problem_and_results_list.append((results, nlp, casadi_equations))
-
-    # --> Unused function, but could be useful for refactoring convert_to_dict_per_var
-    # get_variables_in_constraints(self.upper_constraint_variable_hits)
-    # def get_variables_in_constraints(constraints):
-    #     variables_in_constraints = []
-    #     for constraint in constraints:
-    #         variables_in_constraints.append([])
-    #         for var_i in range(int(len(constraint)/3)):
-    #             var_sign  = constraint[  var_i*3]
-    #             var_value = constraint[1+var_i*3]
-    #             var_name  = constraint[2+var_i*3]
-    #             variables_in_constraints[-1].append(var_name)
-    #     return variables_in_constraints
-
-    # def pre(self):
-        # super().pre()
-        # self.intermediate_lp_info = []
-
-    # def priority_completed(self, priority: int) -> None:
-    #     to_store = {
-    #         "priority": priority,
-    #         "upper_constraint_dict": self.upper_constraint_dict,
-    #         "lower_constraint_dict": self.lower_constraint_dict,
-    #         "upper_bound_dict": self.upper_bound_dict,
-    #         "lower_bound_dict": self.lower_bound_dict,
-    #         "active_lower_constraints": self.active_lower_constraints,
-    #         "active_upper_constraints": self.active_upper_constraints,
-    #     }
-    #     self.intermediate_lp_info.append(to_store)
-    #     super().priority_completed(priority)
 
     def post(self):
         super().post()
 
         result_text = ""
-        lam_tol = 4
-        # step one: convert the raw data to the required lists/dicts for printing
         if len(self.problem_and_results_list) == 0:
             result_text += "No completed priorities... Is the problem infeasible?"
+
         for problem_and_results in self.problem_and_results_list:
             results, nlp, casadi_equations = problem_and_results
             (
@@ -290,50 +339,27 @@ class GetLinearProblem:
                 lower_bound_dict,
                 upper_constraint_dict,
                 lower_constraint_dict,
-                active_upper_constraints,
-                active_lower_constraints,
-            ) = conversion_step_one(results, nlp, casadi_equations, lam_tol)
-
-            priority = 999999
-            result_text += "\n# Priority {}\n".format(priority)
+            ) = conversion_step_one(results, nlp, casadi_equations, self.lam_tol)
             upperconstr_range_dict = convert_lists_in_dict(upper_constraint_dict)
             lowerconstr_range_dict = convert_lists_in_dict(lower_constraint_dict)
-            upper_constraints_df = pd.DataFrame.from_dict(upperconstr_range_dict, orient="index")
-            lower_constraints_df = pd.DataFrame.from_dict(lowerconstr_range_dict, orient="index")
-            result_text += "## Lower constraints:\n"
-            if len(lower_constraints_df):
-                result_text += ">### Active variables:\n"
-                result_text += add_blockquote(lower_constraints_df.to_markdown()) + "\n"
-                result_text += ">### from active constraints:\n"
-                for eq, timesteps in group_variables(active_lower_constraints).items():
-                    result_text += f">- `{eq}`: {timesteps}\n"
-            else:
-                result_text += ">No active lower constraints\n"
-
-            result_text += "\n## Upper constraints:\n"
-            if len(upper_constraints_df):
-                result_text += ">### Active variables:\n"
-                result_text += add_blockquote(upper_constraints_df.to_markdown()) + "\n"
-                result_text += ">### from active constraints:\n"
-                for eq, timesteps in group_variables(active_upper_constraints).items():
-                    result_text += f">- `{eq}`: {timesteps}\n"
-            else:
-                result_text += ">No active upper constraints\n"
-
             lowerbound_range_dict = convert_lists_in_dict(upper_bound_dict)
             upperbound_range_dict = convert_lists_in_dict(lower_bound_dict)
-            lowerbounds_df = pd.DataFrame.from_dict(lowerbound_range_dict, orient="index")
-            upperbounds_df = pd.DataFrame.from_dict(upperbound_range_dict, orient="index")
-            result_text += "\n ## Lower bounds:\n"
-            if len(lowerbounds_df):
-                result_text += add_blockquote(lowerbounds_df.to_markdown()) + "\n"
-            else:
-                result_text += ">No active lower bounds\n"
-            result_text += "\n ## Upper bounds:\n"
-            if len(upperbounds_df):
-                result_text += add_blockquote(upperbounds_df.to_markdown()) + "\n"
-            else:
-                result_text += ">No active upper bounds\n"
+
+            (
+                active_lower_constraints,
+                active_upper_constraints,
+            ) = get_all_active_constraints(results, nlp, casadi_equations, self.lam_tol)
+
+            priority = "unknown"
+            result_text += get_debug_markdown_per_prio(
+                lowerconstr_range_dict,
+                upperconstr_range_dict,
+                lowerbound_range_dict,
+                upperbound_range_dict,
+                active_lower_constraints,
+                active_upper_constraints,
+                priority=priority,
+            )
 
         with open("active_constraints_per_priority.md", "w") as f:
             f.write(result_text)

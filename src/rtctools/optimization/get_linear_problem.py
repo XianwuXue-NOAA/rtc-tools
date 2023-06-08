@@ -92,6 +92,142 @@ def find_variable_hits(exceedance_list, lowers, uppers, variable_names, variable
     return variable_hits
 
 
+# part 1 functions
+def conversion_step_one(results, nlp, casadi_equations, lam_tol):
+    constraints = get_constraints(casadi_equations)
+    lbx, ubx, lbg, ubg, x0 = casadi_equations["other"]
+    n_dec = 4
+    eq_systems = get_systems_of_equations(casadi_equations)
+    _A, b = eq_systems["constraints"]
+    converted_constraints = convert_constraints(constraints, lbg, ubg, b, n_dec)
+
+    variable_names = get_varnames(casadi_equations)
+
+    evaluated_g, lam_g, lam_x = evaluate_constraints(results, nlp, casadi_equations)
+
+    # Upper and lower bounds
+    lam_x_larger_than_zero, lam_x_smaller_than_zero = check_lambda_exceedence(lam_x, lam_tol)
+    upper_bound_variable_hits = find_variable_hits(
+        lam_x_larger_than_zero, lbx, ubx, variable_names, np.array(results["x"]).ravel(), lam_x
+    )
+    lower_bound_variable_hits = find_variable_hits(
+        lam_x_smaller_than_zero,
+        lbx,
+        ubx,
+        variable_names,
+        np.array(results["x"]).ravel(),
+        lam_x,
+    )
+    upper_bound_dict = convert_to_dict_per_var(upper_bound_variable_hits)
+    lower_bound_dict = convert_to_dict_per_var(lower_bound_variable_hits)
+
+    # Upper and lower constraints
+    lam_g_larger_than_zero, lam_g_smaller_than_zero = check_lambda_exceedence(lam_g, lam_tol)
+    upper_constraint_variable_hits = find_variable_hits(
+        lam_g_larger_than_zero, lbg, ubg, constraints, evaluated_g, lam_g
+    )
+    lower_constraint_variable_hits = find_variable_hits(
+        lam_g_smaller_than_zero, lbg, ubg, constraints, evaluated_g, lam_g
+    )
+    upper_constraint_dict = convert_to_dict_per_var(upper_constraint_variable_hits)
+    lower_constraint_dict = convert_to_dict_per_var(lower_constraint_variable_hits)
+
+    # Also save list of active constraints
+    active_upper_constraints = [
+        constraint
+        for i, constraint in enumerate(converted_constraints)
+        if lam_g_larger_than_zero[i]
+    ]
+    active_lower_constraints = [
+        constraint
+        for i, constraint in enumerate(converted_constraints)
+        if lam_g_smaller_than_zero[i]
+    ]
+
+    return (
+        upper_bound_dict,
+        lower_bound_dict,
+        upper_constraint_dict,
+        lower_constraint_dict,
+        active_upper_constraints,
+        active_lower_constraints,
+    )
+
+
+#  part 2 functions
+def list_to_ranges(lst):
+    if not lst:
+        return []
+    ranges = []
+    start = end = lst[0]
+    for i in range(1, len(lst)):
+        if lst[i] == end + 1:
+            end = lst[i]
+        else:
+            ranges.append((start, end))
+            start = end = lst[i]
+    ranges.append((start, end))
+    return ranges
+
+
+def convert_lists_in_dict(dic):
+    new_dic = copy.deepcopy(dic)
+    for key, val in dic.items():
+        new_dic[key]["timesteps"] = list_to_ranges(val["timesteps"])
+    return new_dic
+
+
+def strip_timestep(s):
+    parts = []
+    for part in s.split():
+        if "__" in part:
+            name, _ = part.split("__")
+            name += "__"
+            parts.append(name)
+        else:
+            parts.append(part)
+    return " ".join(parts)
+
+
+def add_symbol_before_line(lines, symbol):
+    return "\n".join([f"{symbol} {line}" for line in lines.split("\n")])
+
+
+def add_blockquote(lines):
+    return add_symbol_before_line(lines, ">")
+
+
+def group_variables(equations):
+    unique_equations = {}
+    for equation in equations:
+        variables = {}
+        # Get all variables in equation
+        for var in equation.split():
+            if "__" in var:
+                var_name, var_suffix = var.split("__")
+                if var_name in variables:
+                    if variables[var_name] != var_suffix:
+                        variables[var_name] = None
+                else:
+                    variables[var_name] = var_suffix
+        variables = {k: v for k, v in variables.items() if v is not None}
+        key = strip_timestep(equation)
+
+        # Add equation to dict of unique equations
+        if key in unique_equations:
+            unique_suffixes = unique_equations[key]
+            for var_suffix in variables.values():
+                if var_suffix not in unique_suffixes:
+                    unique_suffixes.append(var_suffix)
+        else:
+            unique_equations[key] = [list(variables.values())[0]]
+
+    return unique_equations
+
+
+# end part 2 functions
+
+
 class GetLinearProblem:
     lam_tol = 0.1
     manual_expansion = True
@@ -109,59 +245,6 @@ class GetLinearProblem:
         casadi_equations["other"] = (lbx, ubx, lbg, ubg, x0)
         self.problem_and_results_list.append((results, nlp, casadi_equations))
 
-        constraints = get_constraints(casadi_equations)
-        n_dec = 4
-        eq_systems = get_systems_of_equations(casadi_equations)
-        _A, b = eq_systems["constraints"]
-        converted_constraints = convert_constraints(constraints, lbg, ubg, b, n_dec)
-
-        variable_names = get_varnames(casadi_equations)
-
-        evaluated_g, lam_g, lam_x = evaluate_constraints(results, nlp, casadi_equations)
-
-        # Upper and lower bounds
-        lam_x_larger_than_zero, lam_x_smaller_than_zero = check_lambda_exceedence(
-            lam_x, self.lam_tol
-        )
-        self.upper_bound_variable_hits = find_variable_hits(
-            lam_x_larger_than_zero, lbx, ubx, variable_names, np.array(results["x"]).ravel(), lam_x
-        )
-        self.lower_bound_variable_hits = find_variable_hits(
-            lam_x_smaller_than_zero,
-            lbx,
-            ubx,
-            variable_names,
-            np.array(results["x"]).ravel(),
-            lam_x,
-        )
-        self.upper_bound_dict = convert_to_dict_per_var(self.upper_bound_variable_hits)
-        self.lower_bound_dict = convert_to_dict_per_var(self.lower_bound_variable_hits)
-
-        # Upper and lower constraints
-        lam_g_larger_than_zero, lam_g_smaller_than_zero = check_lambda_exceedence(
-            lam_g, self.lam_tol
-        )
-        self.upper_constraint_variable_hits = find_variable_hits(
-            lam_g_larger_than_zero, lbg, ubg, constraints, evaluated_g, lam_g
-        )
-        self.lower_constraint_variable_hits = find_variable_hits(
-            lam_g_smaller_than_zero, lbg, ubg, constraints, evaluated_g, lam_g
-        )
-        self.upper_constraint_dict = convert_to_dict_per_var(self.upper_constraint_variable_hits)
-        self.lower_constraint_dict = convert_to_dict_per_var(self.lower_constraint_variable_hits)
-
-        # Also save list of active constraints
-        self.active_upper_constraints = [
-            constraint
-            for i, constraint in enumerate(converted_constraints)
-            if lam_g_larger_than_zero[i]
-        ]
-        self.active_lower_constraints = [
-            constraint
-            for i, constraint in enumerate(converted_constraints)
-            if lam_g_smaller_than_zero[i]
-        ]
-
     # --> Unused function, but could be useful for refactoring convert_to_dict_per_var
     # get_variables_in_constraints(self.upper_constraint_variable_hits)
     # def get_variables_in_constraints(constraints):
@@ -175,104 +258,46 @@ class GetLinearProblem:
     #             variables_in_constraints[-1].append(var_name)
     #     return variables_in_constraints
 
-    def pre(self):
-        super().pre()
-        self.intermediate_lp_info = []
+    # def pre(self):
+        # super().pre()
+        # self.intermediate_lp_info = []
 
-    def priority_completed(self, priority: int) -> None:
-        to_store = {
-            "priority": priority,
-            "upper_constraint_dict": self.upper_constraint_dict,
-            "lower_constraint_dict": self.lower_constraint_dict,
-            "upper_bound_dict": self.upper_bound_dict,
-            "lower_bound_dict": self.lower_bound_dict,
-            "active_lower_constraints": self.active_lower_constraints,
-            "active_upper_constraints": self.active_upper_constraints,
-        }
-        self.intermediate_lp_info.append(to_store)
-        super().priority_completed(priority)
+    # def priority_completed(self, priority: int) -> None:
+    #     to_store = {
+    #         "priority": priority,
+    #         "upper_constraint_dict": self.upper_constraint_dict,
+    #         "lower_constraint_dict": self.lower_constraint_dict,
+    #         "upper_bound_dict": self.upper_bound_dict,
+    #         "lower_bound_dict": self.lower_bound_dict,
+    #         "active_lower_constraints": self.active_lower_constraints,
+    #         "active_upper_constraints": self.active_upper_constraints,
+    #     }
+    #     self.intermediate_lp_info.append(to_store)
+    #     super().priority_completed(priority)
 
     def post(self):
         super().post()
 
-        def list_to_ranges(lst):
-            if not lst:
-                return []
-            ranges = []
-            start = end = lst[0]
-            for i in range(1, len(lst)):
-                if lst[i] == end + 1:
-                    end = lst[i]
-                else:
-                    ranges.append((start, end))
-                    start = end = lst[i]
-            ranges.append((start, end))
-            return ranges
-
-        def convert_lists_in_dict(dic):
-            new_dic = copy.deepcopy(dic)
-            for key, val in dic.items():
-                new_dic[key]["timesteps"] = list_to_ranges(val["timesteps"])
-            return new_dic
-
-        def strip_timestep(s):
-            parts = []
-            for part in s.split():
-                if "__" in part:
-                    name, _ = part.split("__")
-                    name += "__"
-                    parts.append(name)
-                else:
-                    parts.append(part)
-            return " ".join(parts)
-
-        def add_symbol_before_line(lines, symbol):
-            return "\n".join([f"{symbol} {line}" for line in lines.split("\n")])
-
-        def add_blockquote(lines):
-            return add_symbol_before_line(lines, ">")
-
-        def group_variables(equations):
-            unique_equations = {}
-            for equation in equations:
-                variables = {}
-                # Get all variables in equation
-                for var in equation.split():
-                    if "__" in var:
-                        var_name, var_suffix = var.split("__")
-                        if var_name in variables:
-                            if variables[var_name] != var_suffix:
-                                variables[var_name] = None
-                        else:
-                            variables[var_name] = var_suffix
-                variables = {k: v for k, v in variables.items() if v is not None}
-                key = strip_timestep(equation)
-
-                # Add equation to dict of unique equations
-                if key in unique_equations:
-                    unique_suffixes = unique_equations[key]
-                    for var_suffix in variables.values():
-                        if var_suffix not in unique_suffixes:
-                            unique_suffixes.append(var_suffix)
-                else:
-                    unique_equations[key] = [list(variables.values())[0]]
-
-            return unique_equations
-
         result_text = ""
-        if len(self.intermediate_lp_info) == 0:
+        lam_tol = 4
+        # step one: convert the raw data to the required lists/dicts for printing
+        if len(self.problem_and_results_list) == 0:
             result_text += "No completed priorities... Is the problem infeasible?"
-        for _intermediate_result_prev, intermediate_result in zip(
-            [None] + self.intermediate_lp_info[:-1], self.intermediate_lp_info
-        ):
-            priority = intermediate_result["priority"]
+        for problem_and_results in self.problem_and_results_list:
+            results, nlp, casadi_equations = problem_and_results
+            (
+                upper_bound_dict,
+                lower_bound_dict,
+                upper_constraint_dict,
+                lower_constraint_dict,
+                active_upper_constraints,
+                active_lower_constraints,
+            ) = conversion_step_one(results, nlp, casadi_equations, lam_tol)
+
+            priority = 999999
             result_text += "\n# Priority {}\n".format(priority)
-            upperconstr_range_dict = convert_lists_in_dict(
-                intermediate_result["upper_constraint_dict"]
-            )
-            lowerconstr_range_dict = convert_lists_in_dict(
-                intermediate_result["lower_constraint_dict"]
-            )
+            upperconstr_range_dict = convert_lists_in_dict(upper_constraint_dict)
+            lowerconstr_range_dict = convert_lists_in_dict(lower_constraint_dict)
             upper_constraints_df = pd.DataFrame.from_dict(upperconstr_range_dict, orient="index")
             lower_constraints_df = pd.DataFrame.from_dict(lowerconstr_range_dict, orient="index")
             result_text += "## Lower constraints:\n"
@@ -280,9 +305,7 @@ class GetLinearProblem:
                 result_text += ">### Active variables:\n"
                 result_text += add_blockquote(lower_constraints_df.to_markdown()) + "\n"
                 result_text += ">### from active constraints:\n"
-                for eq, timesteps in group_variables(
-                    intermediate_result["active_lower_constraints"]
-                ).items():
+                for eq, timesteps in group_variables(active_lower_constraints).items():
                     result_text += f">- `{eq}`: {timesteps}\n"
             else:
                 result_text += ">No active lower constraints\n"
@@ -292,15 +315,13 @@ class GetLinearProblem:
                 result_text += ">### Active variables:\n"
                 result_text += add_blockquote(upper_constraints_df.to_markdown()) + "\n"
                 result_text += ">### from active constraints:\n"
-                for eq, timesteps in group_variables(
-                    intermediate_result["active_upper_constraints"]
-                ).items():
+                for eq, timesteps in group_variables(active_upper_constraints).items():
                     result_text += f">- `{eq}`: {timesteps}\n"
             else:
                 result_text += ">No active upper constraints\n"
 
-            lowerbound_range_dict = convert_lists_in_dict(intermediate_result["upper_bound_dict"])
-            upperbound_range_dict = convert_lists_in_dict(intermediate_result["lower_bound_dict"])
+            lowerbound_range_dict = convert_lists_in_dict(upper_bound_dict)
+            upperbound_range_dict = convert_lists_in_dict(lower_bound_dict)
             lowerbounds_df = pd.DataFrame.from_dict(lowerbound_range_dict, orient="index")
             upperbounds_df = pd.DataFrame.from_dict(upperbound_range_dict, orient="index")
             result_text += "\n ## Lower bounds:\n"

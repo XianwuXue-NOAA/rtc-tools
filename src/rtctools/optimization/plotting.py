@@ -12,7 +12,6 @@ logger = logging.getLogger("rtctools")
 
 
 class PlotGoals:
-    lam_tol = 0.1
 
     def pre(self):
         super().pre()

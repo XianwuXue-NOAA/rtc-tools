@@ -16,8 +16,8 @@ class GetLinearProblem:
     lam_tol = 0.1
     manual_expansion = True
 
-    def store_results(self, results, nlp, lbx, ubx, lbg, ubg, x0):
-        super().store_results(nlp, results, lbx, ubx, lbg, ubg, x0)
+    def problem_and_results(self, results, nlp, lbx, ubx, lbg, ubg, x0):
+        super().problem_and_results(nlp, results, lbx, ubx, lbg, ubg, x0)
 
         expand_f_g = ca.Function("f_g", [nlp["x"]], [nlp["f"], nlp["g"]]).expand()
         casadi_equations = {}
@@ -35,7 +35,6 @@ class GetLinearProblem:
 
         # Evaluate the constraints wrt to the optimized solution
         x_optimized = np.array(results["x"]).ravel()
-        expand_f_g = ca.Function("f_g", [nlp["x"]], [nlp["f"], nlp["g"]]).expand()
         X_sx = ca.SX.sym("X", *nlp["x"].shape)
         f_sx, g_sx = expand_f_g(X_sx)
         eval_g = ca.Function("g_eval", [X_sx], [g_sx]).expand()

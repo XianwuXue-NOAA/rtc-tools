@@ -72,7 +72,7 @@ def casadi_to_lp(casadi_equations, lp_name=None):
             objective_str = " ".join(objective)
             objective_str = "  " + objective_str
         except Exception:
-            logger.warning("set objective string to 1")
+            logger.warning("Cannot convert non-linear objective! Objective string is set to 1")
             objective_str = "1"
 
         # CONSTRAINTS
@@ -138,4 +138,9 @@ def casadi_to_lp(casadi_equations, lp_name=None):
         return constraints, constraints_original, list(var_names)
 
     except Exception as e:
-        logger.error("Error occured while converting to lp file! {}".format(e))
+        message = (
+            "Error occured while generating lp file! {}".format(e)
+            + "\n Does the problem contain non-linear constraints?"
+        )
+        logger.error(message)
+        raise Exception(message)

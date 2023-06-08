@@ -7,98 +7,132 @@ import numpy as np
 
 import pandas as pd
 
-from rtctools.diagnostics_utils import casadi_to_lp
+from rtctools.diagnostics_utils import (
+    casadi_to_lp,
+    convert_constraints,
+    get_systems_of_equations,
+    get_varnames,
+)
 
 logger = logging.getLogger("rtctools")
+
+
+def get_constraints(casadi_equations):
+    expand_f_g = casadi_equations["func"]
+    in_var = ca.SX.sym("X", expand_f_g.nnz_in())
+    bf = ca.Function("bf", [in_var], [expand_f_g(in_var)[1]])
+    b = bf(0)
+    b = ca.sparsify(b)
+    b = np.array(b)[:, 0]
+    constraints = casadi_to_lp(casadi_equations)
+    return constraints
+
+
+def evaluate_constraints(results, nlp, casadi_equations):
+    # Evaluate the constraints wrt to the optimized solution
+    x_optimized = np.array(results["x"]).ravel()
+    X_sx = ca.SX.sym("X", *nlp["x"].shape)
+    f_sx, g_sx = casadi_equations["func"](X_sx)
+    eval_g = ca.Function("g_eval", [X_sx], [g_sx]).expand()
+    evaluated_g = [x[0] for x in np.array(eval_g(x_optimized))]
+    lam_g = [x[0] for x in np.array(results["lam_g"])]
+    lam_x = [x[0] for x in np.array(results["lam_x"])]
+
+    return evaluated_g, lam_g, lam_x
+
+
+def extract_var_name_timestep(variable):
+    """Split the variable name into its original name and its timestep"""
+    var_name, _, timestep_str = variable.partition("__")
+    return var_name, int(timestep_str)
+
+
+def add_to_dict(new_dict, var_name, timestep, sign="+"):
+    """Add variable to dict grouped by variable names"""
+    if var_name not in new_dict:
+        new_dict[var_name] = {"timesteps": [timestep], "effect_direction": sign}
+    else:
+        new_dict[var_name]["timesteps"].append(timestep)
+    return new_dict
+
+
+def convert_to_dict_per_var(constrain_list):
+    """Convert list of ungrouped variables to a dict per variable name,
+    with as values the time-indices where the variable was active"""
+    new_dict = {}
+    for constrain in constrain_list:
+        if isinstance(constrain, list):
+            for i, variable in enumerate(constrain[2::3]):
+                var_name, timestep = extract_var_name_timestep(variable)
+                add_to_dict(new_dict, var_name, timestep, constrain[i * 3])
+        else:
+            var_name, timestep = extract_var_name_timestep(constrain)
+            add_to_dict(new_dict, var_name, timestep)
+    # Sort values and remove duplicates
+    for var_name in new_dict:
+        new_dict[var_name]["timesteps"] = sorted(set(new_dict[var_name]["timesteps"]))
+    return new_dict
+
+
+def check_lambda_exceedence(lam, tol):
+    return [x > tol for x in lam], [x < -tol for x in lam]
+
+
+def find_variable_hits(exceedance_list, lowers, uppers, variable_names, variable_values, lam):
+    variable_hits = []
+    for i, hit in enumerate(exceedance_list):
+        if hit:
+            logger.debug(
+                "Bound for variable {}={} was hit! Lam={}".format(
+                    variable_names[i], variable_values[i], lam
+                )
+            )
+            logger.debug("{} < {} < {}".format(lowers[i], variable_values[i], uppers[i]))
+            variable_hits.append(variable_names[i])
+    return variable_hits
 
 
 class GetLinearProblem:
     lam_tol = 0.1
     manual_expansion = True
 
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.problem_and_results_list = []
+
     def problem_and_results(self, results, nlp, lbx, ubx, lbg, ubg, x0):
         super().problem_and_results(nlp, results, lbx, ubx, lbg, ubg, x0)
-
         expand_f_g = ca.Function("f_g", [nlp["x"]], [nlp["f"], nlp["g"]]).expand()
         casadi_equations = {}
         casadi_equations["indices"] = self._CollocatedIntegratedOptimizationProblem__indices
         casadi_equations["func"] = expand_f_g
         casadi_equations["other"] = (lbx, ubx, lbg, ubg, x0)
-        in_var = ca.SX.sym("X", expand_f_g.nnz_in())
-        bf = ca.Function("bf", [in_var], [expand_f_g(in_var)[1]])
-        b = bf(0)
-        b = ca.sparsify(b)
-        b = np.array(b)[:, 0]
-        converted_constraints, constraints_original, variable_names = casadi_to_lp(
-            casadi_equations
-        )
+        self.problem_and_results_list.append((results, nlp, casadi_equations))
 
-        # Evaluate the constraints wrt to the optimized solution
-        x_optimized = np.array(results["x"]).ravel()
-        X_sx = ca.SX.sym("X", *nlp["x"].shape)
-        f_sx, g_sx = expand_f_g(X_sx)
-        eval_g = ca.Function("g_eval", [X_sx], [g_sx]).expand()
-        evaluated_g = [x[0] for x in np.array(eval_g(x_optimized))]
-        lam_g = [x[0] for x in np.array(results["lam_g"])]
-        lam_x = [x[0] for x in np.array(results["lam_x"])]
+        constraints = get_constraints(casadi_equations)
+        n_dec = 4
+        eq_systems = get_systems_of_equations(casadi_equations)
+        _A, b = eq_systems["constraints"]
+        converted_constraints = convert_constraints(constraints, lbg, ubg, b, n_dec)
 
-        def extract_var_name_timestep(variable):
-            """Split the variable name into its original name and its timestep"""
-            var_name, _, timestep_str = variable.partition("__")
-            return var_name, int(timestep_str)
+        variable_names = get_varnames(casadi_equations)
 
-        def add_to_dict(new_dict, var_name, timestep, sign="+"):
-            """Add variable to dict grouped by variable names"""
-            if var_name not in new_dict:
-                new_dict[var_name] = {"timesteps": [timestep], "effect_direction": sign}
-            else:
-                new_dict[var_name]["timesteps"].append(timestep)
-            return new_dict
-
-        def convert_to_dict_per_var(constrain_list):
-            """Convert list of ungrouped variables to a dict per variable name,
-            with as values the time-indices where the variable was active"""
-            new_dict = {}
-            for constrain in constrain_list:
-                if isinstance(constrain, list):
-                    for i, variable in enumerate(constrain[2::3]):
-                        var_name, timestep = extract_var_name_timestep(variable)
-                        add_to_dict(new_dict, var_name, timestep, constrain[i * 3])
-                else:
-                    var_name, timestep = extract_var_name_timestep(constrain)
-                    add_to_dict(new_dict, var_name, timestep)
-            # Sort values and remove duplicates
-            for var_name in new_dict:
-                new_dict[var_name]["timesteps"] = sorted(set(new_dict[var_name]["timesteps"]))
-            return new_dict
-
-        def check_lambda_exceedence(lam, tol):
-            return [x > tol for x in lam], [x < -tol for x in lam]
-
-        def find_variable_hits(
-            exceedance_list, lowers, uppers, variable_names, variable_values, lam
-        ):
-            variable_hits = []
-            for i, hit in enumerate(exceedance_list):
-                if hit:
-                    logger.debug(
-                        "Bound for variable {}={} was hit! Lam={}".format(
-                            variable_names[i], variable_values[i], lam
-                        )
-                    )
-                    logger.debug("{} < {} < {}".format(lowers[i], variable_values[i], uppers[i]))
-                    variable_hits.append(variable_names[i])
-            return variable_hits
+        evaluated_g, lam_g, lam_x = evaluate_constraints(results, nlp, casadi_equations)
 
         # Upper and lower bounds
         lam_x_larger_than_zero, lam_x_smaller_than_zero = check_lambda_exceedence(
             lam_x, self.lam_tol
         )
         self.upper_bound_variable_hits = find_variable_hits(
-            lam_x_larger_than_zero, lbx, ubx, variable_names, x_optimized, lam_x
+            lam_x_larger_than_zero, lbx, ubx, variable_names, np.array(results["x"]).ravel(), lam_x
         )
         self.lower_bound_variable_hits = find_variable_hits(
-            lam_x_smaller_than_zero, lbx, ubx, variable_names, x_optimized, lam_x
+            lam_x_smaller_than_zero,
+            lbx,
+            ubx,
+            variable_names,
+            np.array(results["x"]).ravel(),
+            lam_x,
         )
         self.upper_bound_dict = convert_to_dict_per_var(self.upper_bound_variable_hits)
         self.lower_bound_dict = convert_to_dict_per_var(self.lower_bound_variable_hits)
@@ -108,10 +142,10 @@ class GetLinearProblem:
             lam_g, self.lam_tol
         )
         self.upper_constraint_variable_hits = find_variable_hits(
-            lam_g_larger_than_zero, lbg, ubg, constraints_original, evaluated_g, lam_g
+            lam_g_larger_than_zero, lbg, ubg, constraints, evaluated_g, lam_g
         )
         self.lower_constraint_variable_hits = find_variable_hits(
-            lam_g_smaller_than_zero, lbg, ubg, constraints_original, evaluated_g, lam_g
+            lam_g_smaller_than_zero, lbg, ubg, constraints, evaluated_g, lam_g
         )
         self.upper_constraint_dict = convert_to_dict_per_var(self.upper_constraint_variable_hits)
         self.lower_constraint_dict = convert_to_dict_per_var(self.lower_constraint_variable_hits)

@@ -149,7 +149,7 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
 
         results = solver(x0=x0, lbx=lbx, ubx=ubx, lbg=ca.veccat(*lbg), ubg=ca.veccat(*ubg))
         self.problem_and_results(results, nlp, lbx, ubx, lbg, ubg, x0)
-        
+
         # Extract relevant stats
         self.__objective_value = float(results["f"])
         self.__solver_output = np.array(results["x"]).ravel()

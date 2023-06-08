@@ -5,7 +5,6 @@ from typing import Any, Dict, Iterator, List, Tuple, Union
 import casadi as ca
 
 import numpy as np
-from rtctools.diagnostics_utils import casadi_to_lp
 
 from rtctools._internal.alias_tools import AliasDict
 from rtctools._internal.debug_check_helpers import DebugLevel, debug_check

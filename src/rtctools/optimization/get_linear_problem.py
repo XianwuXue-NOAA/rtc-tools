@@ -1,13 +1,16 @@
 import copy
 import logging
 
-import pandas as pd
-import numpy as np
 import casadi as ca
+
+import numpy as np
+
+import pandas as pd
 
 from rtctools.diagnostics_utils import casadi_to_lp
 
 logger = logging.getLogger("rtctools")
+
 
 class GetLinearProblem:
     lam_tol = 0.1
@@ -26,7 +29,9 @@ class GetLinearProblem:
         b = bf(0)
         b = ca.sparsify(b)
         b = np.array(b)[:, 0]
-        converted_constraints, constraints_original, variable_names = casadi_to_lp(casadi_equations)
+        converted_constraints, constraints_original, variable_names = casadi_to_lp(
+            casadi_equations
+        )
 
         # Evaluate the constraints wrt to the optimized solution
         x_optimized = np.array(results["x"]).ravel()
@@ -71,41 +76,58 @@ class GetLinearProblem:
         def check_lambda_exceedence(lam, tol):
             return [x > tol for x in lam], [x < -tol for x in lam]
 
-        def find_variable_hits(exceedance_list, lowers, uppers, variable_names, variable_values, lam):
+        def find_variable_hits(
+            exceedance_list, lowers, uppers, variable_names, variable_values, lam
+        ):
             variable_hits = []
             for i, hit in enumerate(exceedance_list):
                 if hit:
-                    logger.debug("Bound for variable {}={} was hit! Lam={}".format(
-                        variable_names[i], variable_values[i], lam))
+                    logger.debug(
+                        "Bound for variable {}={} was hit! Lam={}".format(
+                            variable_names[i], variable_values[i], lam
+                        )
+                    )
                     logger.debug("{} < {} < {}".format(lowers[i], variable_values[i], uppers[i]))
                     variable_hits.append(variable_names[i])
             return variable_hits
 
         # Upper and lower bounds
-        lam_x_larger_than_zero, lam_x_smaller_than_zero = check_lambda_exceedence(lam_x, self.lam_tol)
+        lam_x_larger_than_zero, lam_x_smaller_than_zero = check_lambda_exceedence(
+            lam_x, self.lam_tol
+        )
         self.upper_bound_variable_hits = find_variable_hits(
-            lam_x_larger_than_zero, lbx, ubx, variable_names, x_optimized, lam_x)
+            lam_x_larger_than_zero, lbx, ubx, variable_names, x_optimized, lam_x
+        )
         self.lower_bound_variable_hits = find_variable_hits(
-            lam_x_smaller_than_zero, lbx, ubx, variable_names, x_optimized, lam_x)
+            lam_x_smaller_than_zero, lbx, ubx, variable_names, x_optimized, lam_x
+        )
         self.upper_bound_dict = convert_to_dict_per_var(self.upper_bound_variable_hits)
         self.lower_bound_dict = convert_to_dict_per_var(self.lower_bound_variable_hits)
 
         # Upper and lower constraints
-        lam_g_larger_than_zero, lam_g_smaller_than_zero = check_lambda_exceedence(lam_g, self.lam_tol)
+        lam_g_larger_than_zero, lam_g_smaller_than_zero = check_lambda_exceedence(
+            lam_g, self.lam_tol
+        )
         self.upper_constraint_variable_hits = find_variable_hits(
-            lam_g_larger_than_zero, lbg, ubg, constraints_original, evaluated_g, lam_g)
+            lam_g_larger_than_zero, lbg, ubg, constraints_original, evaluated_g, lam_g
+        )
         self.lower_constraint_variable_hits = find_variable_hits(
-            lam_g_smaller_than_zero, lbg, ubg, constraints_original, evaluated_g, lam_g)
+            lam_g_smaller_than_zero, lbg, ubg, constraints_original, evaluated_g, lam_g
+        )
         self.upper_constraint_dict = convert_to_dict_per_var(self.upper_constraint_variable_hits)
         self.lower_constraint_dict = convert_to_dict_per_var(self.lower_constraint_variable_hits)
 
         # Also save list of active constraints
         self.active_upper_constraints = [
-            constraint for i, constraint in enumerate(converted_constraints) if lam_g_larger_than_zero[i]
-            ]
+            constraint
+            for i, constraint in enumerate(converted_constraints)
+            if lam_g_larger_than_zero[i]
+        ]
         self.active_lower_constraints = [
-            constraint for i, constraint in enumerate(converted_constraints) if lam_g_smaller_than_zero[i]
-            ]
+            constraint
+            for i, constraint in enumerate(converted_constraints)
+            if lam_g_smaller_than_zero[i]
+        ]
 
     # --> Unused function, but could be useful for refactoring convert_to_dict_per_var
     # get_variables_in_constraints(self.upper_constraint_variable_hits)
@@ -207,7 +229,7 @@ class GetLinearProblem:
         result_text = ""
         if len(self.intermediate_lp_info) == 0:
             result_text += "No completed priorities... Is the problem infeasible?"
-        for intermediate_result_prev, intermediate_result in zip(
+        for _intermediate_result_prev, intermediate_result in zip(
             [None] + self.intermediate_lp_info[:-1], self.intermediate_lp_info
         ):
             priority = intermediate_result["priority"]

@@ -1,11 +1,14 @@
-import casadi as ca
-import logging
-import numpy as np
-import textwrap
 import copy
+import logging
+import textwrap
 
- 
+import casadi as ca
+
+import numpy as np
+
+
 logger = logging.getLogger("rtctools")
+
 
 def casadi_to_lp(casadi_equations, lp_name=None):
     """Convert the model as formulated with casadi types to a human-readable
@@ -120,7 +123,9 @@ def casadi_to_lp(casadi_equations, lp_name=None):
         if lp_name:
             with open("myproblem_{}.lp".format(lp_name), "w") as o:
                 o.write("Minimize\n")
-                for x in textwrap.wrap(objective_str, width=255):  # lp-format has max length of 255 chars
+                for x in textwrap.wrap(
+                    objective_str, width=255
+                ):  # lp-format has max length of 255 chars
                     o.write(x + "\n")
                 o.write("Subject To\n")
                 o.write(constraints_str + "\n")

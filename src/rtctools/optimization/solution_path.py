@@ -1,3 +1,4 @@
+import itertools
 import os
 import glob
 import shutil
@@ -9,7 +10,17 @@ class ExportResultsEachPriority:
 
         self.write()
         # Move all output files to a priority-specific folder
-        new_output_folder = os.path.join(self._output_folder, "priority{}".format(priority))
+        priorities = sorted(
+            {
+                int(goal.priority)
+                for goal in itertools.chain(self.goals(), self.path_goals())
+                if not goal.is_empty
+            }
+        )
+        num_len = len(str(max(priorities)))
+        new_output_folder = os.path.join(
+            self._output_folder, "priority_{:0{}}".format(priority, num_len)
+        )
         os.makedirs(new_output_folder, exist_ok=True)
         output_file_stem = os.path.join(self._output_folder, self.timeseries_export_basename)
         for output_file in glob.glob(output_file_stem + ".*"):

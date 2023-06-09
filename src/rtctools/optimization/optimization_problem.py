@@ -148,7 +148,11 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
         logger.info("Calling solver")
 
         results = solver(x0=x0, lbx=lbx, ubx=ubx, lbg=ca.veccat(*lbg), ubg=ca.veccat(*ubg))
-        self.problem_and_results(results, nlp, lbx, ubx, lbg, ubg, x0, self.priority)
+        if hasattr(self, 'priority'):
+            prio = self.priority
+        else:
+            prio = "None"
+        self.problem_and_results(results, nlp, lbx, ubx, lbg, ubg, x0, prio)
 
         # Extract relevant stats
         self.__objective_value = float(results["f"])

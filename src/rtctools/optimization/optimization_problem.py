@@ -148,7 +148,7 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
         logger.info("Calling solver")
 
         results = solver(x0=x0, lbx=lbx, ubx=ubx, lbg=ca.veccat(*lbg), ubg=ca.veccat(*ubg))
-        self.problem_and_results(results, nlp, lbx, ubx, lbg, ubg, x0)
+        self.problem_and_results(results, nlp, lbx, ubx, lbg, ubg, x0, self.priority)
 
         # Extract relevant stats
         self.__objective_value = float(results["f"])
@@ -721,7 +721,7 @@ class OptimizationProblem(DataStoreAccessor, metaclass=ABCMeta):
         """
         pass
 
-    def problem_and_results(self, results, nlp, lbx, ubx, lbg, ubg, x0) -> None:
+    def problem_and_results(self, results, nlp, lbx, ubx, lbg, ubg, x0, priority) -> None:
         """
         Called after solver is finished.
         """

@@ -319,8 +319,8 @@ class GetLinearProblem:
         super().__init__(**kwargs)
         self.problem_and_results_list = []
 
-    def problem_and_results(self, results, nlp, lbx, ubx, lbg, ubg, x0):
-        super().problem_and_results(nlp, results, lbx, ubx, lbg, ubg, x0)
+    def problem_and_results(self, results, nlp, lbx, ubx, lbg, ubg, x0, priority):
+        super().problem_and_results(nlp, results, lbx, ubx, lbg, ubg, x0, priority)
         expand_f_g = ca.Function("f_g", [nlp["x"]], [nlp["f"], nlp["g"]]).expand()
         casadi_equations = {}
         casadi_equations[
@@ -328,7 +328,7 @@ class GetLinearProblem:
         ] = self._CollocatedIntegratedOptimizationProblem__indices
         casadi_equations["func"] = expand_f_g
         casadi_equations["other"] = (lbx, ubx, lbg, ubg, x0)
-        self.problem_and_results_list.append((results, nlp, casadi_equations))
+        self.problem_and_results_list.append((priority, results, nlp, casadi_equations))
 
     def post(self):
         super().post()
@@ -338,7 +338,7 @@ class GetLinearProblem:
             result_text += "No completed priorities... Is the problem infeasible?"
 
         for problem_and_results in self.problem_and_results_list:
-            results, nlp, casadi_equations = problem_and_results
+            priority, results, nlp, casadi_equations = problem_and_results
             (
                 upper_bound_dict,
                 lower_bound_dict,
@@ -355,7 +355,6 @@ class GetLinearProblem:
                 active_upper_constraints,
             ) = get_full_active_constraints(results, casadi_equations, self.lam_tol)
 
-            priority = "unknown"
             result_text += get_debug_markdown_per_prio(
                 lowerconstr_range_dict,
                 upperconstr_range_dict,

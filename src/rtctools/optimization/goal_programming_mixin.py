@@ -606,10 +606,10 @@ class GoalProgrammingMixin(_GoalProgrammingMixinBase):
         self.__original_constant_input_keys = {}
         self.__original_parameter_keys = {}
         for i, (priority, goals, path_goals) in enumerate(self.subproblems):
-            logger.info("Solving goals at priority {}".format(priority))
-
+            self.priority = priority
+            logger.info("Solving goals at priority {}".format(self.priority))
             # Call the pre priority hook
-            self.priority_started(priority)
+            self.priority_started(self.priority)
 
             (self.__subproblem_epsilons, self.__subproblem_objectives,
              self.__subproblem_soft_constraints, hard_constraints,
@@ -642,7 +642,7 @@ class GoalProgrammingMixin(_GoalProgrammingMixinBase):
 
             # Call the post priority hook, so that intermediate results can be
             # logged/inspected.
-            self.priority_completed(priority)
+            self.priority_completed(self.priority)
 
             if options['keep_soft_constraints']:
                 self.__add_subproblem_objective_constraint()

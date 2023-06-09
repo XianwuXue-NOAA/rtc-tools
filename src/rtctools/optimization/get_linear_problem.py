@@ -48,7 +48,7 @@ def get_lagrange_mult(results):
 def extract_var_name_timestep(variable):
     """Split the variable name into its original name and its timestep"""
     var_name, _, timestep_str = variable.partition("__")
-    return var_name, int(timestep_str)
+    return var_name, int(timestep_str.split("_")[-1])
 
 
 def add_to_dict(new_dict, var_name, timestep, sign="+"):

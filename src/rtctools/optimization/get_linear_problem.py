@@ -29,9 +29,19 @@ def evaluate_constraints(results, nlp, casadi_equations):
     _f_sx, g_sx = casadi_equations["func"](X_sx)
     eval_g = ca.Function("g_eval", [X_sx], [g_sx]).expand()
     evaluated_g = [x[0] for x in np.array(eval_g(x_optimized))]
+    return evaluated_g
+
+
+def print_evaluated_constraints(results, nlp, casadi_equations):
+    """ Print the actual constraints, showing the actual value of each
+    variable between brackets."""
+
+
+def get_lagrange_mult(results):
+    """Get the lagrange multipliers for the constraints (g) and bounds (x)"""
     lam_g = [x[0] for x in np.array(results["lam_g"])]
     lam_x = [x[0] for x in np.array(results["lam_x"])]
-    return evaluated_g, lam_g, lam_x
+    return lam_g, lam_x
 
 
 def extract_var_name_timestep(variable):
@@ -102,7 +112,7 @@ def get_variables_in_active_constr(results, nlp, casadi_equations, lam_tol):
     lbx, ubx, lbg, ubg, _x0 = casadi_equations["other"]
     variable_names = get_varnames(casadi_equations)
 
-    evaluated_g, lam_g, lam_x = evaluate_constraints(results, nlp, casadi_equations)
+    lam_g, lam_x = get_lagrange_mult(results)
 
     # Upper and lower bounds
     lam_x_larger_than_zero, lam_x_smaller_than_zero = get_tol_exceedance(
@@ -131,6 +141,8 @@ def get_variables_in_active_constr(results, nlp, casadi_equations, lam_tol):
     lam_g_larger_than_zero, lam_g_smaller_than_zero = get_tol_exceedance(
         lam_g, lam_tol
     )
+
+    evaluated_g = evaluate_constraints(results, nlp, casadi_equations)
     upper_constraint_variable_hits = find_variable_hits(
         lam_g_larger_than_zero, lbg, ubg, constraints, evaluated_g, lam_g
     )
@@ -148,14 +160,14 @@ def get_variables_in_active_constr(results, nlp, casadi_equations, lam_tol):
     )
 
 
-def get_full_active_constraints(results, nlp, casadi_equations, lam_tol=0.1, n_dec=4):
+def get_full_active_constraints(results, casadi_equations, lam_tol=0.1, n_dec=4):
     """Get all constraints that are active in a human-radable format."""
     constraints = get_constraints(casadi_equations)
     _lbx, _ubx, lbg, ubg, _x0 = casadi_equations["other"]
     eq_systems = get_systems_of_equations(casadi_equations)
     _A, b = eq_systems["constraints"]
     converted_constraints = convert_constraints(constraints, lbg, ubg, b, n_dec)
-    _evaluated_g, lam_g, _lam_x = evaluate_constraints(results, nlp, casadi_equations)
+    lam_g, _lam_x = get_lagrange_mult(results)
     lam_g_larger_than_zero, lam_g_smaller_than_zero = get_tol_exceedance(
         lam_g, lam_tol
     )
@@ -248,7 +260,6 @@ def group_variables(equations):
     return unique_equations
 
 
-# end part 2 functions
 def get_debug_markdown_per_prio(
     lowerconstr_range_dict,
     upperconstr_range_dict,
@@ -342,7 +353,7 @@ class GetLinearProblem:
             (
                 active_lower_constraints,
                 active_upper_constraints,
-            ) = get_full_active_constraints(results, nlp, casadi_equations, self.lam_tol)
+            ) = get_full_active_constraints(results, casadi_equations, self.lam_tol)
 
             priority = "unknown"
             result_text += get_debug_markdown_per_prio(

@@ -56,7 +56,10 @@ def add_to_dict(new_dict, var_name, timestep, sign="+"):
     if var_name not in new_dict:
         new_dict[var_name] = {"timesteps": [timestep], "effect_direction": sign}
     else:
-        new_dict[var_name]["timesteps"].append(timestep)
+        if new_dict[var_name]["effect_direction"] == "sign":
+            new_dict[var_name]["timesteps"].append(timestep)
+        else:
+            new_dict[var_name+sign] = {"timesteps": [timestep], "effect_direction": sign}
     return new_dict
 
 
@@ -233,7 +236,8 @@ def add_blockquote(lines):
     return add_symbol_before_line(lines, ">")
 
 
-def group_variables(equations):
+def group_equations(equations):
+    """ Group identical equations for different timesteps. """
     unique_equations = {}
     for equation in equations:
         variables = {}
@@ -246,17 +250,22 @@ def group_variables(equations):
                         variables[var_name] = None
                 else:
                     variables[var_name] = var_suffix
-        variables = {k: v for k, v in variables.items() if v is not None}
-        key = strip_timestep(equation)
-
-        # Add equation to dict of unique equations
-        if key in unique_equations:
-            unique_suffixes = unique_equations[key]
-            for var_suffix in variables.values():
-                if var_suffix not in unique_suffixes:
-                    unique_suffixes.append(var_suffix)
+        variables_equal = {k: v for k, v in variables.items() if v is not None}
+        variables_none = {k: v for k, v in variables.items() if v is None}
+        timesteps = list(variables_equal.values())
+        if len(variables_none) > 0 or not all(x == timesteps[0] for x in timesteps):
+            unique_equations[equation] = "Equation depends on >1 timestep"
         else:
-            unique_equations[key] = [list(variables.values())[0]]
+            key = strip_timestep(equation)
+            # Add equation to dict of unique equations
+            if key in unique_equations:
+                unique_suffixes = unique_equations[key]
+                for var_suffix in variables_equal.values():
+                    if var_suffix not in unique_suffixes:
+                        unique_suffixes.append(var_suffix)
+            else:
+                if len(variables_equal.values()) > 0:
+                    unique_equations[key] = [list(variables_equal.values())[0]]
 
     return unique_equations
 
@@ -284,7 +293,7 @@ def get_debug_markdown_per_prio(
         result_text += ">### Active variables:\n"
         result_text += add_blockquote(lower_constraints_df.to_markdown()) + "\n"
         result_text += ">### from active constraints:\n"
-        for eq, timesteps in group_variables(active_lower_constraints).items():
+        for eq, timesteps in group_equations(active_lower_constraints).items():
             result_text += f">- `{eq}`: {timesteps}\n"
     else:
         result_text += ">No active lower constraints\n"
@@ -294,7 +303,7 @@ def get_debug_markdown_per_prio(
         result_text += ">### Active variables:\n"
         result_text += add_blockquote(upper_constraints_df.to_markdown()) + "\n"
         result_text += ">### from active constraints:\n"
-        for eq, timesteps in group_variables(active_upper_constraints).items():
+        for eq, timesteps in group_equations(active_upper_constraints).items():
             result_text += f">- `{eq}`: {timesteps}\n"
     else:
         result_text += ">No active upper constraints\n"

@@ -1,5 +1,6 @@
 import copy
 import logging
+import os
 
 import casadi as ca
 
@@ -365,5 +366,5 @@ class GetLinearProblem:
                 priority=priority,
             )
 
-        with open("active_constraints_per_priority.md", "w") as f:
+        with open(os.path.join(self._output_folder, "active_constraints.md"), "w") as f:
             f.write(result_text)

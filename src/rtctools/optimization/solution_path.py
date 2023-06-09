@@ -1,6 +1,5 @@
-import itertools
-import os
 import glob
+import os
 import shutil
 
 
@@ -10,14 +9,7 @@ class ExportResultsEachPriority:
 
         self.write()
         # Move all output files to a priority-specific folder
-        priorities = sorted(
-            {
-                int(goal.priority)
-                for goal in itertools.chain(self.goals(), self.path_goals())
-                if not goal.is_empty
-            }
-        )
-        num_len = len(str(max(priorities)))
+        num_len = 3
         new_output_folder = os.path.join(
             self._output_folder, "priority_{:0{}}".format(priority, num_len)
         )

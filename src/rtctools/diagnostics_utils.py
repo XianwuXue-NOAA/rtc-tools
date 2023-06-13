@@ -114,7 +114,7 @@ def casadi_to_lp(casadi_equations, lp_name=None):
             objective.pop(0)
             objective_str = " ".join(objective)
             objective_str = "  " + objective_str
-        except Exception:
+        except IndexError:
             logger.warning("Cannot convert non-linear objective! Objective string is set to 1")
             objective_str = "1"
 

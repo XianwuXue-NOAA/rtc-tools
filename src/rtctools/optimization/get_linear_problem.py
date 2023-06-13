@@ -23,11 +23,12 @@ def get_constraints(casadi_equations):
     return casadi_to_lp(casadi_equations)
 
 
-def evaluate_constraints(results, nlp, casadi_equations):
+def evaluate_constraints(results, nlp):
     """ Evaluate the constraints wrt to the optimized solution """
     x_optimized = np.array(results["x"]).ravel()
     X_sx = ca.SX.sym("X", *nlp["x"].shape)
-    _f_sx, g_sx = casadi_equations["func"](X_sx)
+    expand_fg = ca.Function("f_g", [nlp["x"]], [nlp["f"], nlp["g"]]).expand()
+    _f_sx, g_sx = expand_fg(X_sx)
     eval_g = ca.Function("g_eval", [X_sx], [g_sx]).expand()
     evaluated_g = [x[0] for x in np.array(eval_g(x_optimized))]
     return evaluated_g
@@ -146,7 +147,7 @@ def get_variables_in_active_constr(results, nlp, casadi_equations, lam_tol):
         lam_g, lam_tol
     )
 
-    evaluated_g = evaluate_constraints(results, nlp, casadi_equations)
+    evaluated_g = evaluate_constraints(results, nlp)
     upper_constraint_variable_hits = find_variable_hits(
         lam_g_larger_than_zero, lbg, ubg, constraints, evaluated_g, lam_g
     )
@@ -164,7 +165,7 @@ def get_variables_in_active_constr(results, nlp, casadi_equations, lam_tol):
     )
 
 
-def get_full_active_constraints(results, casadi_equations, lam_tol=0.1, n_dec=4):
+def get_active_constraints(results, casadi_equations, lam_tol=0.1, n_dec=4):
     """Get all constraints that are active in a human-radable format."""
     constraints = get_constraints(casadi_equations)
     _lbx, _ubx, lbg, ubg, _x0 = casadi_equations["other"]
@@ -363,7 +364,7 @@ class GetLinearProblem:
             (
                 active_lower_constraints,
                 active_upper_constraints,
-            ) = get_full_active_constraints(results, casadi_equations, self.lam_tol)
+            ) = get_active_constraints(results, casadi_equations, self.lam_tol)
 
             result_text += get_debug_markdown_per_prio(
                 lowerconstr_range_dict,

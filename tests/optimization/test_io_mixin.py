@@ -8,7 +8,7 @@ import casadi as ca
 import numpy as np
 
 from rtctools.optimization.collocated_integrated_optimization_problem import (
-    CollocatedIntegratedOptimizationProblem
+    CollocatedIntegratedOptimizationProblem,
 )
 from rtctools.optimization.io_mixin import IOMixin
 from rtctools.optimization.modelica_mixin import ModelicaMixin
@@ -32,7 +32,7 @@ class DummyIOMixin(IOMixin):
             'constant_input': [1.1, 1.4, 0.9, 1.2, 1.5, 1.7],
             'u_Min': [0.5, 0.2, 0.3, 0.1, 0.4, 0.0],
             'u_Max': [2.1, 2.2, 2.0, 2.4, 2.5, 2.3],
-            'alias': [3.1, 3.2, 3.3, 3.4, 3.5, 3.6]  # alias of 'x'
+            'alias': [3.1, 3.2, 3.3, 3.4, 3.5, 3.6],  # alias of 'x'
         }
 
         for key, value in values.items():
@@ -49,7 +49,6 @@ class DummyIOMixin(IOMixin):
 
 
 class Model(DummyIOMixin, ModelicaMixin, CollocatedIntegratedOptimizationProblem):
-
     def __init__(self, **kwargs):
         kwargs["model_name"] = kwargs.get("model_name", "Model")
         kwargs["input_folder"] = data_path()
@@ -60,7 +59,7 @@ class Model(DummyIOMixin, ModelicaMixin, CollocatedIntegratedOptimizationProblem
     def objective(self, ensemble_member):
         # Quadratic penalty on state 'x' at final time
         xf = self.state_at("x", self.times()[-1])
-        f = xf ** 2
+        f = xf**2
         return f
 
     def constraints(self, ensemble_member):
@@ -126,7 +125,9 @@ class TestOptimizationProblem(TestCase):
             self.problem.set_timeseries('partialSeries2', Timeseries(wrong_times, values))
 
         # Without the check, we will also get through with wrong times
-        self.problem.set_timeseries('partialSeries2', Timeseries(wrong_times, values), check_consistency=False)
+        self.problem.set_timeseries(
+            'partialSeries2', Timeseries(wrong_times, values), check_consistency=False
+        )
 
         actual_series = self.problem.get_timeseries('partialSeries2')
         self.assertTrue(np.array_equal(actual_series.times, times))
@@ -139,7 +140,9 @@ class TestOptimizationProblem(TestCase):
         self.problem.set_timeseries('newVar', values)
 
         actual_series = self.problem.get_timeseries('newVar')
-        forecast_index = bisect.bisect_left(self.problem.io.datetimes, self.problem.io.reference_datetime)
+        forecast_index = bisect.bisect_left(
+            self.problem.io.datetimes, self.problem.io.reference_datetime
+        )
         self.assertTrue(np.array_equal(actual_series.values[forecast_index:], values))
         self.assertTrue(np.all(np.isnan(actual_series.values[:forecast_index])))
 
@@ -211,9 +214,11 @@ class TestOptimizationProblem(TestCase):
 
     def test_seed(self):
         # add another variable containing some nans
-        self.problem.io.set_timeseries_sec('some_missing',
-                                           self.problem.io.times_sec,
-                                           np.array([np.nan, 0.1, 0.2, np.nan, 3.1, np.nan]))
+        self.problem.io.set_timeseries_sec(
+            'some_missing',
+            self.problem.io.times_sec,
+            np.array([np.nan, 0.1, 0.2, np.nan, 3.1, np.nan]),
+        )
         self.problem.dae_variables['free_variables'].append(ca.MX().sym('some_missing'))
 
         seed = self.problem.seed(0)
@@ -223,17 +228,17 @@ class TestOptimizationProblem(TestCase):
 
     def test_constant_inputs(self):
         constant_inputs = self.problem.constant_inputs(0)
-        self.assertTrue(np.array_equal(constant_inputs['constant_input'].values, [1.1, 1.4, 0.9, 1.2, 1.5, 1.7]))
+        self.assertTrue(
+            np.array_equal(constant_inputs['constant_input'].values, [1.1, 1.4, 0.9, 1.2, 1.5, 1.7])
+        )
 
 
 class ModelSubTimes(Model):
-
     def times(self, variable=None):
         return super().times(variable)[:-1]
 
 
 class TestOptimizationProblemSubTimes(TestCase):
-
     def setUp(self):
         self.problem = ModelSubTimes()
         self.problem.read()

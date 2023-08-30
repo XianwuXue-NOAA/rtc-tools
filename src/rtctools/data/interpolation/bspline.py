@@ -24,8 +24,7 @@ class BSpline:
             else:
                 a = 0.0
             if t[i + 1] < t[i + k + 1]:
-                b = (t[i + k + 1] - x) / (t[i + k + 1] - t[i + 1]) * \
-                    self.basis(t, x, k - 1, i + 1)
+                b = (t[i + k + 1] - x) / (t[i + k + 1] - t[i + 1]) * self.basis(t, x, k - 1, i + 1)
             else:
                 b = 0.0
             return a + b

@@ -33,13 +33,15 @@ class HomotopyMixin(OptimizationProblem):
         if self.__theta > options['theta_start'] and getattr(self, '_gp_first_run', True):
             for key, result in self.__results[ensemble_member].items():
                 times = self.times(key)
-                if ((result.ndim == 1 and len(result) == len(times))
-                        or (result.ndim == 2 and result.shape[0] == len(times))):
+                if (result.ndim == 1 and len(result) == len(times)) or (
+                    result.ndim == 2 and result.shape[0] == len(times)
+                ):
                     # Only include seed timeseries which are consistent
                     # with the specified time stamps.
                     seed[key] = Timeseries(times, result)
-                elif ((result.ndim == 1 and len(result) == 1)
-                        or (result.ndim == 2 and result.shape[0] == 1)):
+                elif (result.ndim == 1 and len(result) == 1) or (
+                    result.ndim == 2 and result.shape[0] == 1
+                ):
                     seed[key] = result
         return seed
 
@@ -85,10 +87,12 @@ class HomotopyMixin(OptimizationProblem):
         :returns: A dictionary of homotopy options.
         """
 
-        return {'theta_start': 0.0,
-                'delta_theta_0': 1.0,
-                'delta_theta_min': 0.01,
-                'homotopy_parameter': 'theta'}
+        return {
+            'theta_start': 0.0,
+            'delta_theta_0': 1.0,
+            'delta_theta_min': 0.01,
+            'homotopy_parameter': 'theta',
+        }
 
     def dynamic_parameters(self):
         dynamic_parameters = super().dynamic_parameters()
@@ -115,10 +119,14 @@ class HomotopyMixin(OptimizationProblem):
         while self.__theta <= 1.0:
             logger.info("Solving with homotopy parameter theta = {}.".format(self.__theta))
 
-            success = super().optimize(preprocessing=False, postprocessing=False, log_solver_failure_as_error=False)
+            success = super().optimize(
+                preprocessing=False, postprocessing=False, log_solver_failure_as_error=False
+            )
             if success:
                 self.__results = [
-                    self.extract_results(ensemble_member) for ensemble_member in range(self.ensemble_size)]
+                    self.extract_results(ensemble_member)
+                    for ensemble_member in range(self.ensemble_size)
+                ]
 
                 if self.__theta == 0.0:
                     self.check_collocation_linearity = False
@@ -138,7 +146,8 @@ class HomotopyMixin(OptimizationProblem):
                     failure_message = (
                         'Solver failed with homotopy parameter theta = {}. Theta cannot '
                         'be decreased further, as that would violate the minimum delta '
-                        'theta of {}.'.format(self.__theta, options['delta_theta_min']))
+                        'theta of {}.'.format(self.__theta, options['delta_theta_min'])
+                    )
                     if log_solver_failure_as_error:
                         logger.error(failure_message)
                     else:

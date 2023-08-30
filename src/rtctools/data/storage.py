@@ -71,7 +71,9 @@ class DataStore:
     @reference_datetime.setter
     def reference_datetime(self, value):
         if self.__reference_datetime_fixed and value != self.__reference_datetime:
-            raise RuntimeError("Cannot change reference datetime after times in seconds has been requested.")
+            raise RuntimeError(
+                "Cannot change reference datetime after times in seconds has been requested."
+            )
         self.__reference_datetime = value
 
     @property
@@ -92,7 +94,7 @@ class DataStore:
 
     @property
     def datetimes(self) -> List[datetime]:
-        """"
+        """ "
         Returns the timeseries times in seconds.
 
         :returns: timeseries datetimes, or None if there has been no call
@@ -102,7 +104,7 @@ class DataStore:
 
     @property
     def times_sec(self) -> np.ndarray:
-        """"
+        """ "
         Returns the timeseries times in seconds.
 
         Note that once this method is called, it is no longer allowed to
@@ -123,18 +125,25 @@ class DataStore:
             # "0.0" as one of our times in seconds. This restriction may be
             # loosened in the future.
             if self.reference_datetime not in self.__timeseries_datetimes:
-                raise Exception("Reference datetime {} should be equal to one of the timeseries datetimes {}".format(
-                    self.reference_datetime, self.__timeseries_datetimes))
-            self.__timeseries_times_sec = self.datetime_to_sec(self.__timeseries_datetimes, self.reference_datetime)
+                raise Exception(
+                    "Reference datetime {} should be equal to one of the timeseries datetimes {}".format(
+                        self.reference_datetime, self.__timeseries_datetimes
+                    )
+                )
+            self.__timeseries_times_sec = self.datetime_to_sec(
+                self.__timeseries_datetimes, self.reference_datetime
+            )
             self.__timeseries_times_sec.flags.writeable = False
             self.__reference_datetime_fixed = True
 
-    def set_timeseries(self,
-                       variable: str,
-                       datetimes: Iterable[datetime],
-                       values: np.ndarray,
-                       ensemble_member: int = 0,
-                       check_duplicates: bool = False) -> None:
+    def set_timeseries(
+        self,
+        variable: str,
+        datetimes: Iterable[datetime],
+        values: np.ndarray,
+        ensemble_member: int = 0,
+        check_duplicates: bool = False,
+    ) -> None:
         """
         Stores input time series values in the internal data store.
 
@@ -151,24 +160,33 @@ class DataStore:
             raise TypeError("DateStore.set_timeseries() only support datetimes")
 
         if self.__timeseries_datetimes is not None and datetimes != self.__timeseries_datetimes:
-            raise RuntimeError("Attempting to overwrite the input time series datetimes with different values. "
-                               "Please ensure all input time series have the same datetimes.")
+            raise RuntimeError(
+                "Attempting to overwrite the input time series datetimes with different values. "
+                "Please ensure all input time series have the same datetimes."
+            )
         self.__timeseries_datetimes = datetimes
 
         if len(self.__timeseries_datetimes) != len(values):
-            raise ValueError("Length of values ({}) must be the same as length of datetimes ({})"
-                             .format(len(values), len(self.__timeseries_datetimes)))
+            raise ValueError(
+                "Length of values ({}) must be the same as length of datetimes ({})".format(
+                    len(values), len(self.__timeseries_datetimes)
+                )
+            )
 
         if ensemble_member >= self.__ensemble_size:
             self.__update_ensemble_size(ensemble_member + 1)
 
         if check_duplicates and variable in self.__timeseries_values[ensemble_member].keys():
-            logger.warning("Time series values for ensemble member {} and variable {} set twice. "
-                           "Overwriting old values.".format(ensemble_member, variable))
+            logger.warning(
+                "Time series values for ensemble member {} and variable {} set twice. "
+                "Overwriting old values.".format(ensemble_member, variable)
+            )
 
         self.__timeseries_values[ensemble_member][variable] = values
 
-    def get_timeseries(self, variable: str, ensemble_member: int = 0) -> Tuple[List[datetime], np.ndarray]:
+    def get_timeseries(
+        self, variable: str, ensemble_member: int = 0
+    ) -> Tuple[List[datetime], np.ndarray]:
         """
         Looks up the time series in the internal data store.
 
@@ -181,12 +199,14 @@ class DataStore:
     def get_timeseries_names(self, ensemble_member: int = 0) -> Iterable[str]:
         return self.__timeseries_values[ensemble_member].keys()
 
-    def set_timeseries_sec(self,
-                           variable: str,
-                           times_in_sec: np.ndarray,
-                           values: np.ndarray,
-                           ensemble_member: int = 0,
-                           check_duplicates: bool = False) -> None:
+    def set_timeseries_sec(
+        self,
+        variable: str,
+        times_in_sec: np.ndarray,
+        values: np.ndarray,
+        ensemble_member: int = 0,
+        check_duplicates: bool = False,
+    ) -> None:
         """
         Stores input time series values in the internal data store.
 
@@ -205,24 +225,35 @@ class DataStore:
         if self.reference_datetime is None:
             raise RuntimeError("Cannot use times in seconds before reference datetime is set.")
 
-        if self.__timeseries_times_sec is not None and not np.array_equal(times_in_sec, self.__timeseries_times_sec):
-            raise RuntimeError("Attempting to overwrite the input time series times with different values. "
-                               "Please ensure all input time series have the same times.")
+        if self.__timeseries_times_sec is not None and not np.array_equal(
+            times_in_sec, self.__timeseries_times_sec
+        ):
+            raise RuntimeError(
+                "Attempting to overwrite the input time series times with different values. "
+                "Please ensure all input time series have the same times."
+            )
 
         if len(self.__timeseries_datetimes) != len(values):
-            raise ValueError("Length of values ({}) must be the same as length of times ({})"
-                             .format(len(values), len(self.__timeseries_datetimes)))
+            raise ValueError(
+                "Length of values ({}) must be the same as length of times ({})".format(
+                    len(values), len(self.__timeseries_datetimes)
+                )
+            )
 
         if ensemble_member >= self.__ensemble_size:
             self.__update_ensemble_size(ensemble_member + 1)
 
         if check_duplicates and variable in self.__timeseries_values[ensemble_member].keys():
-            logger.warning("Time series values for ensemble member {} and variable {} set twice. "
-                           "Overwriting old values.".format(ensemble_member, variable))
+            logger.warning(
+                "Time series values for ensemble member {} and variable {} set twice. "
+                "Overwriting old values.".format(ensemble_member, variable)
+            )
 
         self.__timeseries_values[ensemble_member][variable] = values
 
-    def get_timeseries_sec(self, variable: str, ensemble_member: int = 0) -> Tuple[np.ndarray, np.ndarray]:
+    def get_timeseries_sec(
+        self, variable: str, ensemble_member: int = 0
+    ) -> Tuple[np.ndarray, np.ndarray]:
         """
         Looks up the time series in the internal data store.
 
@@ -237,11 +268,13 @@ class DataStore:
             raise KeyError("ensemble_member {} does not exist".format(ensemble_member))
         return self.__timeseries_times_sec, self.__timeseries_values[ensemble_member][variable]
 
-    def set_parameter(self,
-                      parameter_name: str,
-                      value: float,
-                      ensemble_member: int = 0,
-                      check_duplicates: bool = False) -> None:
+    def set_parameter(
+        self,
+        parameter_name: str,
+        value: float,
+        ensemble_member: int = 0,
+        check_duplicates: bool = False,
+    ) -> None:
         """
         Stores the parameter value in the internal data store.
 
@@ -255,8 +288,10 @@ class DataStore:
             self.__update_ensemble_size(ensemble_member + 1)
 
         if check_duplicates and parameter_name in self.__parameters[ensemble_member].keys():
-            logger.warning("Attempting to set parameter value for ensemble member {} and name {} twice. "
-                           "Using new value of {}.".format(ensemble_member, parameter_name, value))
+            logger.warning(
+                "Attempting to set parameter value for ensemble member {} and name {} twice. "
+                "Using new value of {}.".format(ensemble_member, parameter_name, value)
+            )
 
         self.__parameters[ensemble_member][parameter_name] = value
 
@@ -277,7 +312,9 @@ class DataStore:
         return self.__parameters[ensemble_member]
 
     @staticmethod
-    def datetime_to_sec(d: Union[Iterable[datetime], datetime], t0: datetime) -> Union[np.ndarray, float]:
+    def datetime_to_sec(
+        d: Union[Iterable[datetime], datetime], t0: datetime
+    ) -> Union[np.ndarray, float]:
         """
         Returns the date/timestamps in seconds since t0.
 
@@ -290,7 +327,9 @@ class DataStore:
             return (d - t0).total_seconds()
 
     @staticmethod
-    def sec_to_datetime(s: Union[Iterable[float], float], t0: datetime) -> Union[List[datetime], datetime]:
+    def sec_to_datetime(
+        s: Union[Iterable[float], float], t0: datetime
+    ) -> Union[List[datetime], datetime]:
         """
         Return the date/timestamps in seconds since t0 as datetime objects.
 

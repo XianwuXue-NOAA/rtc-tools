@@ -13,8 +13,8 @@ class OrderedSet(MutableSet):
 
     def __init__(self, iterable=None):
         self.end = end = []
-        end += [None, end, end]         # sentinel node for doubly linked list
-        self.map = {}                   # key --> [key, prev, next]
+        end += [None, end, end]  # sentinel node for doubly linked list
+        self.map = {}  # key --> [key, prev, next]
         if iterable is not None:
             self |= iterable
 
@@ -25,11 +25,11 @@ class OrderedSet(MutableSet):
         return key in self.map
 
     def __getstate__(self):
-        """ Avoids max depth RecursionError when using pickle """
+        """Avoids max depth RecursionError when using pickle"""
         return list(self)
 
     def __setstate__(self, state):
-        """ Tells pickle how to restore instance """
+        """Tells pickle how to restore instance"""
         self.__init__(state)
 
     def __getitem__(self, index):
@@ -89,6 +89,8 @@ class OrderedSet(MutableSet):
         if isinstance(other, OrderedSet):
             return len(self) == len(other) and list(self) == list(other)
         return set(self) == set(other)
+
+
 # End snippet
 
 

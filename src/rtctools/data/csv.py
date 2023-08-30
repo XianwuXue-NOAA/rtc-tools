@@ -29,8 +29,11 @@ def _boolean_to_nan(data, fname):
             dtypes_out.append(dtypes_in[i])
 
     if convert_to_nan:
-        logger.warning("Column(s) {} were detected as boolean in '{}'; converting to NaN".format(
-            ", ".join(["'{}'".format(name) for name in convert_to_nan]), fname))
+        logger.warning(
+            "Column(s) {} were detected as boolean in '{}'; converting to NaN".format(
+                ", ".join(["'{}'".format(name) for name in convert_to_nan]), fname
+            )
+        )
         data = data.astype(dtypes_out)
         for name in convert_to_nan:
             data[name] = np.nan
@@ -50,8 +53,7 @@ def load(fname, delimiter=',', with_time=False):
     """
     c = {}
     if with_time:
-        c.update({0: lambda str: datetime.strptime(
-            str.decode("utf-8"), '%Y-%m-%d %H:%M:%S')})
+        c.update({0: lambda str: datetime.strptime(str.decode("utf-8"), '%Y-%m-%d %H:%M:%S')})
 
     # Check delimiter of csv file. If semicolon, check if decimal separator is
     # a comma.
@@ -70,33 +72,45 @@ def load(fname, delimiter=',', with_time=False):
             # If commas are used as decimal separator, we need additional
             # converters.
             if n_comma_decimal:
-                c.update({i + len(c): lambda str: float(str.decode("utf-8").replace(',', '.'))
-                          for i in range(1 + n_semicolon - len(c))})
+                c.update(
+                    {
+                        i + len(c): lambda str: float(str.decode("utf-8").replace(',', '.'))
+                        for i in range(1 + n_semicolon - len(c))
+                    }
+                )
 
     # Read the csv file and convert to array
     try:
         if len(c):  # Converters exist, so use them.
             try:
-                data = np.genfromtxt(fname, delimiter=delimiter, deletechars='', dtype=None, names=True, converters=c)
+                data = np.genfromtxt(
+                    fname, delimiter=delimiter, deletechars='', dtype=None, names=True, converters=c
+                )
                 return _boolean_to_nan(data, fname)
-            except np.lib._iotools.ConverterError:  # value does not conform to expected date-time format
+            except (
+                np.lib._iotools.ConverterError
+            ):  # value does not conform to expected date-time format
                 type, value, traceback = sys.exc_info()
                 logger.error(
-                    'CSVMixin: converter of csv reader failed on {}: {}'.format(fname, value))
+                    'CSVMixin: converter of csv reader failed on {}: {}'.format(fname, value)
+                )
                 raise ValueError(
                     'CSVMixin: wrong date time or value format in {}. '
-                    'Should be %Y-%m-%d %H:%M:%S and numerical values everywhere.'.format(fname))
+                    'Should be %Y-%m-%d %H:%M:%S and numerical values everywhere.'.format(fname)
+                )
         else:
             data = np.genfromtxt(fname, delimiter=delimiter, deletechars='', dtype=None, names=True)
             return _boolean_to_nan(data, fname)
-    except ValueError:  # can occur when delimiter changes after first 1024 bytes of file, or delimiter is not , or ;
+    except (
+        ValueError
+    ):  # can occur when delimiter changes after first 1024 bytes of file, or delimiter is not , or ;
         type, value, traceback = sys.exc_info()
-        logger.error(
-            'CSV: Value reader of csv reader failed on {}: {}'.format(fname, value))
+        logger.error('CSV: Value reader of csv reader failed on {}: {}'.format(fname, value))
         raise ValueError(
             "CSV: could not read all values from {}. Used delimiter '{}'. "
             "Please check delimiter (should be ',' or ';' throughout the file) "
-            "and if all values are numbers.".format(fname, delimiter))
+            "and if all values are numbers.".format(fname, delimiter)
+        )
 
 
 def save(fname, data, delimiter=',', with_time=False):
@@ -114,5 +128,11 @@ def save(fname, data, delimiter=',', with_time=False):
     else:
         fmt = len(data.dtype.names) * ['%f']
 
-    np.savetxt(fname, data, delimiter=delimiter, header=delimiter.join(
-        data.dtype.names), fmt=fmt, comments='')
+    np.savetxt(
+        fname,
+        data,
+        delimiter=delimiter,
+        header=delimiter.join(data.dtype.names),
+        fmt=fmt,
+        comments='',
+    )

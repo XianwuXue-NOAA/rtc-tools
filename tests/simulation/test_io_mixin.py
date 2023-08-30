@@ -20,7 +20,7 @@ class DummyIOMixin(IOMixin):
 
         values = {
             'constant_input': [1.1, 1.4, 0.9, 1.2, 1.5, 1.7],
-            'u': [0.5, 0.2, 0.3, 0.1, 0.4, 0.0]
+            'u': [0.5, 0.2, 0.3, 0.1, 0.4, 0.0],
         }
 
         for key, value in values.items():
@@ -42,7 +42,7 @@ class Model(DummyIOMixin, SimulationProblem):
             input_folder=data_path(),
             output_folder=data_path(),
             model_name="Model",
-            model_folder=data_path()
+            model_folder=data_path(),
         )
 
     def compiler_options(self):
@@ -53,7 +53,6 @@ class Model(DummyIOMixin, SimulationProblem):
 
 
 class TestDummyIOMixin(TestCase):
-
     def setUp(self):
         self.problem = Model()
         self.problem.read()
@@ -78,13 +77,14 @@ class TestDummyIOMixin(TestCase):
         self.assertEqual(self.problem.get_var('z'), 1.0404)  # z = x^2 + sin(time)
         self.assertEqual(self.problem.get_var('u_out'), 1.3)  # u_out = u + 1
         self.assertEqual(self.problem.get_var('switched'), 1.0)  # 1.0 if x > 0.5 else 2.0
-        self.assertEqual(self.problem.get_var('constant_output'), 0.9)  # constant_output = constant_input
+        self.assertEqual(
+            self.problem.get_var('constant_output'), 0.9
+        )  # constant_output = constant_input
         # todo add check for x_delayed once delay is properly implemented
 
         for output_variable in self.problem._io_output_variables:
             self.assertEqual(
-                self.problem._io_output[output_variable][0],
-                self.problem.get_var(output_variable)
+                self.problem._io_output[output_variable][0], self.problem.get_var(output_variable)
             )
 
     def test_update(self):
@@ -98,12 +98,13 @@ class TestDummyIOMixin(TestCase):
 
         self.assertEqual(self.problem.get_var('u_out'), 1.1)  # u_out = u + 1
         self.assertEqual(self.problem.get_var('switched'), 2.0)  # 1.0 if x > 0.5 else 2.0
-        self.assertEqual(self.problem.get_var('constant_output'), 1.2)  # constant_output = constant_input
+        self.assertEqual(
+            self.problem.get_var('constant_output'), 1.2
+        )  # constant_output = constant_input
 
         for output_variable in self.problem._io_output_variables:
             self.assertEqual(
-                self.problem._io_output[output_variable][-1],
-                self.problem.get_var(output_variable)
+                self.problem._io_output[output_variable][-1], self.problem.get_var(output_variable)
             )
 
     def test_times(self):

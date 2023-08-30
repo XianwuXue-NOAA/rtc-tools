@@ -1,7 +1,7 @@
 from rtctools.optimization.goal_programming_mixin import Goal, StateGoal
 from rtctools.optimization.linearized_order_goal_programming_mixin import (
     LinearizedOrderGoal,
-    LinearizedOrderGoalProgrammingMixin
+    LinearizedOrderGoalProgrammingMixin,
 )
 
 from test_case import TestCase
@@ -33,7 +33,6 @@ class RangeGoalUOrder2(RangeGoalUOrder1):
 
 
 class RangeGoalUOrder2PerTimestep(RangeGoalUOrder2):
-
     def __init__(self, optimization_problem, t):
         self._t = t
         super().__init__(optimization_problem)
@@ -51,7 +50,6 @@ class RangeGoalUOrder2NoLinearize(LinearizedOrderGoal, RangeGoalUOrder2):
 
 
 class ModelRangeUOrder1(Model):
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._results = []
@@ -68,13 +66,11 @@ class ModelRangeUOrder1(Model):
 
 
 class ModelRangeUOrder2(ModelRangeUOrder1):
-
     def path_goals(self):
         return [RangeGoalX(), RangeGoalUOrder2(self)]
 
 
 class ModelRangeUOrder2OverruleLinearize(LinearizedOrderGoalProgrammingMixin, ModelRangeUOrder1):
-
     def goal_programming_options(self):
         options = super().goal_programming_options()
         options['linearize_goal_order'] = False
@@ -93,7 +89,6 @@ class ModelLinearGoalOrder2(LinearizedOrderGoalProgrammingMixin, ModelRangeUOrde
 
 
 class ModelLinearGoalOrder2PerTimestep(ModelLinearGoalOrder2):
-
     def goals(self):
         return [RangeGoalUOrder2PerTimestep(self, t) for t in self.times()]
 
@@ -102,13 +97,11 @@ class ModelLinearGoalOrder2PerTimestep(ModelLinearGoalOrder2):
 
 
 class ModelLinearGoalOrder2OverruleNoLinearize(ModelLinearGoalOrder2):
-
     def path_goals(self):
         return [RangeGoalX(), RangeGoalUOrder2NoLinearize(self)]
 
 
 class TestLinearGoalOrder(TestCase):
-
     @classmethod
     def setUpClass(cls):
         cls.problem1 = ModelRangeUOrder1()
@@ -149,10 +142,14 @@ class TestLinearGoalOrder(TestCase):
         self.assertNotEqual(o2, o2_lin)
 
     def test_order_2_nonlinear_overrule_equal(self):
-        self.assertEqual(self.problem2.objective_value, self.problem2_nonlinear_overrule.objective_value)
+        self.assertEqual(
+            self.problem2.objective_value, self.problem2_nonlinear_overrule.objective_value
+        )
 
     def test_order_2_linear_overrule_equal(self):
-        self.assertEqual(self.problem2_linear.objective_value, self.problem2_linear_overrule.objective_value)
+        self.assertEqual(
+            self.problem2_linear.objective_value, self.problem2_linear_overrule.objective_value
+        )
 
     def test_order_2_per_timestep_equal(self):
         # Sometimes an error in the last decimal, probably due to different
@@ -160,4 +157,5 @@ class TestLinearGoalOrder(TestCase):
         self.assertAlmostEqual(
             self.problem2_linear_per_timestep.objective_value,
             self.problem2_linear.objective_value,
-            1e-8)
+            1e-8,
+        )

@@ -7,7 +7,9 @@ logger = logging.getLogger("rtctools")
 try:
     from casadi import interp1d
 except ImportError:
-    logger.warning('interp1d not available in this version of CasADi.  Linear interpolation will not work.')
+    logger.warning(
+        'interp1d not available in this version of CasADi.  Linear interpolation will not work.'
+    )
     interp1d = None
 
 
@@ -19,7 +21,7 @@ def is_affine(e, v):
             Af = ca.Function('f', [v], [ca.jacobian(e, v)])
         else:
             raise
-    return (Af.sparsity_jac(0, 0).nnz() == 0)
+    return Af.sparsity_jac(0, 0).nnz() == 0
 
 
 def nullvertcat(*L):
@@ -69,7 +71,11 @@ def interpolate(ts, xs, t, equidistant, mode=0):
         if t.size1() > 1:
             t_ = ca.MX.sym('t')
             xs_ = ca.MX.sym('xs', xs.size1())
-            f = ca.Function('interpolant', [t_, xs_], [ca.mtimes(ca.transpose((t_ >= ts[:-1]) * (t_ < ts[1:])), xs_)])
+            f = ca.Function(
+                'interpolant',
+                [t_, xs_],
+                [ca.mtimes(ca.transpose((t_ >= ts[:-1]) * (t_ < ts[1:])), xs_)],
+            )
             f = f.map(t.size1(), 'serial')
             return ca.transpose(f(ca.transpose(t), ca.repmat(xs, 1, t.size1())))
         else:

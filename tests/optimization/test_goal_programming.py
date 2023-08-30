@@ -3,7 +3,7 @@ import logging
 import numpy as np
 
 from rtctools.optimization.collocated_integrated_optimization_problem import (
-    CollocatedIntegratedOptimizationProblem
+    CollocatedIntegratedOptimizationProblem,
 )
 from rtctools.optimization.goal_programming_mixin import (
     Goal,
@@ -21,10 +21,7 @@ logger = logging.getLogger("rtctools")
 logger.setLevel(logging.WARNING)
 
 
-class Model(
-    GoalProgrammingMixin, ModelicaMixin, CollocatedIntegratedOptimizationProblem
-):
-
+class Model(GoalProgrammingMixin, ModelicaMixin, CollocatedIntegratedOptimizationProblem):
     def __init__(self):
         super().__init__(
             input_folder=data_path(),
@@ -70,7 +67,6 @@ class Model(
 
 
 class Goal1(Goal):
-
     def function(self, optimization_problem, ensemble_member):
         return optimization_problem.state_at("x", 0.5, ensemble_member=ensemble_member)
 
@@ -82,7 +78,6 @@ class Goal1(Goal):
 
 
 class Goal2(Goal):
-
     def function(self, optimization_problem, ensemble_member):
         return optimization_problem.state_at("x", 0.7, ensemble_member=ensemble_member)
 
@@ -92,11 +87,8 @@ class Goal2(Goal):
 
 
 class Goal3(Goal):
-
     def function(self, optimization_problem, ensemble_member):
-        return optimization_problem.integral(
-            "x", 0.1, 1.0, ensemble_member=ensemble_member
-        )
+        return optimization_problem.integral("x", 0.1, 1.0, ensemble_member=ensemble_member)
 
     function_range = (-1e1, 1e1)
     priority = 1
@@ -104,7 +96,6 @@ class Goal3(Goal):
 
 
 class TestGoalProgramming(TestCase):
-
     def setUp(self):
         self.problem = Model()
         self.problem.optimize()
@@ -122,7 +113,6 @@ class TestGoalProgramming(TestCase):
 
 
 class GoalNoMinMax(Goal):
-
     def function(self, optimization_problem, ensemble_member):
         return optimization_problem.integral("x", ensemble_member=ensemble_member)
 
@@ -132,7 +122,6 @@ class GoalNoMinMax(Goal):
 
 
 class GoalLowMax(Goal):
-
     def function(self, optimization_problem, ensemble_member):
         return optimization_problem.integral("x", ensemble_member=ensemble_member)
 
@@ -146,19 +135,16 @@ class GoalLowMax(Goal):
 # Inherit from existing Model, as all properties are equal except the
 # goals.
 class ModelNoMinMax(Model):
-
     def goals(self):
         return [GoalNoMinMax()]
 
 
 class ModelLowMax(Model):
-
     def goals(self):
         return [GoalLowMax()]
 
 
 class TestGoalProgrammingNoMinMax(TestCase):
-
     def setUp(self):
         self.problem1 = ModelNoMinMax()
         self.problem2 = ModelLowMax()
@@ -175,7 +161,6 @@ class TestGoalProgrammingNoMinMax(TestCase):
 
 
 class GoalMinimizeU(Goal):
-
     def function(self, optimization_problem, ensemble_member):
         return optimization_problem.state_at("u", 0.5, ensemble_member=ensemble_member)
 
@@ -184,7 +169,6 @@ class GoalMinimizeU(Goal):
 
 
 class GoalMinimizeX(Goal):
-
     def function(self, optimization_problem, ensemble_member):
         return optimization_problem.state_at("x", 0.5, ensemble_member=ensemble_member)
 
@@ -195,19 +179,16 @@ class GoalMinimizeX(Goal):
 
 
 class ModelMinimizeU(Model):
-
     def goals(self):
         return [GoalMinimizeU()]
 
 
 class ModelMinimizeUandX(Model):
-
     def goals(self):
         return [GoalMinimizeU(), GoalMinimizeX()]
 
 
 class TestGoalProgrammingHoldMinimization(TestCase):
-
     def setUp(self):
         self.problem1 = ModelMinimizeU()
         self.problem2 = ModelMinimizeUandX()
@@ -225,7 +206,6 @@ class TestGoalProgrammingHoldMinimization(TestCase):
 
 
 class PathGoal1(Goal):
-
     def function(self, optimization_problem, ensemble_member):
         return optimization_problem.state("x")
 
@@ -235,7 +215,6 @@ class PathGoal1(Goal):
 
 
 class PathGoal2(Goal):
-
     def function(self, optimization_problem, ensemble_member):
         return optimization_problem.state("x")
 
@@ -245,7 +224,6 @@ class PathGoal2(Goal):
 
 
 class PathGoal3(Goal):
-
     def function(self, optimization_problem, ensemble_member):
         return optimization_problem.state("u")
 
@@ -253,7 +231,6 @@ class PathGoal3(Goal):
 
 
 class PathGoal4(Goal):
-
     def function(self, optimization_problem, ensemble_member):
         return optimization_problem.state("constant_input")
 
@@ -261,17 +238,13 @@ class PathGoal4(Goal):
 
 
 class PathGoal5(Goal):
-
     def function(self, optimization_problem, ensemble_member):
         return optimization_problem.state("k")
 
     priority = 5
 
 
-class ModelPathGoals(
-    GoalProgrammingMixin, ModelicaMixin, CollocatedIntegratedOptimizationProblem
-):
-
+class ModelPathGoals(GoalProgrammingMixin, ModelicaMixin, CollocatedIntegratedOptimizationProblem):
     def __init__(self):
         super().__init__(
             input_folder=data_path(),
@@ -313,7 +286,6 @@ class ModelPathGoals(
 
 
 class TestGoalProgrammingPathGoals(TestCase):
-
     def setUp(self):
         self.problem = ModelPathGoals()
         self.problem.optimize()
@@ -327,7 +299,6 @@ class TestGoalProgrammingPathGoals(TestCase):
 
 
 class PathGoal1Reversed(Goal):
-
     def function(self, optimization_problem, ensemble_member):
         return optimization_problem.state("x")
 
@@ -337,7 +308,6 @@ class PathGoal1Reversed(Goal):
 
 
 class PathGoal2Reversed(Goal):
-
     def function(self, optimization_problem, ensemble_member):
         return optimization_problem.state("x")
 
@@ -347,13 +317,11 @@ class PathGoal2Reversed(Goal):
 
 
 class ModelPathGoalsReversed(ModelPathGoals):
-
     def path_goals(self):
         return [PathGoal1Reversed(), PathGoal2Reversed()]
 
 
 class TestGoalProgrammingPathGoalsReversed(TestGoalProgrammingPathGoals):
-
     def setUp(self):
         self.problem = ModelPathGoalsReversed()
         self.problem.optimize()
@@ -368,19 +336,16 @@ class PathGoal1MaxEmpty(PathGoal1):
 
 
 class ModelPathGoalsOnePriority(ModelPathGoals):
-
     def path_goals(self):
         return [PathGoal1()]
 
 
 class ModelPathGoalsOnePriorityMaxEmpty(ModelPathGoalsOnePriority):
-
     def path_goals(self):
         return [PathGoal1MaxEmpty(self)]
 
 
 class TestGoalProgrammingPathGoalsMaxEmpty(TestCase):
-
     def setUp(self):
         self.problem = ModelPathGoalsOnePriority()
         self.problem_max_empty = ModelPathGoalsOnePriorityMaxEmpty()
@@ -392,7 +357,6 @@ class TestGoalProgrammingPathGoalsMaxEmpty(TestCase):
 
 
 class GoalMinU(Goal):
-
     def function(self, optimization_problem, ensemble_member):
         return optimization_problem.integral("u", ensemble_member=ensemble_member)
 
@@ -400,7 +364,6 @@ class GoalMinU(Goal):
 
 
 class ModelPathGoalsMixed(ModelPathGoals):
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._objective_values = []
@@ -439,7 +402,6 @@ class ModelPathGoalsMixed(ModelPathGoals):
 
 
 class PathGoal1Critical(Goal):
-
     def function(self, optimization_problem, ensemble_member):
         return optimization_problem.state("x")
 
@@ -449,7 +411,6 @@ class PathGoal1Critical(Goal):
 
 
 class PathGoal1CriticalTimeseries(Goal):
-
     def __init__(self, optimization_problem):
         super().__init__()
         times = optimization_problem.times()
@@ -463,7 +424,6 @@ class PathGoal1CriticalTimeseries(Goal):
 
 
 class GoalLowerUCritical(Goal):
-
     def function(self, optimization_problem, ensemble_member):
         return optimization_problem.integral("u", ensemble_member=ensemble_member)
 
@@ -473,7 +433,6 @@ class GoalLowerUCritical(Goal):
 
 
 class ModelPathGoalsMixedCritical(ModelPathGoals):
-
     def path_goals(self):
         return [PathGoal1Critical(), PathGoal2()]
 
@@ -482,7 +441,6 @@ class ModelPathGoalsMixedCritical(ModelPathGoals):
 
 
 class ModelPathGoalsMixedCriticalTimeseries(ModelPathGoals):
-
     def path_goals(self):
         return [PathGoal1CriticalTimeseries(self), PathGoal2()]
 
@@ -491,7 +449,6 @@ class ModelPathGoalsMixedCriticalTimeseries(ModelPathGoals):
 
 
 class TestGoalProgrammingPathGoalsMixed(TestGoalProgrammingPathGoals):
-
     def setUp(self):
         self.problem = ModelPathGoalsMixed()
         self.problem.optimize()
@@ -499,7 +456,6 @@ class TestGoalProgrammingPathGoalsMixed(TestGoalProgrammingPathGoals):
 
 
 class TestGoalProgrammingPathGoalsMixedCritical(TestGoalProgrammingPathGoals):
-
     def setUp(self):
         self.problem = ModelPathGoalsMixedCritical()
         self.problem.optimize()
@@ -507,7 +463,6 @@ class TestGoalProgrammingPathGoalsMixedCritical(TestGoalProgrammingPathGoals):
 
 
 class TestGoalProgrammingPathGoalsMixedCriticalTimeseries(TestGoalProgrammingPathGoals):
-
     def setUp(self):
         self.problem = ModelPathGoalsMixedCriticalTimeseries()
         self.problem.optimize()
@@ -515,7 +470,6 @@ class TestGoalProgrammingPathGoalsMixedCriticalTimeseries(TestGoalProgrammingPat
 
 
 class ModelPathGoalsMixedKeepSoft(ModelPathGoalsMixed):
-
     def goal_programming_options(self):
         options = super().goal_programming_options()
         options['keep_soft_constraints'] = True
@@ -523,7 +477,6 @@ class ModelPathGoalsMixedKeepSoft(ModelPathGoalsMixed):
 
 
 class TestGoalProgrammingKeepSoftVariable(TestCase):
-
     def setUp(self):
         self.problem1 = ModelPathGoalsMixed()
         self.problem2 = ModelPathGoalsMixedKeepSoft()
@@ -532,13 +485,16 @@ class TestGoalProgrammingKeepSoftVariable(TestCase):
 
     def test_keep_soft_constraints_objective(self):
         self.assertEqual(self.problem1._objective_values[0], self.problem2._objective_values[0])
-        self.assertAlmostEqual(self.problem1._objective_values[1], self.problem2._objective_values[1], 1e-6)
-        self.assertAlmostEqual(self.problem1._objective_values[2], self.problem2._objective_values[2], 1e-3)
+        self.assertAlmostEqual(
+            self.problem1._objective_values[1], self.problem2._objective_values[1], 1e-6
+        )
+        self.assertAlmostEqual(
+            self.problem1._objective_values[2], self.problem2._objective_values[2], 1e-3
+        )
         self.assertLess(self.problem2._objective_values[2], self.problem1._objective_values[2])
 
 
 class ModelEnsemble(Model):
-
     @property
     def ensemble_size(self):
         return 2
@@ -550,18 +506,13 @@ class ModelEnsemble(Model):
             np.hstack(([1.0], np.linspace(1.0, 0.0, 21))),
         )
         if ensemble_member == 0:
-            constant_inputs["constant_input"] = Timeseries(
-                self.times(), np.linspace(1.0, 0.0, 21)
-            )
+            constant_inputs["constant_input"] = Timeseries(self.times(), np.linspace(1.0, 0.0, 21))
         else:
-            constant_inputs["constant_input"] = Timeseries(
-                self.times(), np.linspace(1.0, 0.5, 21)
-            )
+            constant_inputs["constant_input"] = Timeseries(self.times(), np.linspace(1.0, 0.5, 21))
         return constant_inputs
 
 
 class TestGoalProgrammingEnsemble(TestGoalProgramming):
-
     def setUp(self):
         self.problem = ModelEnsemble()
         self.problem.optimize()
@@ -586,7 +537,6 @@ class TestGoalProgrammingEnsemble(TestGoalProgramming):
 
 
 class PathGoalSmoothing(Goal):
-
     def function(self, optimization_problem, ensemble_member):
         return optimization_problem.der("u")
 
@@ -596,7 +546,6 @@ class PathGoalSmoothing(Goal):
 class ModelPathGoalsSmoothing(
     GoalProgrammingMixin, ModelicaMixin, CollocatedIntegratedOptimizationProblem
 ):
-
     def __init__(self):
         super().__init__(
             input_folder=data_path(),
@@ -638,7 +587,6 @@ class ModelPathGoalsSmoothing(
 
 
 class TestGoalProgrammingSmoothing(TestCase):
-
     def setUp(self):
         self.problem = ModelPathGoalsSmoothing()
         self.problem.optimize()
@@ -652,7 +600,6 @@ class TestGoalProgrammingSmoothing(TestCase):
 
 
 class StateGoal1(StateGoal):
-
     state = "x"
     priority = 1
     target_min = 0.0
@@ -661,22 +608,17 @@ class StateGoal1(StateGoal):
 
 
 class StateGoal2(StateGoal):
-
     state = "x"
     priority = 2
     target_max = Timeseries(np.linspace(0.0, 1.0, 21), 21 * [1.0])
 
 
 class StateGoal3(StateGoal):
-
     state = "u"
     priority = 3
 
 
-class ModelStateGoals(
-    GoalProgrammingMixin, ModelicaMixin, CollocatedIntegratedOptimizationProblem
-):
-
+class ModelStateGoals(GoalProgrammingMixin, ModelicaMixin, CollocatedIntegratedOptimizationProblem):
     def __init__(self):
         super().__init__(
             input_folder=data_path(),
@@ -723,7 +665,6 @@ class ModelStateGoals(
 
 
 class TestGoalProgrammingStateGoals(TestCase):
-
     def setUp(self):
         self.problem = ModelStateGoals()
         self.problem.optimize()
@@ -831,7 +772,9 @@ class TestScaleByProblemSize(TestCase):
         obj_value_no_scale = self.problem1.objective_value
         obj_value_scale = self.problem2.objective_value
 
-        self.assertAlmostEqual(1.0, 2 * n_times * obj_value_scale / obj_value_no_scale, self.tolerance)
+        self.assertAlmostEqual(
+            1.0, 2 * n_times * obj_value_scale / obj_value_no_scale, self.tolerance
+        )
 
     def test_path_target_goals_scale_by_problem_size(self):
         self.problem1 = ModelMinimizeTwoTargetPathGoals()
@@ -844,44 +787,37 @@ class TestScaleByProblemSize(TestCase):
         obj_value_no_scale = self.problem1.objective_value
         obj_value_scale = self.problem2.objective_value
 
-        self.assertAlmostEqual(1.0, 2 * n_times * obj_value_scale / obj_value_no_scale, self.tolerance)
+        self.assertAlmostEqual(
+            1.0, 2 * n_times * obj_value_scale / obj_value_no_scale, self.tolerance
+        )
 
 
 class EmptyGoalOneTimeseries(Goal):
-
     target_min = np.nan
-    target_max = Timeseries(np.array([0.0, 1.0]),
-                            np.array([np.nan, np.nan]))
+    target_max = Timeseries(np.array([0.0, 1.0]), np.array([np.nan, np.nan]))
 
     def function(self, optimization_problem, ensemble_member):
         return optimization_problem.state('x')
 
 
 class EmptyGoalTwoTimeseries(Goal):
-
-    target_min = Timeseries(np.array([0.0, 1.0]),
-                            np.array([np.nan, np.nan]))
-    target_max = Timeseries(np.array([0.0, 1.0]),
-                            np.array([np.nan, np.nan]))
+    target_min = Timeseries(np.array([0.0, 1.0]), np.array([np.nan, np.nan]))
+    target_max = Timeseries(np.array([0.0, 1.0]), np.array([np.nan, np.nan]))
 
     def function(self, optimization_problem, ensemble_member):
         return optimization_problem.state('x')
 
 
 class NonEmptyGoalTimeseries(Goal):
-
-    target_min = Timeseries(np.array([0.0, 1.0]),
-                            np.array([1.0, 2.0]))
-    target_max = Timeseries(np.array([0.0, 1.0]),
-                            np.array([np.nan, np.nan]))
+    target_min = Timeseries(np.array([0.0, 1.0]), np.array([1.0, 2.0]))
+    target_max = Timeseries(np.array([0.0, 1.0]), np.array([np.nan, np.nan]))
 
     def function(self, optimization_problem, ensemble_member):
         return optimization_problem.state('x')
 
 
 class NonEmptyGoalMinimization(Goal):
-
-    target_min = np.nan,
+    target_min = (np.nan,)
     target_max = np.nan
 
     def function(self, optimization_problem, ensemble_member):
@@ -889,7 +825,6 @@ class NonEmptyGoalMinimization(Goal):
 
 
 class TestEmptyGoals(TestCase):
-
     def test_goal_empty(self):
         g = EmptyGoalOneTimeseries()
         self.assertTrue(g.is_empty)
@@ -913,7 +848,6 @@ class ModelInvalidGoals(Model):
 
 
 class InvalidGoal(Goal):
-
     def __init__(self, **kwargs):
         self.__dict__.update(kwargs)
 
@@ -922,7 +856,6 @@ class InvalidGoal(Goal):
 
 
 class TestGoalProgrammingInvalidGoals(TestCase):
-
     def setUp(self):
         self.problem = ModelInvalidGoals()
 
@@ -982,15 +915,21 @@ class TestGoalProgrammingInvalidGoals(TestCase):
 
     def test_target_min_timeseries(self):
         # Only path goals can have Timeseries as target min/max
-        self.problem._goals = [InvalidGoal(function_range=(-2.0, 2.0),
-                                           target_min=Timeseries(self.problem.times(), [1.0]))]
+        self.problem._goals = [
+            InvalidGoal(
+                function_range=(-2.0, 2.0), target_min=Timeseries(self.problem.times(), [1.0])
+            )
+        ]
         with self.assertRaisesRegex(Exception, "Target min cannot be a Timeseries"):
             self.problem.optimize()
 
     def test_target_max_timeseries(self):
         # Only path goals can have Timeseries as target min/max
-        self.problem._goals = [InvalidGoal(function_range=(-2.0, 2.0),
-                                           target_max=Timeseries(self.problem.times(), [1.0]))]
+        self.problem._goals = [
+            InvalidGoal(
+                function_range=(-2.0, 2.0), target_max=Timeseries(self.problem.times(), [1.0])
+            )
+        ]
         with self.assertRaisesRegex(Exception, "Target max cannot be a Timeseries"):
             self.problem.optimize()
 
@@ -1011,7 +950,6 @@ class TestGoalProgrammingInvalidGoals(TestCase):
 
 
 class ModelPathGoalsSeed(ModelPathGoals):
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._results = []
@@ -1032,7 +970,6 @@ class ModelPathGoalsSeed(ModelPathGoals):
 
 
 class TestGoalProgrammingSeed(TestCase):
-
     def setUp(self):
         self.problem = ModelPathGoalsSeed()
         self.problem.optimize()

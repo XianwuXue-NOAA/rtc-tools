@@ -4,8 +4,9 @@ import casadi as ca
 
 import numpy as np
 
-from rtctools.optimization.collocated_integrated_optimization_problem import \
-    CollocatedIntegratedOptimizationProblem
+from rtctools.optimization.collocated_integrated_optimization_problem import (
+    CollocatedIntegratedOptimizationProblem,
+)
 from rtctools.optimization.modelica_mixin import ModelicaMixin
 from rtctools.optimization.timeseries import Timeseries
 
@@ -18,7 +19,6 @@ logger.setLevel(logging.WARNING)
 
 
 class Model(ModelicaMixin, CollocatedIntegratedOptimizationProblem):
-
     def __init__(self):
         super().__init__(
             input_folder=data_path(),
@@ -60,16 +60,17 @@ class Model(ModelicaMixin, CollocatedIntegratedOptimizationProblem):
         return compiler_options
 
     def constraints(self, ensemble_member):
-        return [(self.state_at("x", 0.5, ensemble_member=ensemble_member), 1.0, np.inf),
-                (self.state_at("x", 0.7, ensemble_member=ensemble_member), -np.inf, 0.8),
-                (self.integral("x", 0.1, 1.0, ensemble_member=ensemble_member), -np.inf, 1.0)]
+        return [
+            (self.state_at("x", 0.5, ensemble_member=ensemble_member), 1.0, np.inf),
+            (self.state_at("x", 0.7, ensemble_member=ensemble_member), -np.inf, 0.8),
+            (self.integral("x", 0.1, 1.0, ensemble_member=ensemble_member), -np.inf, 1.0),
+        ]
 
     def path_objective(self, ensemble_member):
-        return self.state('u')**2
+        return self.state('u') ** 2
 
 
 class ModelExtraVars(Model):
-
     def pre(self):
         super().pre()
 
@@ -84,7 +85,7 @@ class ModelExtraVars(Model):
 
         for sym, t in zip(self._additional_vars, self.times()):
             x_sym = self.extra_variable(sym.name(), ensemble_member)
-            constraints.append((x_sym - self.state_at('u', t)**2, 0, np.inf))
+            constraints.append((x_sym - self.state_at('u', t) ** 2, 0, np.inf))
 
         return constraints
 
@@ -92,7 +93,11 @@ class ModelExtraVars(Model):
         return ca.MX(0)
 
     def objective(self, ensemble_member):
-        return ca.sum1(ca.vertcat(*[self.extra_variable(x.name(), ensemble_member) for x in self._additional_vars]))
+        return ca.sum1(
+            ca.vertcat(
+                *[self.extra_variable(x.name(), ensemble_member) for x in self._additional_vars]
+            )
+        )
 
     @property
     def extra_variables(self):
@@ -116,7 +121,6 @@ class ModelExtraVars(Model):
 
 
 class ModelPathVars(Model):
-
     def pre(self):
         super().pre()
 
@@ -135,13 +139,12 @@ class ModelPathVars(Model):
 
         for x in self._additional_path_vars:
             p = int(x.name()[-1])
-            constraints.append((self.state(x.name()) - self.state('u')**p, 0.0, 0.0))
+            constraints.append((self.state(x.name()) - self.state('u') ** p, 0.0, 0.0))
 
         return constraints
 
 
 class ModelExtraVarsNominalUnity(ModelExtraVars):
-
     def pre(self):
         super().pre()
         self._additional_var_names = [v.name() for v in self._additional_vars]
@@ -161,7 +164,6 @@ class ModelExtraVarsNominalUnity(ModelExtraVars):
 
 
 class ModelPathVarsNominalUnity(ModelPathVars):
-
     def pre(self):
         super().pre()
         self._additional_var_names = [v.name() for v in self._additional_path_vars]
@@ -181,7 +183,6 @@ class ModelPathVarsNominalUnity(ModelPathVars):
 
 
 class ModelExtraVarsNominalTwo(ModelExtraVarsNominalUnity):
-
     def variable_nominal(self, variable):
         if variable in self._additional_var_names:
             return 2.0
@@ -190,7 +191,6 @@ class ModelExtraVarsNominalTwo(ModelExtraVarsNominalUnity):
 
 
 class ModelPathVarsNominalTwo(ModelPathVarsNominalUnity):
-
     def variable_nominal(self, variable):
         if variable in self._additional_var_names:
             return 2.0
@@ -199,7 +199,6 @@ class ModelPathVarsNominalTwo(ModelPathVarsNominalUnity):
 
 
 class TestNominalsPathExtraVariables(TestCase):
-
     def setUp(self):
         self.tolerance = 1e-6
 
@@ -230,25 +229,34 @@ class TestNominalsPathExtraVariables(TestCase):
 
         for p in [self.problem1, self.problem2]:
             inds = list(range(p.solver_input.size1()))
-            f = ca.Function('tmp', [p.solver_input], [ca.vertcat(*[
-                p.state_vector(v) for v in p._additional_var_names]
-            )])
+            f = ca.Function(
+                'tmp',
+                [p.solver_input],
+                [ca.vertcat(*[p.state_vector(v) for v in p._additional_var_names])],
+            )
 
             state_vector_indices.append(np.array(f(inds), dtype=int).ravel().tolist())
 
         inds_p1, inds_p2 = state_vector_indices
 
         self.assertEqual(inds_p1, inds_p2)
-        self.assertTrue(np.array_equal(self.problem1._lbx[inds_p1],
-                                       2.0 * self.problem2._lbx[inds_p2]))
-        self.assertTrue(np.array_equal(self.problem1._ubx[inds_p1],
-                                       2.0 * self.problem2._ubx[inds_p2]))
-        self.assertTrue(np.array_equal(self.problem1._x0[inds_p1],
-                                       2.0 * self.problem2._x0[inds_p2]))
-        self.assertAlmostEqual(self.problem1.solver_output[inds_p1],
-                               2.0 * self.problem2.solver_output[inds_p2],
-                               self.tolerance)
-        self.assertAlmostEqual(self.problem1.objective_value, self.problem2.objective_value, self.tolerance)
+        self.assertTrue(
+            np.array_equal(self.problem1._lbx[inds_p1], 2.0 * self.problem2._lbx[inds_p2])
+        )
+        self.assertTrue(
+            np.array_equal(self.problem1._ubx[inds_p1], 2.0 * self.problem2._ubx[inds_p2])
+        )
+        self.assertTrue(
+            np.array_equal(self.problem1._x0[inds_p1], 2.0 * self.problem2._x0[inds_p2])
+        )
+        self.assertAlmostEqual(
+            self.problem1.solver_output[inds_p1],
+            2.0 * self.problem2.solver_output[inds_p2],
+            self.tolerance,
+        )
+        self.assertAlmostEqual(
+            self.problem1.objective_value, self.problem2.objective_value, self.tolerance
+        )
 
         results_1 = self.problem1.extract_results()
         results_2 = self.problem2.extract_results()
@@ -267,25 +275,34 @@ class TestNominalsPathExtraVariables(TestCase):
 
         for p in [self.problem1, self.problem2]:
             inds = list(range(p.solver_input.size1()))
-            f = ca.Function('tmp', [p.solver_input], [ca.vertcat(*[
-                p.state_vector(v) for v in p._additional_var_names]
-            )])
+            f = ca.Function(
+                'tmp',
+                [p.solver_input],
+                [ca.vertcat(*[p.state_vector(v) for v in p._additional_var_names])],
+            )
 
             state_vector_indices.append(np.array(f(inds), dtype=int).ravel().tolist())
 
         inds_p1, inds_p2 = state_vector_indices
 
         self.assertEqual(inds_p1, inds_p2)
-        self.assertTrue(np.array_equal(self.problem1._lbx[inds_p1],
-                                       2.0 * self.problem2._lbx[inds_p2]))
-        self.assertTrue(np.array_equal(self.problem1._ubx[inds_p1],
-                                       2.0 * self.problem2._ubx[inds_p2]))
-        self.assertTrue(np.array_equal(self.problem1._x0[inds_p1],
-                                       2.0 * self.problem2._x0[inds_p2]))
-        self.assertAlmostEqual(self.problem1.solver_output[inds_p1],
-                               2.0 * self.problem2.solver_output[inds_p2],
-                               self.tolerance)
-        self.assertAlmostEqual(self.problem1.objective_value, self.problem2.objective_value, self.tolerance)
+        self.assertTrue(
+            np.array_equal(self.problem1._lbx[inds_p1], 2.0 * self.problem2._lbx[inds_p2])
+        )
+        self.assertTrue(
+            np.array_equal(self.problem1._ubx[inds_p1], 2.0 * self.problem2._ubx[inds_p2])
+        )
+        self.assertTrue(
+            np.array_equal(self.problem1._x0[inds_p1], 2.0 * self.problem2._x0[inds_p2])
+        )
+        self.assertAlmostEqual(
+            self.problem1.solver_output[inds_p1],
+            2.0 * self.problem2.solver_output[inds_p2],
+            self.tolerance,
+        )
+        self.assertAlmostEqual(
+            self.problem1.objective_value, self.problem2.objective_value, self.tolerance
+        )
 
         results_1 = self.problem1.extract_results()
         results_2 = self.problem2.extract_results()

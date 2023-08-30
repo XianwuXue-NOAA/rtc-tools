@@ -34,7 +34,6 @@ class SimulationModel(SimulationProblem):
 
 
 class TestSimulation(TestCase):
-
     def setUp(self):
         self.problem = SimulationModel()
 
@@ -62,13 +61,11 @@ class TestSimulation(TestCase):
                 "y",
                 "z",
                 "_pymoca_delay_0[1,1]",
-                "x_delayed"
+                "x_delayed",
             },
         )
         self.assertEqual(set(self.problem.get_parameter_variables()), {"x_start", "k"})
-        self.assertEqual(
-            set(self.problem.get_input_variables()), {"constant_input", "u"}
-        )
+        self.assertEqual(set(self.problem.get_input_variables()), {"constant_input", "u"})
         self.assertEqual(
             set(self.problem.get_output_variables()),
             {"constant_output", "switched", "u_out", "y", "z", "x_delayed"},
@@ -132,7 +129,9 @@ class TestSimulation(TestCase):
             self.assertEqual(val, expected_values[i])
 
             # Test zero-delayed expression
-            self.assertAlmostEqual(self.problem.get_var('x_delayed'), self.problem.get_var('x') * 3 + 1, 1e-6)
+            self.assertAlmostEqual(
+                self.problem.get_var('x_delayed'), self.problem.get_var('x') * 3 + 1, 1e-6
+            )
             i += 1
 
     def test_set_input2(self):
@@ -161,7 +160,6 @@ class TestSimulation(TestCase):
 
 
 class FailingSimulationModel(SimulationProblem):
-
     def __init__(self):
         super().__init__(
             input_folder=data_path(),
@@ -178,7 +176,6 @@ class FailingSimulationModel(SimulationProblem):
 
 
 class TestFailingSimulation(TestCase):
-
     def test_delay_exception(self):
         with self.assertRaisesRegex(NotImplementedError, 'Delayed states are not supported'):
             self.problem = FailingSimulationModel()
@@ -209,13 +206,11 @@ class SimulationModelNominal(SimulationProblem):
 
 
 class TestSimulationNominal(TestCase):
-
     def setUp(self):
         self.problem_base = SimulationModelBase()
         self.problem_nominal = SimulationModelNominal()
 
     def test_model_nominal(self):
-
         z_base = []
         z_nominal = []
 
@@ -227,7 +222,7 @@ class TestSimulationNominal(TestCase):
         self.problem_base.initialize()
         i = 0
         while i < int(stop / dt):
-            self.problem_base.set_var("x", i/100)
+            self.problem_base.set_var("x", i / 100)
             self.problem_base.update(dt)
             z_base.append(self.problem_base.get_var("z"))
             i += 1
@@ -237,7 +232,7 @@ class TestSimulationNominal(TestCase):
         self.problem_nominal.initialize()
         i = 0
         while i < int(stop / dt):
-            self.problem_nominal.set_var("x", i/100)
+            self.problem_nominal.set_var("x", i / 100)
             self.problem_nominal.update(dt)
             z_nominal.append(self.problem_nominal.get_var("z"))
             i += 1

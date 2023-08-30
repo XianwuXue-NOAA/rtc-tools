@@ -8,7 +8,11 @@ import numpy as np
 
 from .goal_programming_mixin import GoalProgrammingMixin
 from .goal_programming_mixin_base import Goal, StateGoal, _GoalProgrammingMixinBase
-from .goal_programming_mixin_base import _EmptyEnsembleList, _EmptyEnsembleOrderedDict, _GoalConstraint
+from .goal_programming_mixin_base import (
+    _EmptyEnsembleList,
+    _EmptyEnsembleOrderedDict,
+    _GoalConstraint,
+)
 from .single_pass_goal_programming_mixin import SinglePassGoalProgrammingMixin
 from .timeseries import Timeseries
 
@@ -20,6 +24,7 @@ class MinAbsGoal(Goal):
     class, the default order is 1 as absolute minimization is typically
     desired for fully linear problems.
     """
+
     order = 1
 
 
@@ -28,7 +33,6 @@ class MinAbsStateGoal(StateGoal, MinAbsGoal):
 
 
 class _ConvertedMinAbsGoal(Goal):
-
     order = 1
 
     def __init__(self, abs_variable, is_path_goal, orig_goal):
@@ -83,7 +87,7 @@ class MinAbsGoalProgrammingMixin(_GoalProgrammingMixinBase):
 
     def bounds(self):
         bounds = super().bounds()
-        for abs_var in (self.__problem_vars + self.__problem_path_vars):
+        for abs_var in self.__problem_vars + self.__problem_path_vars:
             bounds[abs_var.name()] = (0.0, np.inf)
         return bounds
 
@@ -122,20 +126,29 @@ class MinAbsGoalProgrammingMixin(_GoalProgrammingMixinBase):
 
         for goal in goals:
             if not isinstance(goal, MinAbsGoal):
-                raise Exception("Absolute goal not an instance of MinAbsGoal for goal {}".format(goal))
+                raise Exception(
+                    "Absolute goal not an instance of MinAbsGoal for goal {}".format(goal)
+                )
 
             if goal.function_range != (np.nan, np.nan):
-                raise Exception("Absolute goal function is only allowed for minimization for goal {}".format(goal))
+                raise Exception(
+                    "Absolute goal function is only allowed for minimization for goal {}".format(
+                        goal
+                    )
+                )
 
             if goal.order != 1:
-                raise Exception("Absolute goal function is only allowed for order = 1 for goal {}".format(goal))
+                raise Exception(
+                    "Absolute goal function is only allowed for order = 1 for goal {}".format(goal)
+                )
 
             if goal.weight <= 0:
-                raise Exception("Absolute goal function is only allowed for weight > 0 for goal {}".format(goal))
+                raise Exception(
+                    "Absolute goal function is only allowed for weight > 0 for goal {}".format(goal)
+                )
 
     @staticmethod
     def __convert_goals(goals, sym_index, ensemble_size, is_path_goal):
-
         # Replace absolute minimization goals with a new goal, and some
         # additional hard constraints.
         constraints = [[] for ensemble_member in range(ensemble_size)]
@@ -160,15 +173,24 @@ class MinAbsGoalProgrammingMixin(_GoalProgrammingMixinBase):
             # original goal function, such that it corresponds to its absolute
             # value when minimizing.
             for ensemble_member in range(ensemble_size):
-                def _constraint_func(problem, sign, abs_variable=abs_variable,
-                                     ensemble_member=ensemble_member, goal=goal,
-                                     is_path_goal=is_path_goal):
+
+                def _constraint_func(
+                    problem,
+                    sign,
+                    abs_variable=abs_variable,
+                    ensemble_member=ensemble_member,
+                    goal=goal,
+                    is_path_goal=is_path_goal,
+                ):
                     if is_path_goal:
                         abs_variable = problem.variable(abs_variable.name())
                     else:
                         abs_variable = problem.extra_variable(abs_variable.name(), ensemble_member)
 
-                    return abs_variable + sign * goal.function(problem, ensemble_member) / goal.function_nominal
+                    return (
+                        abs_variable
+                        + sign * goal.function(problem, ensemble_member) / goal.function_nominal
+                    )
 
                 _pos = functools.partial(_constraint_func, sign=1)
                 _neg = functools.partial(_constraint_func, sign=-1)
@@ -188,12 +210,13 @@ class MinAbsGoalProgrammingMixin(_GoalProgrammingMixinBase):
         seed = [{} for ensemble_member in range(self.ensemble_size)]
 
         for goal in goals:
-
             assert isinstance(goal, _ConvertedMinAbsGoal)
 
             for ensemble_member in range(self.ensemble_size):
                 if is_path_goal:
-                    expr = self.map_path_expression(goal.orig_goal.function(self, ensemble_member), ensemble_member)
+                    expr = self.map_path_expression(
+                        goal.orig_goal.function(self, ensemble_member), ensemble_member
+                    )
                 else:
                     expr = goal.orig_goal.function(self, ensemble_member)
 
@@ -244,32 +267,49 @@ class MinAbsGoalProgrammingMixin(_GoalProgrammingMixinBase):
         # We want to have consistent naming with GPMixin for our auxiliary
         # variables. We therefore need to loop over all priorities, regardless
         # of whether there are any MinAbsGoals in it or not.
-        priorities = {int(goal.priority) for goal in itertools.chain(
-            goals, path_goals, self.goals(), self.path_goals()) if not goal.is_empty}
+        priorities = {
+            int(goal.priority)
+            for goal in itertools.chain(goals, path_goals, self.goals(), self.path_goals())
+            if not goal.is_empty
+        }
 
         subproblems = []
         for priority in sorted(priorities):
-            subproblems.append((
-                priority,
-                [goal for goal in goals if int(goal.priority) == priority and not goal.is_empty],
-                [goal for goal in path_goals if int(goal.priority) == priority and not goal.is_empty]))
+            subproblems.append(
+                (
+                    priority,
+                    [
+                        goal
+                        for goal in goals
+                        if int(goal.priority) == priority and not goal.is_empty
+                    ],
+                    [
+                        goal
+                        for goal in path_goals
+                        if int(goal.priority) == priority and not goal.is_empty
+                    ],
+                )
+            )
 
         # Rewrite absolute minimization goals.
         self.__converted_goals = []
         self.__converted_path_goals = []
 
         for i, (priority, goals, path_goals) in enumerate(subproblems):
-
-            (goals,
+            (
+                goals,
                 self.__subproblem_constraints[priority],
-                self.__subproblem_vars[priority]) = self.__convert_goals(goals, i, self.ensemble_size, False)
+                self.__subproblem_vars[priority],
+            ) = self.__convert_goals(goals, i, self.ensemble_size, False)
 
             self.__converted_goals.extend(goals)
             self.__subproblem_abs_goals[priority] = goals
 
-            (path_goals,
+            (
+                path_goals,
                 self.__subproblem_path_constraints[priority],
-                self.__subproblem_path_vars[priority]) = self.__convert_goals(path_goals, i, self.ensemble_size, True)
+                self.__subproblem_path_vars[priority],
+            ) = self.__convert_goals(path_goals, i, self.ensemble_size, True)
 
             self.__converted_path_goals.extend(path_goals)
             self.__subproblem_path_abs_goals[priority] = path_goals
@@ -307,7 +347,9 @@ class MinAbsGoalProgrammingMixin(_GoalProgrammingMixinBase):
         # priority.
         if not self.__first_run and isinstance(self, GoalProgrammingMixin):
             self.__seeds = self.__calculate_seed(self.__subproblem_abs_goals[priority], False)
-            self.__path_seeds = self.__calculate_seed(self.__subproblem_path_abs_goals[priority], True)
+            self.__path_seeds = self.__calculate_seed(
+                self.__subproblem_path_abs_goals[priority], True
+            )
 
         self.__first_run = False
 

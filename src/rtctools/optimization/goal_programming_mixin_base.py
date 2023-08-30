@@ -289,12 +289,16 @@ class Goal(metaclass=ABCMeta):
         """
         ``True`` if the user goal has min/max bounds.
         """
-        return (self.has_target_min or self.has_target_max)
+        return self.has_target_min or self.has_target_max
 
     @property
     def is_empty(self) -> bool:
-        target_min_set = isinstance(self.target_min, Timeseries) or np.any(np.isfinite(self.target_min))
-        target_max_set = isinstance(self.target_max, Timeseries) or np.any(np.isfinite(self.target_max))
+        target_min_set = isinstance(self.target_min, Timeseries) or np.any(
+            np.isfinite(self.target_min)
+        )
+        target_max_set = isinstance(self.target_max, Timeseries) or np.any(
+            np.isfinite(self.target_max)
+        )
 
         if not target_min_set and not target_max_set:
             # A minimization goal
@@ -313,7 +317,9 @@ class Goal(metaclass=ABCMeta):
 
         return min_empty and max_empty
 
-    def get_function_key(self, optimization_problem: OptimizationProblem, ensemble_member: int) -> str:
+    def get_function_key(
+        self, optimization_problem: OptimizationProblem, ensemble_member: int
+    ) -> str:
         """
         Returns a key string uniquely identifying the goal function.  This
         is used to eliminate linearly dependent constraints from the optimization problem.
@@ -331,7 +337,8 @@ class Goal(metaclass=ABCMeta):
 
     def __repr__(self) -> str:
         return '{}(priority={}, target_min={}, target_max={}, function_range={})'.format(
-            self.__class__, self.priority, self.target_min, self.target_max, self.function_range)
+            self.__class__, self.priority, self.target_min, self.target_max, self.function_range
+        )
 
 
 class StateGoal(Goal):
@@ -387,7 +394,9 @@ class StateGoal(Goal):
             try:
                 self.function_range = optimization_problem.bounds()[self.state]
             except KeyError:
-                raise Exception('State {} has no bounds or does not exist in the model.'.format(self.state))
+                raise Exception(
+                    'State {} has no bounds or does not exist in the model.'.format(self.state)
+                )
 
             if self.function_range[0] is None:
                 raise Exception('Please provide a lower bound for state {}.'.format(self.state))
@@ -406,19 +415,24 @@ class StateGoal(Goal):
 
     def __repr__(self):
         return '{}(priority={}, state={}, target_min={}, target_max={}, function_range={})'.format(
-            self.__class__, self.priority, self.state, self.target_min, self.target_max, self.function_range)
+            self.__class__,
+            self.priority,
+            self.state,
+            self.target_min,
+            self.target_max,
+            self.function_range,
+        )
 
 
 class _GoalConstraint:
-
     def __init__(
-            self,
-            goal: Goal,
-            function: Callable[[OptimizationProblem], ca.MX],
-            m: Union[float, np.ndarray, Timeseries],
-            M: Union[float, np.ndarray, Timeseries],
-            optimized: bool):
-
+        self,
+        goal: Goal,
+        function: Callable[[OptimizationProblem], ca.MX],
+        m: Union[float, np.ndarray, Timeseries],
+        M: Union[float, np.ndarray, Timeseries],
+        optimized: bool,
+    ):
         assert isinstance(m, (float, np.ndarray, Timeseries))
         assert isinstance(M, (float, np.ndarray, Timeseries))
         assert type(m) == type(M)
@@ -476,14 +490,17 @@ class _GoalConstraint:
 
 
 class _GoalProgrammingMixinBase(OptimizationProblem, metaclass=ABCMeta):
-
     def _gp_n_objectives(self, subproblem_objectives, subproblem_path_objectives, ensemble_member):
-        return ca.vertcat(*[o(self, ensemble_member) for o in subproblem_objectives]).size1() \
+        return (
+            ca.vertcat(*[o(self, ensemble_member) for o in subproblem_objectives]).size1()
             + ca.vertcat(*[o(self, ensemble_member) for o in subproblem_path_objectives]).size1()
+        )
 
     def _gp_objective(self, subproblem_objectives, n_objectives, ensemble_member):
         if len(subproblem_objectives) > 0:
-            acc_objective = ca.sum1(ca.vertcat(*[o(self, ensemble_member) for o in subproblem_objectives]))
+            acc_objective = ca.sum1(
+                ca.vertcat(*[o(self, ensemble_member) for o in subproblem_objectives])
+            )
 
             if self.goal_programming_options()['scale_by_problem_size']:
                 acc_objective = acc_objective / n_objectives
@@ -494,7 +511,9 @@ class _GoalProgrammingMixinBase(OptimizationProblem, metaclass=ABCMeta):
 
     def _gp_path_objective(self, subproblem_path_objectives, n_objectives, ensemble_member):
         if len(subproblem_path_objectives) > 0:
-            acc_objective = ca.sum1(ca.vertcat(*[o(self, ensemble_member) for o in subproblem_path_objectives]))
+            acc_objective = ca.sum1(
+                ca.vertcat(*[o(self, ensemble_member) for o in subproblem_path_objectives])
+            )
 
             if self.goal_programming_options()['scale_by_problem_size']:
                 # Objective is already divided by number of active time steps
@@ -540,8 +559,7 @@ class _GoalProgrammingMixinBase(OptimizationProblem, metaclass=ABCMeta):
 
         m, M = None, None
         if isinstance(g.target_min, Timeseries):
-            m = self.interpolate(
-                times, g.target_min.times, g.target_min.values, -np.inf, -np.inf)
+            m = self.interpolate(times, g.target_min.times, g.target_min.values, -np.inf, -np.inf)
             if m.ndim > 1:
                 m = m.transpose()
         elif isinstance(g.target_min, np.ndarray) and target_shape:
@@ -551,8 +569,7 @@ class _GoalProgrammingMixinBase(OptimizationProblem, metaclass=ABCMeta):
         else:
             m = np.array([g.target_min]).transpose()
         if isinstance(g.target_max, Timeseries):
-            M = self.interpolate(
-                times, g.target_max.times, g.target_max.values, np.inf, np.inf)
+            M = self.interpolate(times, g.target_max.times, g.target_max.values, np.inf, np.inf)
             if M.ndim > 1:
                 M = M.transpose()
         elif isinstance(g.target_max, np.ndarray) and target_shape:
@@ -570,7 +587,7 @@ class _GoalProgrammingMixinBase(OptimizationProblem, metaclass=ABCMeta):
         if g.size > 1:
             assert m.shape == (g.size, 1 if target_shape is None else target_shape)
         else:
-            assert m.shape == (1 if target_shape is None else target_shape, )
+            assert m.shape == (1 if target_shape is None else target_shape,)
         assert m.shape == M.shape
 
         return m, M
@@ -623,7 +640,9 @@ class _GoalProgrammingMixinBase(OptimizationProblem, metaclass=ABCMeta):
                     raise Exception("Goal weight should be positive for goal {}".format(goal))
             else:
                 if goal.function_range != (np.nan, np.nan):
-                    raise Exception("Specifying function range not allowed for goal {}".format(goal))
+                    raise Exception(
+                        "Specifying function range not allowed for goal {}".format(goal)
+                    )
 
             if not is_path_goal:
                 if isinstance(goal.target_min, Timeseries):
@@ -638,13 +657,24 @@ class _GoalProgrammingMixinBase(OptimizationProblem, metaclass=ABCMeta):
 
             if options['keep_soft_constraints']:
                 if goal.relaxation != 0.0:
-                    raise Exception("Relaxation not allowed with `keep_soft_constraints` for goal {}".format(goal))
+                    raise Exception(
+                        "Relaxation not allowed with `keep_soft_constraints` for goal {}".format(
+                            goal
+                        )
+                    )
                 if goal.violation_timeseries_id is not None:
                     raise Exception(
-                        "Violation timeseries id not allowed with `keep_soft_constraints` for goal {}".format(goal))
+                        "Violation timeseries id not allowed with `keep_soft_constraints` for goal {}".format(
+                            goal
+                        )
+                    )
             else:
                 if goal.size > 1:
-                    raise Exception("Option `keep_soft_constraints` needs to be set for vector goal {}".format(goal))
+                    raise Exception(
+                        "Option `keep_soft_constraints` needs to be set for vector goal {}".format(
+                            goal
+                        )
+                    )
 
             if goal.critical and goal.size > 1:
                 raise Exception("Vector goal cannot be critical for goal {}".format(goal))
@@ -672,21 +702,25 @@ class _GoalProgrammingMixinBase(OptimizationProblem, metaclass=ABCMeta):
                         goal_m, goal_M = self._gp_min_max_arrays(goal, target_shape)
                         other_m, other_M = self._gp_min_max_arrays(prev, target_shape)
 
-                        indices = np.where(np.logical_not(np.logical_or(
-                            np.isnan(goal_m), np.isnan(other_m))))
+                        indices = np.where(
+                            np.logical_not(np.logical_or(np.isnan(goal_m), np.isnan(other_m)))
+                        )
                         if goal.has_target_min:
                             if np.any(goal_m[indices] < other_m[indices]):
                                 raise Exception(
                                     'Target minimum of goal {} must be greater or equal than '
-                                    'target minimum of goal {}.'.format(goal, prev))
+                                    'target minimum of goal {}.'.format(goal, prev)
+                                )
 
-                        indices = np.where(np.logical_not(np.logical_or(
-                            np.isnan(goal_M), np.isnan(other_M))))
+                        indices = np.where(
+                            np.logical_not(np.logical_or(np.isnan(goal_M), np.isnan(other_M)))
+                        )
                         if goal.has_target_max:
                             if np.any(goal_M[indices] > other_M[indices]):
                                 raise Exception(
                                     'Target maximum of goal {} must be less or equal than '
-                                    'target maximum of goal {}'.format(goal, prev))
+                                    'target maximum of goal {}'.format(goal, prev)
+                                )
 
         for goal in goals:
             goal_m, goal_M = self._gp_min_max_arrays(goal, target_shape)
@@ -694,32 +728,43 @@ class _GoalProgrammingMixinBase(OptimizationProblem, metaclass=ABCMeta):
             goal_ub = np.broadcast_to(goal.function_range[1], goal_M.shape[::-1]).transpose()
 
             if goal.has_target_min and goal.has_target_max:
-                indices = np.where(np.logical_not(np.logical_or(
-                    np.isnan(goal_m), np.isnan(goal_M))))
+                indices = np.where(
+                    np.logical_not(np.logical_or(np.isnan(goal_m), np.isnan(goal_M)))
+                )
 
                 if np.any(goal_m[indices] > goal_M[indices]):
-                    raise Exception("Target minimum exceeds target maximum for goal {}".format(goal))
+                    raise Exception(
+                        "Target minimum exceeds target maximum for goal {}".format(goal)
+                    )
 
             if goal.has_target_min and not goal.critical:
                 indices = np.where(np.isfinite(goal_m))
                 if np.any(goal_m[indices] <= goal_lb[indices]):
                     raise Exception(
-                        'Target minimum should be greater than the lower bound of the function range for goal {}'
-                        .format(goal))
+                        'Target minimum should be greater than the lower bound of the function range for goal {}'.format(
+                            goal
+                        )
+                    )
                 if np.any(goal_m[indices] > goal_ub[indices]):
                     raise Exception(
-                        'Target minimum should not be greater than the upper bound of the function range for goal {}'
-                        .format(goal))
+                        'Target minimum should not be greater than the upper bound of the function range for goal {}'.format(
+                            goal
+                        )
+                    )
             if goal.has_target_max and not goal.critical:
                 indices = np.where(np.isfinite(goal_M))
                 if np.any(goal_M[indices] >= goal_ub[indices]):
                     raise Exception(
-                        'Target maximum should be smaller than the upper bound of the function range for goal {}'
-                        .format(goal))
+                        'Target maximum should be smaller than the upper bound of the function range for goal {}'.format(
+                            goal
+                        )
+                    )
                 if np.any(goal_M[indices] < goal_lb[indices]):
                     raise Exception(
-                        'Target maximum should not be smaller than the lower bound of the function range for goal {}'
-                        .format(goal))
+                        'Target maximum should not be smaller than the lower bound of the function range for goal {}'.format(
+                            goal
+                        )
+                    )
 
             if goal.relaxation < 0.0:
                 raise Exception('Relaxation of goal {} should be a nonnegative value'.format(goal))
@@ -772,10 +817,14 @@ class _GoalProgrammingMixinBase(OptimizationProblem, metaclass=ABCMeta):
 
                 if isinstance(goal.target_min, Timeseries):
                     target_min = Timeseries(goal.target_min.times, goal.target_min.values)
-                    inds = np.logical_or(np.isnan(target_min.values), np.isneginf(target_min.values))
+                    inds = np.logical_or(
+                        np.isnan(target_min.values), np.isneginf(target_min.values)
+                    )
                     target_min.values[inds] = -sys.float_info.max
                     n_times = len(goal.target_min.times)
-                    target_min_slice_inds = ~np.all(np.broadcast_to(inds.transpose(), (goal.size, n_times)), axis=1)
+                    target_min_slice_inds = ~np.all(
+                        np.broadcast_to(inds.transpose(), (goal.size, n_times)), axis=1
+                    )
                 elif isinstance(goal.target_min, np.ndarray):
                     target_min = goal.target_min.copy()
                     inds = np.logical_or(np.isnan(target_min), np.isneginf(target_min))
@@ -795,10 +844,14 @@ class _GoalProgrammingMixinBase(OptimizationProblem, metaclass=ABCMeta):
 
                 if isinstance(goal.target_max, Timeseries):
                     target_max = Timeseries(goal.target_max.times, goal.target_max.values)
-                    inds = np.logical_or(np.isnan(target_max.values), np.isposinf(target_max.values))
+                    inds = np.logical_or(
+                        np.isnan(target_max.values), np.isposinf(target_max.values)
+                    )
                     target_max.values[inds] = sys.float_info.max
                     n_times = len(goal.target_max.times)
-                    target_max_slice_inds = ~np.all(np.broadcast_to(inds.transpose(), (goal.size, n_times)), axis=1)
+                    target_max_slice_inds = ~np.all(
+                        np.broadcast_to(inds.transpose(), (goal.size, n_times)), axis=1
+                    )
                 elif isinstance(goal.target_max, np.ndarray):
                     target_max = goal.target_max.copy()
                     inds = np.logical_or(np.isnan(target_max), np.isposinf(target_max))
@@ -817,7 +870,9 @@ class _GoalProgrammingMixinBase(OptimizationProblem, metaclass=ABCMeta):
                     _objective_func = goal._objective_func
                 elif goal.has_target_bounds:
                     if is_path_goal and options['scale_by_problem_size']:
-                        goal_m, goal_M = self._gp_min_max_arrays(goal, target_shape=len(self.times()))
+                        goal_m, goal_M = self._gp_min_max_arrays(
+                            goal, target_shape=len(self.times())
+                        )
                         goal_active = np.isfinite(goal_m) | np.isfinite(goal_M)
                         n_active = np.sum(goal_active.astype(int), axis=-1)
                         # Avoid possible division by zero if goal is inactive
@@ -825,23 +880,34 @@ class _GoalProgrammingMixinBase(OptimizationProblem, metaclass=ABCMeta):
                     else:
                         n_active = 1
 
-                    def _objective_func(problem, ensemble_member,
-                                        goal=goal, epsilon=epsilon, is_path_goal=is_path_goal,
-                                        n_active=n_active):
+                    def _objective_func(
+                        problem,
+                        ensemble_member,
+                        goal=goal,
+                        epsilon=epsilon,
+                        is_path_goal=is_path_goal,
+                        n_active=n_active,
+                    ):
                         if is_path_goal:
                             epsilon = problem.variable(epsilon.name())
                         else:
                             epsilon = problem.extra_variable(epsilon.name(), ensemble_member)
 
                         return goal.weight * ca.constpow(epsilon, goal.order) / n_active
+
                 else:
                     if is_path_goal and options['scale_by_problem_size']:
                         n_active = len(self.times())
                     else:
                         n_active = 1
 
-                    def _objective_func(problem, ensemble_member, goal=goal, is_path_goal=is_path_goal,
-                                        n_active=n_active):
+                    def _objective_func(
+                        problem,
+                        ensemble_member,
+                        goal=goal,
+                        is_path_goal=is_path_goal,
+                        n_active=n_active,
+                    ):
                         f = goal.function(problem, ensemble_member) / goal.function_nominal
                         return goal.weight * ca.constpow(f, goal.order) / n_active
 
@@ -852,15 +918,23 @@ class _GoalProgrammingMixinBase(OptimizationProblem, metaclass=ABCMeta):
                 if goal.critical:
                     for ensemble_member in range(self.ensemble_size):
                         constraint = self._gp_goal_hard_constraint(
-                            goal, epsilon, None, ensemble_member, options, is_path_goal)
+                            goal, epsilon, None, ensemble_member, options, is_path_goal
+                        )
                         hard_constraints[ensemble_member].append(constraint)
                 else:
                     for ensemble_member in range(self.ensemble_size):
                         # We use a violation variable formulation, with the violation
                         # variables epsilon bounded between 0 and 1.
-                        def _soft_constraint_func(problem, target, bound, inds,
-                                                  goal=goal, epsilon=epsilon, ensemble_member=ensemble_member,
-                                                  is_path_constraint=is_path_goal):
+                        def _soft_constraint_func(
+                            problem,
+                            target,
+                            bound,
+                            inds,
+                            goal=goal,
+                            epsilon=epsilon,
+                            ensemble_member=ensemble_member,
+                            is_path_constraint=is_path_goal,
+                        ):
                             if is_path_constraint:
                                 target = problem.variable(target)
                                 eps = problem.variable(epsilon.name())
@@ -873,16 +947,19 @@ class _GoalProgrammingMixinBase(OptimizationProblem, metaclass=ABCMeta):
                             f = goal.function(problem, ensemble_member)
                             nominal = goal.function_nominal
 
-                            return ca.if_else(ca.fabs(target) < sys.float_info.max,
-                                              (f - eps * (bound - target) - target) / nominal,
-                                              0.0)[inds]
+                            return ca.if_else(
+                                ca.fabs(target) < sys.float_info.max,
+                                (f - eps * (bound - target) - target) / nominal,
+                                0.0,
+                            )[inds]
 
                         if goal.has_target_min and np.any(target_min_slice_inds):
                             _f = functools.partial(
                                 _soft_constraint_func,
                                 target=min_variable,
                                 bound=goal.function_range[0],
-                                inds=target_min_slice_inds)
+                                inds=target_min_slice_inds,
+                            )
                             constraint = _GoalConstraint(goal, _f, 0.0, np.inf, False)
                             soft_constraints[ensemble_member].append(constraint)
                         if goal.has_target_max and np.any(target_max_slice_inds):
@@ -890,13 +967,16 @@ class _GoalProgrammingMixinBase(OptimizationProblem, metaclass=ABCMeta):
                                 _soft_constraint_func,
                                 target=max_variable,
                                 bound=goal.function_range[1],
-                                inds=target_max_slice_inds)
+                                inds=target_max_slice_inds,
+                            )
                             constraint = _GoalConstraint(goal, _f, -np.inf, 0.0, False)
                             soft_constraints[ensemble_member].append(constraint)
 
         return epsilons, objectives, soft_constraints, hard_constraints, extra_constants
 
-    def _gp_goal_hard_constraint(self, goal, epsilon, existing_constraint, ensemble_member, options, is_path_goal):
+    def _gp_goal_hard_constraint(
+        self, goal, epsilon, existing_constraint, ensemble_member, options, is_path_goal
+    ):
         if not is_path_goal:
             epsilon = epsilon[:1]
 
@@ -905,16 +985,24 @@ class _GoalProgrammingMixinBase(OptimizationProblem, metaclass=ABCMeta):
         if goal.has_target_bounds:
             # We use a violation variable formulation, with the violation
             # variables epsilon bounded between 0 and 1.
-            m, M = np.full_like(epsilon, -np.inf, dtype=np.float64), np.full_like(epsilon, np.inf, dtype=np.float64)
+            m, M = np.full_like(epsilon, -np.inf, dtype=np.float64), np.full_like(
+                epsilon, np.inf, dtype=np.float64
+            )
 
             # A function range does not have to be specified for critical
             # goals. Avoid multiplying with NaN in that case.
             if goal.has_target_min:
-                m = (epsilon * ((goal.function_range[0] - goal_m) if not goal.critical else 0.0)
-                     + goal_m - goal.relaxation) / goal.function_nominal
+                m = (
+                    epsilon * ((goal.function_range[0] - goal_m) if not goal.critical else 0.0)
+                    + goal_m
+                    - goal.relaxation
+                ) / goal.function_nominal
             if goal.has_target_max:
-                M = (epsilon * ((goal.function_range[1] - goal_M) if not goal.critical else 0.0)
-                     + goal_M + goal.relaxation) / goal.function_nominal
+                M = (
+                    epsilon * ((goal.function_range[1] - goal_M) if not goal.critical else 0.0)
+                    + goal_M
+                    + goal.relaxation
+                ) / goal.function_nominal
 
             if goal.has_target_min and goal.has_target_max:
                 # Avoid comparing with NaN
@@ -930,7 +1018,9 @@ class _GoalProgrammingMixinBase(OptimizationProblem, metaclass=ABCMeta):
             inds = epsilon > options['violation_tolerance']
             if np.any(inds):
                 if is_path_goal:
-                    expr = self.map_path_expression(goal.function(self, ensemble_member), ensemble_member)
+                    expr = self.map_path_expression(
+                        goal.function(self, ensemble_member), ensemble_member
+                    )
                 else:
                     expr = goal.function(self, ensemble_member)
 
@@ -951,7 +1041,9 @@ class _GoalProgrammingMixinBase(OptimizationProblem, metaclass=ABCMeta):
                 self.linear_collocation = False
             else:
                 m = -np.inf * np.ones(epsilon.shape)
-                M = (epsilon + goal.relaxation) / goal.function_nominal + options['constraint_relaxation']
+                M = (epsilon + goal.relaxation) / goal.function_nominal + options[
+                    'constraint_relaxation'
+                ]
 
         if is_path_goal:
             m = Timeseries(self.times(), m)
@@ -963,8 +1055,12 @@ class _GoalProgrammingMixinBase(OptimizationProblem, metaclass=ABCMeta):
         constraint = _GoalConstraint(
             goal,
             lambda problem, ensemble_member=ensemble_member, goal=goal: (
-                goal.function(problem, ensemble_member) / goal.function_nominal),
-            m, M, True)
+                goal.function(problem, ensemble_member) / goal.function_nominal
+            ),
+            m,
+            M,
+            True,
+        )
 
         # Epsilon is fixed. Override previous {min,max} constraints for this
         # state.

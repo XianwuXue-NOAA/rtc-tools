@@ -25,7 +25,6 @@ class SimulationModel(PIMixin, SimulationProblem):
 
 
 class TestSimulation(TestCase):
-
     def setUp(self):
         self.problem = SimulationModel()
 

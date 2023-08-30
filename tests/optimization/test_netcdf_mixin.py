@@ -6,7 +6,9 @@ from netCDF4 import Dataset, chartostring
 import numpy as np
 import numpy.ma as ma
 
-from rtctools.optimization.collocated_integrated_optimization_problem import CollocatedIntegratedOptimizationProblem
+from rtctools.optimization.collocated_integrated_optimization_problem import (
+    CollocatedIntegratedOptimizationProblem,
+)
 from rtctools.optimization.modelica_mixin import ModelicaMixin
 from rtctools.optimization.netcdf_mixin import NetCDFMixin
 
@@ -14,35 +16,44 @@ from .data_path import data_path
 
 
 class NetCDFModel(NetCDFMixin, ModelicaMixin, CollocatedIntegratedOptimizationProblem):
-
     def __init__(self):
         super().__init__(
             input_folder=data_path(),
             output_folder=data_path(),
             model_name="Model",
-            model_folder=data_path()
+            model_folder=data_path(),
         )
 
-        self.netcdf_id_map = {'x_delayed': ('loc_a', 'x_delayed'),
-                              'u': ('loc_b', 'u'),
-                              'y': ('loc_c', 'y'),
-                              'z': ('loc_a', 'z'),
-                              'switched': ('loc_c', 'switched'),
-                              'constant_output': ('loc_a', 'constant_output')}
+        self.netcdf_id_map = {
+            'x_delayed': ('loc_a', 'x_delayed'),
+            'u': ('loc_b', 'u'),
+            'y': ('loc_c', 'y'),
+            'z': ('loc_a', 'z'),
+            'switched': ('loc_c', 'switched'),
+            'constant_output': ('loc_a', 'constant_output'),
+        }
 
     def read(self):
         self.check_missing_variable_names = False
         super().read()
 
         # Just add the parameters ourselves for now (values taken from test_pi_mixin)
-        params = {'k': 1.01, 'x': 1.02, 'SV_V_y': 22.02, 'j': 12.01, 'b': 13.01, 'y': 12.02, 'SV_H_y': 22.02}
+        params = {
+            'k': 1.01,
+            'x': 1.02,
+            'SV_V_y': 22.02,
+            'j': 12.01,
+            'b': 13.01,
+            'y': 12.02,
+            'SV_H_y': 22.02,
+        }
         for key, value in params.items():
             self.io.set_parameter(key, value)
 
     def objective(self, ensemble_member):
         # Quadratic penalty on state 'x' at final time
         xf = self.state_at("x", self.times()[-1])
-        f = xf ** 2
+        f = xf**2
         return f
 
     def constraints(self, ensemble_member):
@@ -119,14 +130,15 @@ class TestNetCDFMixin(TestCase):
         self.results = [self.problem.extract_results(i) for i in range(self.problem.ensemble_size)]
 
         bounds = self.problem.bounds()
-        self.assertTrue(np.array_equal(bounds['u'][0].values, self.problem.get_timeseries('u_min').values))
-        self.assertTrue(np.array_equal(bounds['u'][1].values, self.problem.get_timeseries('u_max').values))
+        self.assertTrue(
+            np.array_equal(bounds['u'][0].values, self.problem.get_timeseries('u_min').values)
+        )
+        self.assertTrue(
+            np.array_equal(bounds['u'][1].values, self.problem.get_timeseries('u_max').values)
+        )
 
         # open the exported file
-        filename = os.path.join(
-            data_path(),
-            self.problem.timeseries_export_basename + ".nc"
-        )
+        filename = os.path.join(data_path(), self.problem.timeseries_export_basename + ".nc")
         dataset = Dataset(filename)
 
         written_variables = dataset.variables.keys()
@@ -166,7 +178,9 @@ class TestNetCDFMixin(TestCase):
         self.assertEqual(loc_b_index, 2)
         self.assertEqual(loc_c_index, 0)
 
-        self.assertAlmostEqual(dataset.variables['lon'][loc_a_index], 4.3780269, delta=self.tolerance)
+        self.assertAlmostEqual(
+            dataset.variables['lon'][loc_a_index], 4.3780269, delta=self.tolerance
+        )
 
         y = dataset.variables['y']
         self.assertEqual(y.shape, (22, 3))
@@ -174,7 +188,9 @@ class TestNetCDFMixin(TestCase):
             data = ma.filled(y[:, i], np.nan)
             if i == loc_c_index:
                 self.assertAlmostEqual(data[0], 1.98, delta=self.tolerance)
-                np.testing.assert_allclose(data, self.results[i]['y'], rtol=self.tolerance, atol=self.tolerance)
+                np.testing.assert_allclose(
+                    data, self.results[i]['y'], rtol=self.tolerance, atol=self.tolerance
+                )
                 self.assertAlmostEqual(data[-1], 3.0, delta=self.tolerance)
             else:
                 self.assertTrue(np.all(np.isnan(data)))
@@ -201,4 +217,4 @@ class TestNetCDFMixin(TestCase):
         self.assertEqual(time.units, 'seconds since 2013-05-09 22:00:00')
         self.assertEqual(time.standard_name, 'time')
         self.assertEqual(time.axis, 'T')
-        self.assertTrue(np.allclose(time[:], np.arange(0, 22*3600, 3600, dtype=float)))
+        self.assertTrue(np.allclose(time[:], np.arange(0, 22 * 3600, 3600, dtype=float)))

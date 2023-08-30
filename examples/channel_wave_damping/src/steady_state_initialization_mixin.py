@@ -10,7 +10,5 @@ class SteadyStateInitializationMixin(OptimizationProblem):
         for reach in ['upstream', 'middle', 'downstream']:
             for i in range(int(parameters['{}.n_level_nodes'.format(reach)]) + 1):
                 state = '{}.Q[{}]'.format(reach, i + 1)
-                c.append(
-                    (self.der_at(state, times[0]), 0, 0)
-                )
+                c.append((self.der_at(state, times[0]), 0, 0))
         return c

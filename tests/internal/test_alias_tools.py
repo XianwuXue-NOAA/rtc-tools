@@ -6,7 +6,6 @@ import rtctools._internal.alias_tools as alias_tools
 
 
 class AliasToolsTest(unittest.TestCase):
-
     def setUp(self):
         self.ordered_set = alias_tools.OrderedSet([1, 'a', 'text'])
 
@@ -18,8 +17,7 @@ class AliasToolsTest(unittest.TestCase):
         self.alias_dict['y'] = 20
 
     def test_create_ordered_set(self):
-        """Also tests getitem.
-        """
+        """Also tests getitem."""
         self.assertEqual(self.ordered_set[0], 1)
         self.assertEqual(self.ordered_set[1], 'a')
         self.assertEqual(self.ordered_set[2], 'text')
@@ -79,8 +77,7 @@ class AliasToolsTest(unittest.TestCase):
         self.assertFalse(self.ordered_set == ordered_set_2)
 
     def test_create_alias_dict(self):
-        """ Also tests canonical_signed, setitem, and getitem.
-        """
+        """Also tests canonical_signed, setitem, and getitem."""
         self.assertEqual(self.alias_dict['b'], -10)
         self.assertEqual(self.alias_dict['x'], -20)
 

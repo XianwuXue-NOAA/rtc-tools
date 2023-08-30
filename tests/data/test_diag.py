@@ -14,7 +14,6 @@ from .data_path import data_path
 
 
 class TestDiag(TestCase):
-
     def setUp(self):
         self.diag = pi.Diag(data_path(), "diag")
 

@@ -17,7 +17,6 @@ import numpy as np
 
 
 class Stations:
-
     def __init__(self, dataset: Dataset, station_variable: Variable):
         self.__station_variable = station_variable
 
@@ -77,17 +76,16 @@ class ImportDataset:
         self.__ensemble_size = 1
 
         # Load the content of a NetCDF file into a Dataset.
-        self.__filename = os.path.join(
-            folder,
-            basename + ".nc"
-        )
+        self.__filename = os.path.join(folder, basename + ".nc")
         self.__dataset = Dataset(self.__filename)
 
         # Find the number of ensemble members and the time and station id variables
         self.__time_variable = self.__find_time_variable()
         if self.__time_variable is None:
-            raise Exception('No time variable found in file ' + self.__filename + '. '
-                            'Please ensure the file contains a time variable with standard_name "time" and axis "T".')
+            raise Exception(
+                'No time variable found in file ' + self.__filename + '. '
+                'Please ensure the file contains a time variable with standard_name "time" and axis "T".'
+            )
 
         self.__ensemble_member_variable = self.__find_ensemble_member_variable()
         if self.__ensemble_member_variable:
@@ -95,8 +93,10 @@ class ImportDataset:
 
         self.__station_variable = self.__find_station_variable()
         if self.__station_variable is None:
-            raise Exception('No station variable found in file ' + self.__filename + '. '
-                            'Please ensure the file contains a variable with cf_role "timeseries_id".')
+            raise Exception(
+                'No station variable found in file ' + self.__filename + '. '
+                'Please ensure the file contains a variable with cf_role "timeseries_id".'
+            )
 
     def __str__(self):
         return self.__filename
@@ -109,18 +109,22 @@ class ImportDataset:
         :return: a netCDF4.Variable object of the time variable (or None if none found)
         """
         for variable in self.__dataset.variables.values():
-            if ('standard_name' in variable.ncattrs() and 'axis' in variable.ncattrs()
-                    and variable.standard_name == 'time' and variable.axis == 'T'):
+            if (
+                'standard_name' in variable.ncattrs()
+                and 'axis' in variable.ncattrs()
+                and variable.standard_name == 'time'
+                and variable.axis == 'T'
+            ):
                 return variable
 
         return None
 
     def __find_ensemble_member_variable(self) -> Union[Variable, None]:
         """
-                Find the variable containing the ensemble member index in the given Dataset.
+        Find the variable containing the ensemble member index in the given Dataset.
 
-                :param dataset: The Dataset to be searched.
-                :return: a netCDF4.Variable object of the ensemble member index variable (or None if none found)
+        :param dataset: The Dataset to be searched.
+        :return: a netCDF4.Variable object of the ensemble member index variable (or None if none found)
         """
         for variable in self.__dataset.variables.values():
             if 'standard_name' in variable.ncattrs() and variable.standard_name == "realization":
@@ -176,10 +180,13 @@ class ImportDataset:
         if self.__ensemble_member_variable is not None:
             ensemble_dim = self.__ensemble_member_variable.dimensions[0]
             expected_dims = [
-                (time_dim, station_dim, ensemble_dim), (time_dim, ensemble_dim, station_dim),
-                (station_dim, time_dim, ensemble_dim), (station_dim, ensemble_dim, time_dim),
-                (ensemble_dim, time_dim, station_dim), (ensemble_dim, station_dim, time_dim)] \
-                + [(station_dim, time_dim), (time_dim, station_dim)]
+                (time_dim, station_dim, ensemble_dim),
+                (time_dim, ensemble_dim, station_dim),
+                (station_dim, time_dim, ensemble_dim),
+                (station_dim, ensemble_dim, time_dim),
+                (ensemble_dim, time_dim, station_dim),
+                (ensemble_dim, station_dim, time_dim),
+            ] + [(station_dim, time_dim), (time_dim, station_dim)]
         else:
             expected_dims = [(station_dim, time_dim), (time_dim, station_dim)]
 
@@ -190,7 +197,9 @@ class ImportDataset:
 
         return timeseries_variables
 
-    def read_timeseries_values(self, station_index: int, variable_name: str, ensemble_member: int = 0) -> np.ndarray:
+    def read_timeseries_values(
+        self, station_index: int, variable_name: str, ensemble_member: int = 0
+    ) -> np.ndarray:
         """
         Reads the specified timeseries from the input file.
 
@@ -206,7 +215,10 @@ class ImportDataset:
         # assert set(timeseries_variable.dimensions)==set(('time', 'station')) \
         #        or set(timeseries_variable.dimensions)==set(('time', 'station', 'realization'))
 
-        if self.__ensemble_member_variable is not None and 'realization' in timeseries_variable.dimensions:
+        if (
+            self.__ensemble_member_variable is not None
+            and 'realization' in timeseries_variable.dimensions
+        ):
             ensemble_member_dim = self.__ensemble_member_variable.dimensions[0]
             for i in range(3):
                 if timeseries_variable.dimensions[i] == station_dim:
@@ -215,7 +227,7 @@ class ImportDataset:
                     ensemble_arg_Index = i
             time_arg_Index = set(range(3)) - {station_arg_Index, ensemble_arg_Index}
             time_arg_Index = time_arg_Index.pop()
-            argument = [None]*3
+            argument = [None] * 3
             argument[station_arg_Index] = station_index
             argument[ensemble_arg_Index] = ensemble_member
             argument[time_arg_Index] = slice(None)
@@ -268,10 +280,7 @@ class ExportDataset:
         :param basename: Basename of the file, extension ".nc" will be appended to this
         """
         # Create the file and open a Dataset to access it
-        self.__filename = os.path.join(
-            folder,
-            basename + ".nc"
-        )
+        self.__filename = os.path.join(folder, basename + ".nc")
         # use same write format as FEWS
         self.__dataset = Dataset(self.__filename, mode='w', format='NETCDF3_CLASSIC')
 
@@ -321,10 +330,13 @@ class ExportDataset:
         time_var[:] = times
 
     def write_ensemble_data(self, ensemble_size):
-
         if ensemble_size > 1:
-            self.__ensemble_member_dim = self.__dataset.createDimension('realization', ensemble_size)
-            ensemble_member_var = self.__dataset.createVariable('realization', 'i', ('realization',))
+            self.__ensemble_member_dim = self.__dataset.createDimension(
+                'realization', ensemble_size
+            )
+            ensemble_member_var = self.__dataset.createVariable(
+                'realization', 'i', ('realization',)
+            )
             ensemble_member_var.standard_name = 'realization'
             ensemble_member_var.long_name = 'Index of an ensemble member within an ensemble'
             ensemble_member_var.units = 1
@@ -343,7 +355,9 @@ class ExportDataset:
         # first write the ids
         max_id_length = max(len(id) for id in output_station_ids)
         self.__dataset.createDimension('char_leng_id', max_id_length)
-        station_id_var = self.__dataset.createVariable('station_id', 'c', ('station', 'char_leng_id'))
+        station_id_var = self.__dataset.createVariable(
+            'station_id', 'c', ('station', 'char_leng_id')
+        )
         station_id_var.long_name = 'station identification code'
         station_id_var.cf_role = 'timeseries_id'
 
@@ -375,26 +389,39 @@ class ExportDataset:
         """
         assert len(set(variable_names)) == len(variable_names)
 
-        assert self.__time_dim is not None, 'First call write_times to ensure the time dimension has been created.'
-        assert self.__station_dim is not None, 'First call write_station_data to ensure ' \
-                                               'the station dimension has been created'
-        assert self.__station_id_to_index_mapping is not None  # should also be created in write_station_data
+        assert (
+            self.__time_dim is not None
+        ), 'First call write_times to ensure the time dimension has been created.'
+        assert self.__station_dim is not None, (
+            'First call write_station_data to ensure ' 'the station dimension has been created'
+        )
+        assert (
+            self.__station_id_to_index_mapping is not None
+        )  # should also be created in write_station_data
 
         if ensemble_size > 1:
-            assert self.__ensemble_member_dim is not None, \
-                'First call write_ensemble_data to ensure the realization dimension has been created.'
+            assert (
+                self.__ensemble_member_dim is not None
+            ), 'First call write_ensemble_data to ensure the realization dimension has been created.'
 
             for variable_name in variable_names:
-                self.__dataset.createVariable(variable_name,
-                                              'f8', ('time', 'station', 'realization'), fill_value=np.nan)
+                self.__dataset.createVariable(
+                    variable_name, 'f8', ('time', 'station', 'realization'), fill_value=np.nan
+                )
         else:
             for variable_name in variable_names:
-                self.__dataset.createVariable(variable_name,
-                                              'f8', ('time', 'station'), fill_value=np.nan)
+                self.__dataset.createVariable(
+                    variable_name, 'f8', ('time', 'station'), fill_value=np.nan
+                )
 
-    def write_output_values(self, station_id: str, variable_name: str,
-                            ensemble_member_index: int, values: np.ndarray,
-                            ensemble_size: int) -> None:
+    def write_output_values(
+        self,
+        station_id: str,
+        variable_name: str,
+        ensemble_member_index: int,
+        values: np.ndarray,
+        ensemble_size: int,
+    ) -> None:
         """
         Writes the given data to the dataset. The variable must have already been created through the
         create_variables method. After all calls to write_output_values, the close method must be called to flush all
@@ -406,11 +433,15 @@ class ExportDataset:
         :param values:        The values that are to be written to the file
         :param ensemble_size: the number of members in the ensemble
         """
-        assert self.__station_id_to_index_mapping is not None, 'First call write_station_data and create_variables.'
+        assert (
+            self.__station_id_to_index_mapping is not None
+        ), 'First call write_station_data and create_variables.'
 
         station_index = self.__station_id_to_index_mapping[station_id]
         if ensemble_size > 1:
-            self.__dataset.variables[variable_name][:, station_index, ensemble_member_index] = values
+            self.__dataset.variables[variable_name][
+                :, station_index, ensemble_member_index
+            ] = values
         else:
             self.__dataset.variables[variable_name][:, station_index] = values
 

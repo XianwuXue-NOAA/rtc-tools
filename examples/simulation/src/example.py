@@ -22,7 +22,6 @@ class Example(CSVMixin, SimulationProblem):
     # Here is an example of overriding the update() method to show how control
     # can be build into the python script
     def update(self, dt):
-
         # Get the time step
         if dt < 0:
             dt = self.get_time_step()

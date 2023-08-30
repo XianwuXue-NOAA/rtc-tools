@@ -25,9 +25,7 @@ class TestBSpline1DFit(TestCase):
             self.x, self.y, monotonicity=monotonicity, curvature=curvature
         )
         x = SX.sym("x")
-        f = Function(
-            "f", [x], [rtctools.data.interpolation.bspline1d.BSpline1D(*tck)(x)]
-        )
+        f = Function("f", [x], [rtctools.data.interpolation.bspline1d.BSpline1D(*tck)(x)])
         for xi in range(self.num_test_points - 1):
             y_list[xi] = f(self.testpoints[xi])[0]
         return y_list

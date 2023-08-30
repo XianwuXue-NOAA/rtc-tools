@@ -1,7 +1,7 @@
 import itertools
 
 from rtctools.optimization.collocated_integrated_optimization_problem import (
-    CollocatedIntegratedOptimizationProblem
+    CollocatedIntegratedOptimizationProblem,
 )
 from rtctools.optimization.csv_mixin import CSVMixin
 from rtctools.optimization.goal_programming_mixin import GoalProgrammingMixin, StateGoal

@@ -4,7 +4,6 @@ import numpy as np
 
 
 class TestCase(unittest.TestCase):
-
     def assertAlmostEqual(self, a, b, tol):
         failure = np.abs(a - b) >= tol
         if hasattr(failure, "__iter__"):

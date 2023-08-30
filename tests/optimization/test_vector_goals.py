@@ -4,10 +4,10 @@ import casadi as ca
 
 import numpy as np
 
-from rtctools.optimization.collocated_integrated_optimization_problem import \
-    CollocatedIntegratedOptimizationProblem
-from rtctools.optimization.goal_programming_mixin import \
-    Goal, GoalProgrammingMixin, StateGoal
+from rtctools.optimization.collocated_integrated_optimization_problem import (
+    CollocatedIntegratedOptimizationProblem,
+)
+from rtctools.optimization.goal_programming_mixin import Goal, GoalProgrammingMixin, StateGoal
 from rtctools.optimization.modelica_mixin import ModelicaMixin
 from rtctools.optimization.timeseries import Timeseries
 
@@ -20,7 +20,6 @@ logger.setLevel(logging.WARNING)
 
 
 class Model(GoalProgrammingMixin, ModelicaMixin, CollocatedIntegratedOptimizationProblem):
-
     def __init__(self):
         super().__init__(
             input_folder=data_path(),
@@ -114,7 +113,6 @@ class Goal4(Goal):
 
 
 class ModelGoals(Model):
-
     def goals(self):
         return [Goal1(), Goal2(), Goal3(), Goal4()]
 
@@ -124,7 +122,8 @@ class Goal1_2_3(Goal):
         return ca.vertcat(
             optimization_problem.state_at("x", 0.5, ensemble_member=ensemble_member),
             optimization_problem.state_at("x", 0.7, ensemble_member=ensemble_member),
-            optimization_problem.state_at("x", 1.0, ensemble_member=ensemble_member))
+            optimization_problem.state_at("x", 1.0, ensemble_member=ensemble_member),
+        )
 
     function_range = (-5.0, 5.0)
     size = 3
@@ -135,7 +134,6 @@ class Goal1_2_3(Goal):
 
 
 class ModelGoalsVector(ModelGoals):
-
     def goals(self):
         return [Goal1_2_3(), Goal4()]
 
@@ -172,7 +170,6 @@ class PathGoal3(StateGoal):
 
 
 class ModelPathGoals(Model):
-
     def path_goals(self):
         return [PathGoal1(self), PathGoal2(self), PathGoal3(self)]
 
@@ -188,17 +185,15 @@ class PathGoal1_2(Goal):
         times = optimization_problem.times()
         n_times = len(times)
 
-        self.target_min = Timeseries(times,
-                                     np.stack((np.full(n_times, 0.1),
-                                               np.full(n_times, 0.5)),
-                                              axis=1))
+        self.target_min = Timeseries(
+            times, np.stack((np.full(n_times, 0.1), np.full(n_times, 0.5)), axis=1)
+        )
         self.target_min.values[10, 0] = np.nan
 
         self.target_max = np.array([np.nan, 2.0])
 
     def function(self, optimization_problem, ensemble_member):
-        return ca.vertcat(optimization_problem.state('x'),
-                          optimization_problem.state('z'))
+        return ca.vertcat(optimization_problem.state('x'), optimization_problem.state('z'))
 
     size = 2
     order = 1
@@ -206,7 +201,6 @@ class PathGoal1_2(Goal):
 
 
 class ModelPathGoalsVector(Model):
-
     def path_goals(self):
         return [PathGoal1_2(self), PathGoal3(self)]
 
@@ -245,7 +239,6 @@ class TestVectorGoals(TestCase):
 
 
 class ScaleByProblemSizeMixin:
-
     def goal_programming_options(self):
         options = super().goal_programming_options()
         options['scale_by_problem_size'] = True
@@ -269,7 +262,6 @@ class ModelPathGoalsVectorScale(ScaleByProblemSizeMixin, ModelPathGoalsVector):
 
 
 class TestVectorGoalsScaleProblemSize(TestCase):
-
     def test_vector_goals(self):
         self.problem1 = ModelGoalsScale()
         self.problem2 = ModelGoalsVectorScale()

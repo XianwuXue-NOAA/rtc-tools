@@ -12,7 +12,8 @@ output_dir = Path("../../../examples/channel_pulse/output/").resolve()
 # Import Data
 rtc_tools_record = np.recfromcsv(output_dir / "timeseries_export_inertial_wave.csv", encoding=None)
 rtc_tools_semi_impl_record = np.recfromcsv(
-    output_dir / "timeseries_export_inertial_wave_semi_implicit.csv", encoding=None)
+    output_dir / "timeseries_export_inertial_wave_semi_implicit.csv", encoding=None
+)
 rtc_tools_conv_acc_record = np.recfromcsv(
     output_dir / "timeseries_export_saint_venant.csv", encoding=None
 )
@@ -127,9 +128,7 @@ fig.tight_layout()
 for i in range(n_subplots):
     box = axarr[i].get_position()
     axarr[i].set_position([box.x0, box.y0, box.width * 0.65, box.height])
-    axarr[i].legend(
-        loc="center left", bbox_to_anchor=(1, 0.5), frameon=False, prop={"size": 8}
-    )
+    axarr[i].legend(loc="center left", bbox_to_anchor=(1, 0.5), frameon=False, prop={"size": 8})
 
 plt.autoscale(enable=True, axis="x", tight=True)
 

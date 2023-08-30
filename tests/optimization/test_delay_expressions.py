@@ -4,7 +4,7 @@ import unittest
 import numpy as np
 
 from rtctools.optimization.collocated_integrated_optimization_problem import (
-    CollocatedIntegratedOptimizationProblem
+    CollocatedIntegratedOptimizationProblem,
 )
 from rtctools.optimization.modelica_mixin import ModelicaMixin
 from rtctools.optimization.timeseries import Timeseries
@@ -18,7 +18,6 @@ logger.setLevel(logging.DEBUG)
 
 
 class Model(ModelicaMixin, CollocatedIntegratedOptimizationProblem):
-
     def __init__(self):
         super().__init__(
             input_folder=data_path(),
@@ -34,7 +33,7 @@ class Model(ModelicaMixin, CollocatedIntegratedOptimizationProblem):
     def objective(self, ensemble_member):
         # Quadratic penalty on state 'x' at final time
         xf = self.state_at("x", self.times("x")[-1], ensemble_member=ensemble_member)
-        return xf ** 2
+        return xf**2
 
     def compiler_options(self):
         compiler_options = super().compiler_options()
@@ -44,13 +43,11 @@ class Model(ModelicaMixin, CollocatedIntegratedOptimizationProblem):
 
 
 class ModelNoHistory(Model):
-
     def history(self, ensemble_member):
         return {}
 
 
 class ModelPartialHistory(Model):
-
     def history(self, ensemble_member):
         history = super().history(ensemble_member)
         history["x"] = Timeseries(np.array([-0.2, -0.1, 0.0]), np.array([0.7, 0.9, 1.1]))
@@ -58,7 +55,6 @@ class ModelPartialHistory(Model):
 
 
 class ModelCompleteHistory(Model):
-
     def history(self, ensemble_member):
         history = super().history(ensemble_member)
         history["x"] = Timeseries(np.array([-0.2, -0.1, 0.0]), np.array([0.7, 0.9, 1.1]))
@@ -67,24 +63,31 @@ class ModelCompleteHistory(Model):
 
 
 class TestDelayHistoryWarnings(TestCase, unittest.TestCase):
-
     def test_no_history(self):
         problem = ModelNoHistory()
         with self.assertLogs(logger, level='WARN') as cm:
             problem.optimize()
-            self.assertEqual(cm.output,
-                             ['WARNING:rtctools:Incomplete history for delayed expression x. '
-                              'Extrapolating t0 value backwards in time.',
-                              'WARNING:rtctools:Incomplete history for delayed expression w. '
-                              'Extrapolating t0 value backwards in time.'])
+            self.assertEqual(
+                cm.output,
+                [
+                    'WARNING:rtctools:Incomplete history for delayed expression x. '
+                    'Extrapolating t0 value backwards in time.',
+                    'WARNING:rtctools:Incomplete history for delayed expression w. '
+                    'Extrapolating t0 value backwards in time.',
+                ],
+            )
 
     def test_partial_history(self):
         problem = ModelPartialHistory()
         with self.assertLogs(logger, level='WARN') as cm:
             problem.optimize()
-            self.assertEqual(cm.output,
-                             ['WARNING:rtctools:Incomplete history for delayed expression w. '
-                              'Extrapolating t0 value backwards in time.'])
+            self.assertEqual(
+                cm.output,
+                [
+                    'WARNING:rtctools:Incomplete history for delayed expression w. '
+                    'Extrapolating t0 value backwards in time.'
+                ],
+            )
 
     def test_complete_history(self):
         problem = ModelCompleteHistory()

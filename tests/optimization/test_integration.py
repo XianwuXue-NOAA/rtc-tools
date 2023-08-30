@@ -3,7 +3,7 @@ import logging
 import numpy as np
 
 from rtctools.optimization.collocated_integrated_optimization_problem import (
-    CollocatedIntegratedOptimizationProblem
+    CollocatedIntegratedOptimizationProblem,
 )
 from rtctools.optimization.modelica_mixin import ModelicaMixin
 
@@ -15,7 +15,6 @@ logger = logging.getLogger("rtctools")
 
 
 class HybridShootingModel(ModelicaMixin, CollocatedIntegratedOptimizationProblem):
-
     def __init__(self, integrated_states):
         super().__init__(
             input_folder=data_path(),
@@ -49,7 +48,7 @@ class HybridShootingModel(ModelicaMixin, CollocatedIntegratedOptimizationProblem
     def objective(self, ensemble_member):
         # Quadratic penalty on state 'x' at final time
         xf = self.state_at("x", self.times("x")[-1], ensemble_member=ensemble_member)
-        return xf ** 2
+        return xf**2
 
     def constraints(self, ensemble_member):
         # No additional constraints
@@ -67,7 +66,6 @@ class HybridShootingModel(ModelicaMixin, CollocatedIntegratedOptimizationProblem
 
 
 class TestHybridShooting(TestCase):
-
     def setUp(self):
         self.problem = HybridShootingModel([])
         self.problem.optimize()
@@ -76,13 +74,10 @@ class TestHybridShooting(TestCase):
 
     def test_objective_value(self):
         objective_value_tol = 1e-6
-        self.assertAlmostLessThan(
-            abs(self.problem.objective_value), 0.0, objective_value_tol
-        )
+        self.assertAlmostLessThan(abs(self.problem.objective_value), 0.0, objective_value_tol)
 
 
 class TestHybridShootingX(TestHybridShooting):
-
     def setUp(self):
         self.problem = HybridShootingModel(["x"])
         self.problem.optimize()
@@ -91,7 +86,6 @@ class TestHybridShootingX(TestHybridShooting):
 
 
 class TestHybridShootingW(TestHybridShooting):
-
     def setUp(self):
         self.problem = HybridShootingModel(["w"])
         self.problem.optimize()
@@ -100,7 +94,6 @@ class TestHybridShootingW(TestHybridShooting):
 
 
 class TestSingleShooting(TestHybridShooting):
-
     def setUp(self):
         self.problem = HybridShootingModel(["x", "w"])
         self.problem.optimize()

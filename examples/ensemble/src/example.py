@@ -1,12 +1,12 @@
 import numpy as np
 
-from rtctools.optimization.collocated_integrated_optimization_problem \
-    import CollocatedIntegratedOptimizationProblem
+from rtctools.optimization.collocated_integrated_optimization_problem import (
+    CollocatedIntegratedOptimizationProblem,
+)
 from rtctools.optimization.control_tree_mixin import ControlTreeMixin
 from rtctools.optimization.csv_lookup_table_mixin import CSVLookupTableMixin
 from rtctools.optimization.csv_mixin import CSVMixin
-from rtctools.optimization.goal_programming_mixin \
-    import GoalProgrammingMixin, StateGoal
+from rtctools.optimization.goal_programming_mixin import GoalProgrammingMixin, StateGoal
 from rtctools.optimization.modelica_mixin import ModelicaMixin
 from rtctools.util import run_optimization_problem
 
@@ -17,6 +17,7 @@ class WaterVolumeRangeGoal(StateGoal):
         self.target_min = optimization_problem.get_timeseries('V_min')
         self.target_max = optimization_problem.get_timeseries('V_max')
         super().__init__(optimization_problem)
+
     state = 'storage.V'
     priority = 1
 
@@ -30,12 +31,19 @@ class MinimizeQreleaseGoal(StateGoal):
     order = 1
 
 
-class Example(GoalProgrammingMixin, CSVMixin, CSVLookupTableMixin, ModelicaMixin,
-              ControlTreeMixin, CollocatedIntegratedOptimizationProblem):
+class Example(
+    GoalProgrammingMixin,
+    CSVMixin,
+    CSVLookupTableMixin,
+    ModelicaMixin,
+    ControlTreeMixin,
+    CollocatedIntegratedOptimizationProblem,
+):
     """
     An extention of the goal programming and lookuptable examples that
     demonstrates how to work with ensembles.
     """
+
     # Overide default csv_ensemble_mode = False from CSVMixin before calling pre()
     csv_ensemble_mode = True
 
@@ -46,7 +54,8 @@ class Example(GoalProgrammingMixin, CSVMixin, CSVLookupTableMixin, ModelicaMixin
         # Create a dict of empty lists for storing intermediate results from
         # each ensemble
         self.intermediate_results = {
-            ensemble_member: [] for ensemble_member in range(self.ensemble_size)}
+            ensemble_member: [] for ensemble_member in range(self.ensemble_size)
+        }
 
         # Cache lookup tables for convenience and code legibility
         _lookup_tables = self.lookup_tables(ensemble_member=0)
@@ -54,24 +63,22 @@ class Example(GoalProgrammingMixin, CSVMixin, CSVLookupTableMixin, ModelicaMixin
 
         # Non-varying goals can be implemented as a timeseries
         for e_m in range(self.ensemble_size):
-            self.set_timeseries('H_min', np.ones_like(self.times()) * 0.44,
-                                ensemble_member=e_m)
-            self.set_timeseries('H_max', np.ones_like(self.times()) * 0.46,
-                                ensemble_member=e_m)
+            self.set_timeseries('H_min', np.ones_like(self.times()) * 0.44, ensemble_member=e_m)
+            self.set_timeseries('H_max', np.ones_like(self.times()) * 0.46, ensemble_member=e_m)
 
             # Q_in is a varying input and is defined in each timeseries_import.csv
             # However, if we set it again here, it will be added to the output files
-            self.set_timeseries('Q_in',
-                                self.get_timeseries('Q_in', ensemble_member=e_m),
-                                ensemble_member=e_m)
+            self.set_timeseries(
+                'Q_in', self.get_timeseries('Q_in', ensemble_member=e_m), ensemble_member=e_m
+            )
 
             # Convert our water level goals into volume goals
-            self.set_timeseries('V_max',
-                                self.lookup_storage_V(self.get_timeseries('H_max')),
-                                ensemble_member=e_m)
-            self.set_timeseries('V_min',
-                                self.lookup_storage_V(self.get_timeseries('H_min')),
-                                ensemble_member=e_m)
+            self.set_timeseries(
+                'V_max', self.lookup_storage_V(self.get_timeseries('H_max')), ensemble_member=e_m
+            )
+            self.set_timeseries(
+                'V_min', self.lookup_storage_V(self.get_timeseries('H_min')), ensemble_member=e_m
+            )
 
     def path_goals(self):
         g = []
@@ -104,21 +111,21 @@ class Example(GoalProgrammingMixin, CSVMixin, CSVLookupTableMixin, ModelicaMixin
             tol = 10
             _max += tol
             _min -= tol
-            n_level_satisfied = sum(
-                np.logical_and(_min <= V_storage, V_storage <= _max))
+            n_level_satisfied = sum(np.logical_and(_min <= V_storage, V_storage <= _max))
             q_release_integral = sum(results['Q_release'])
-            self.intermediate_results[e_m].append((priority, n_level_satisfied,
-                                                   q_release_integral))
+            self.intermediate_results[e_m].append((priority, n_level_satisfied, q_release_integral))
 
     def post(self):
         super().post()
         for e_m in range(self.ensemble_size):
             print('\n\nResults for Ensemble Member {}:'.format(e_m))
-            for priority, n_level_satisfied, q_release_integral in \
-                    self.intermediate_results[e_m]:
+            for priority, n_level_satisfied, q_release_integral in self.intermediate_results[e_m]:
                 print("\nAfter finishing goals of priority {}:".format(priority))
-                print("Level goal satisfied at {} of {} time steps".format(
-                    n_level_satisfied, len(self.times())))
+                print(
+                    "Level goal satisfied at {} of {} time steps".format(
+                        n_level_satisfied, len(self.times())
+                    )
+                )
                 print("Integral of Q_release = {:.2f}".format(q_release_integral))
 
     # Any solver options can be set here

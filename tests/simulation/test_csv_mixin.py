@@ -24,7 +24,7 @@ class Model(CSVMixin):
             input_folder=data_path(),
             output_folder=data_path(),
             model_name="Model",
-            model_folder=data_path()
+            model_folder=data_path(),
         )
         self.output = None
 
@@ -41,8 +41,7 @@ class Model(CSVMixin):
         self.io.set_parameter('x_start', 1.02)
 
     def read_output(self):
-        """Read the output stored in timeseries_export.csv
-        """
+        """Read the output stored in timeseries_export.csv"""
         self.output = csv.load(
             os.path.join(data_path(), "timeseries_export.csv"),
             delimiter=",",
@@ -50,8 +49,7 @@ class Model(CSVMixin):
         )
 
     def get_reference_solution_first_timestep(self):
-        """Get a reference solution for the first time step
-        """
+        """Get a reference solution for the first time step"""
         time_index = 1
         time = self.times()[time_index]
         dt = self.get_time_step()
@@ -61,7 +59,7 @@ class Model(CSVMixin):
         # Time step uses the implicit Euler scheme.
         x = (x_start + dt * u) / (1 - dt * k)
         y = 3 - x
-        z = x ** 2 + math.sin(time)
+        z = x**2 + math.sin(time)
         return {'y': y, 'z': z}
 
 
@@ -94,8 +92,7 @@ class TestCSVMixin(TestCase):
         self.assertAlmostEqual(initial_state["constant_input"], 1.0, self.tolerance)
 
     def test_write(self):
-        """Test writing output to the file timeseries_export.xml.
-        """
+        """Test writing output to the file timeseries_export.xml."""
         self.problem.initialize()
         self.problem.update(-1)
         self.problem.write()

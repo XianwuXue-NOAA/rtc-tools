@@ -1,7 +1,8 @@
 import numpy as np
 
-from rtctools.optimization.collocated_integrated_optimization_problem \
-    import CollocatedIntegratedOptimizationProblem
+from rtctools.optimization.collocated_integrated_optimization_problem import (
+    CollocatedIntegratedOptimizationProblem,
+)
 from rtctools.optimization.csv_mixin import CSVMixin
 from rtctools.optimization.modelica_mixin import ModelicaMixin
 from rtctools.util import run_optimization_problem
@@ -31,15 +32,27 @@ class Example(CSVMixin, ModelicaMixin, CollocatedIntegratedOptimizationProblem):
         # Release through orifice downhill only. This constraint enforces the
         # fact that water only flows downhill.
         constraints.append(
-            (self.state('Q_orifice') + (1 - self.state('is_downhill')) * 10,
-             0.0, 10.0))
+            (self.state('Q_orifice') + (1 - self.state('is_downhill')) * 10, 0.0, 10.0)
+        )
 
         # Make sure is_downhill is true only when the sea is lower than the
         # water level in the storage.
-        constraints.append((self.state('H_sea') - self.state('storage.HQ.H') -
-                            (1 - self.state('is_downhill')) * M, -np.inf, 0.0))
-        constraints.append((self.state('H_sea') - self.state('storage.HQ.H') +
-                            self.state('is_downhill') * M, 0.0, np.inf))
+        constraints.append(
+            (
+                self.state('H_sea')
+                - self.state('storage.HQ.H')
+                - (1 - self.state('is_downhill')) * M,
+                -np.inf,
+                0.0,
+            )
+        )
+        constraints.append(
+            (
+                self.state('H_sea') - self.state('storage.HQ.H') + self.state('is_downhill') * M,
+                0.0,
+                np.inf,
+            )
+        )
 
         # Orifice flow constraint. Uses the equation:
         # Q(HUp, HDown, d) = width * C * d * (2 * g * (HUp - HDown)) ^ 0.5
@@ -50,10 +63,15 @@ class Example(CSVMixin, ModelicaMixin, CollocatedIntegratedOptimizationProblem):
         C = 1.0  # none    orifice constant
         g = 9.8  # m/s^2   gravitational acceleration
         constraints.append(
-            (((self.state('Q_orifice') / (w * C * d)) ** 2) / (2 * g) +
-             self.state('orifice.HQDown.H') - self.state('orifice.HQUp.H') -
-             M * (1 - self.state('is_downhill')),
-             -np.inf, 0.0))
+            (
+                ((self.state('Q_orifice') / (w * C * d)) ** 2) / (2 * g)
+                + self.state('orifice.HQDown.H')
+                - self.state('orifice.HQUp.H')
+                - M * (1 - self.state('is_downhill')),
+                -np.inf,
+                0.0,
+            )
+        )
 
         return constraints
 

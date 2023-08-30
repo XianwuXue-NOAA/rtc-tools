@@ -19,7 +19,6 @@ class DummyDataStore(DataStoreAccessor):
 
 
 class TestDummyDataStore(TestCase):
-
     def setUp(self):
         self.datastore = DummyDataStore(input_folder='dummyInput', output_folder='dummyOutput')
         self.tolerance = 1e-6
@@ -65,7 +64,9 @@ class TestDummyDataStore(TestCase):
 
         # Check that we can no longer overwrite the reference datetime,
         # because we called get_timeseries_sec/set_timeseries_sec.
-        with self.assertRaisesRegex(RuntimeError, "Cannot change reference datetime after times in seconds"):
+        with self.assertRaisesRegex(
+            RuntimeError, "Cannot change reference datetime after times in seconds"
+        ):
             self.datastore.io.reference_datetime = datetime(2010, 1, 1)
 
         # expect a KeyError when getting timeseries for an ensemble member that doesn't exist
@@ -74,7 +75,9 @@ class TestDummyDataStore(TestCase):
 
         # Set timeseries with times in seconds
         expected_values = np.array([1.1, 1.4, 1.5])
-        self.datastore.io.set_timeseries_sec('ensembleVariable', times_sec, expected_values, ensemble_member=1)
+        self.datastore.io.set_timeseries_sec(
+            'ensembleVariable', times_sec, expected_values, ensemble_member=1
+        )
         with self.assertRaises(KeyError):
             self.datastore.io.get_timeseries('ensembleVariable', 0)
         _, actual_values = self.datastore.io.get_timeseries('ensembleVariable', 1)
@@ -83,10 +86,16 @@ class TestDummyDataStore(TestCase):
         # expect a warning when overwriting a timeseries with check_duplicates=True
         new_values = np.array([2.1, 1.1, 0.1])
         with self.assertLogs(logger, level='WARN') as cm:
-            self.datastore.io.set_timeseries('myNewVariable', datetimes, new_values, check_duplicates=True)
-            self.assertEqual(cm.output,
-                             ['WARNING:rtctools:Time series values for ensemble member 0 and variable '
-                              'myNewVariable set twice. Overwriting old values.'])
+            self.datastore.io.set_timeseries(
+                'myNewVariable', datetimes, new_values, check_duplicates=True
+            )
+            self.assertEqual(
+                cm.output,
+                [
+                    'WARNING:rtctools:Time series values for ensemble member 0 and variable '
+                    'myNewVariable set twice. Overwriting old values.'
+                ],
+            )
         _, actual_values = self.datastore.io.get_timeseries('myNewVariable')
         self.assertTrue(np.array_equal(actual_values, new_values))
 
@@ -95,7 +104,9 @@ class TestDummyDataStore(TestCase):
         with self.assertLogs(logger, level='WARN') as cm:
             self.datastore.io.set_timeseries('myNewVariable', datetimes, newest_values)
             self.assertEqual(cm.output, [])
-            logger.warning('All is well')  # if no log message occurs, assertLogs will throw an AssertionError
+            logger.warning(
+                'All is well'
+            )  # if no log message occurs, assertLogs will throw an AssertionError
         _, actual_values = self.datastore.io.get_timeseries('myNewVariable')
         self.assertTrue(np.array_equal(actual_values, newest_values))
 
@@ -125,9 +136,13 @@ class TestDummyDataStore(TestCase):
         # expect a warning when overwriting a parameter with check_duplicates=True
         with self.assertLogs(logger, level='WARN') as cm:
             self.datastore.io.set_parameter('myNewParameter', 2.5, check_duplicates=True)
-            self.assertEqual(cm.output,
-                             ['WARNING:rtctools:Attempting to set parameter value for ensemble member 0 '
-                              'and name myNewParameter twice. Using new value of 2.5.'])
+            self.assertEqual(
+                cm.output,
+                [
+                    'WARNING:rtctools:Attempting to set parameter value for ensemble member 0 '
+                    'and name myNewParameter twice. Using new value of 2.5.'
+                ],
+            )
         self.assertEqual(self.datastore.io.get_parameter('myNewParameter'), 2.5)
         self.assertEqual(self.datastore.io.parameters()['myNewParameter'], 2.5)
 
@@ -135,6 +150,8 @@ class TestDummyDataStore(TestCase):
         with self.assertLogs(logger, level='WARN') as cm:
             self.datastore.io.set_parameter('myNewParameter', 2.2)
             self.assertEqual(cm.output, [])
-            logger.warning('All is well')  # if no log message occurs, assertLogs will throw an AssertionError
+            logger.warning(
+                'All is well'
+            )  # if no log message occurs, assertLogs will throw an AssertionError
         self.assertEqual(self.datastore.io.get_parameter('myNewParameter'), 2.2)
         self.assertEqual(self.datastore.io.parameters()['myNewParameter'], 2.2)

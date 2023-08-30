@@ -47,28 +47,30 @@ class CSVMixin(IOMixin):
                 raise Exception(
                     'CSVMixin: Initial state file {} contains more than one row of data. '
                     'Please remove the data row(s) that do not describe the initial '
-                    'state.'.format(os.path.join(self._input_folder, 'initial_state.csv')))
+                    'state.'.format(os.path.join(self._input_folder, 'initial_state.csv'))
+                )
 
         # Read CSV files
         _timeseries = csv.load(
             os.path.join(self._input_folder, self.timeseries_import_basename + '.csv'),
-            delimiter=self.csv_delimiter, with_time=True)
+            delimiter=self.csv_delimiter,
+            with_time=True,
+        )
         self.__timeseries_times = _timeseries[_timeseries.dtype.names[0]]
 
         self.io.reference_datetime = self.__timeseries_times[0]
 
         for key in _timeseries.dtype.names[1:]:
             self.io.set_timeseries(
-                key,
-                self.__timeseries_times,
-                np.asarray(_timeseries[key], dtype=np.float64))
+                key, self.__timeseries_times, np.asarray(_timeseries[key], dtype=np.float64)
+            )
 
         logger.debug("CSVMixin: Read timeseries.")
 
         try:
             _parameters = csv.load(
-                os.path.join(self._input_folder, 'parameters.csv'),
-                delimiter=self.csv_delimiter)
+                os.path.join(self._input_folder, 'parameters.csv'), delimiter=self.csv_delimiter
+            )
             for key in _parameters.dtype.names:
                 self.io.set_parameter(key, float(_parameters[key]))
             logger.debug("CSVMixin: Read parameters.")
@@ -77,12 +79,13 @@ class CSVMixin(IOMixin):
 
         try:
             _initial_state = csv.load(
-                os.path.join(self._input_folder, 'initial_state.csv'),
-                delimiter=self.csv_delimiter)
+                os.path.join(self._input_folder, 'initial_state.csv'), delimiter=self.csv_delimiter
+            )
             logger.debug("CSVMixin: Read initial state.")
             check_initial_state_array(_initial_state)
             self.__initial_state = {
-                key: float(_initial_state[key]) for key in _initial_state.dtype.names}
+                key: float(_initial_state[key]) for key in _initial_state.dtype.names
+            }
         except IOError:
             self.__initial_state = {}
 
@@ -93,15 +96,15 @@ class CSVMixin(IOMixin):
             else:
                 logger.warning(
                     'CSVMixin: Entry {} in initial_state.csv conflicts with '
-                    'timeseries_import.csv'.format(collision))
+                    'timeseries_import.csv'.format(collision)
+                )
 
         # Timestamp check
         if self.csv_validate_timeseries:
             times = self.__timeseries_times
             for i in range(len(times) - 1):
                 if times[i] >= times[i + 1]:
-                    raise Exception(
-                        'CSVMixin: Time stamps must be strictly increasing.')
+                    raise Exception('CSVMixin: Time stamps must be strictly increasing.')
 
         times = self.__timeseries_times
         dt = times[1] - times[0]
@@ -113,8 +116,8 @@ class CSVMixin(IOMixin):
                     raise Exception(
                         'CSVMixin: Expecting equidistant timeseries, the time step '
                         'towards {} is not the same as the time step(s) before. '
-                        'Set equidistant=False if this is intended.'.format(
-                            times[i + 1]))
+                        'Set equidistant=False if this is intended.'.format(times[i + 1])
+                    )
 
     def write(self):
         # Call parent class first for default behaviour.
@@ -149,7 +152,6 @@ class CSVMixin(IOMixin):
 
         # Load initial states from __initial_state
         for variable, value in self.__initial_state.items():
-
             # Get the cannonical vars and signs
             canonical_var, sign = self.alias_relation.canonical_signed(variable)
 
@@ -160,5 +162,9 @@ class CSVMixin(IOMixin):
                 if logger.getEffectiveLevel() == logging.DEBUG:
                     logger.debug("CSVMixin: Read initial state {} = {}".format(variable, value))
             else:
-                logger.warning("CSVMixin: In initial_state.csv, {} is not an input or state variable.".format(variable))
+                logger.warning(
+                    "CSVMixin: In initial_state.csv, {} is not an input or state variable.".format(
+                        variable
+                    )
+                )
         return initial_state

@@ -13,7 +13,6 @@ class DebugLevel(IntEnum):
 
 
 def debug_check(level):
-
     def noop(*args, **kwargs):
         pass
 
@@ -38,4 +37,5 @@ def debug_check(level):
                 return noop(*args, **kwargs)
 
         return func_wrapper
+
     return wrap

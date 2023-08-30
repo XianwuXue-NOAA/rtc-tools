@@ -1,10 +1,10 @@
 import numpy as np
 
-from rtctools.optimization.collocated_integrated_optimization_problem \
-    import CollocatedIntegratedOptimizationProblem
+from rtctools.optimization.collocated_integrated_optimization_problem import (
+    CollocatedIntegratedOptimizationProblem,
+)
 from rtctools.optimization.csv_mixin import CSVMixin
-from rtctools.optimization.goal_programming_mixin \
-    import Goal, GoalProgrammingMixin, StateGoal
+from rtctools.optimization.goal_programming_mixin import Goal, GoalProgrammingMixin, StateGoal
 from rtctools.optimization.modelica_mixin import ModelicaMixin
 from rtctools.util import run_optimization_problem
 
@@ -50,14 +50,16 @@ class MinimizeChangeInQpumpGoal(Goal):
     # step.
     def function(self, optimization_problem, ensemble_member):
         return optimization_problem.der('Q_pump')
+
     function_nominal = 5.0
     priority = 3
     # Default order is 2, but we want to be explicit
     order = 2
 
 
-class Example(GoalProgrammingMixin, CSVMixin, ModelicaMixin,
-              CollocatedIntegratedOptimizationProblem):
+class Example(
+    GoalProgrammingMixin, CSVMixin, ModelicaMixin, CollocatedIntegratedOptimizationProblem
+):
     """
     An introductory example to goal programming in RTC-Tools
     """
@@ -70,16 +72,29 @@ class Example(GoalProgrammingMixin, CSVMixin, ModelicaMixin,
 
         # Release through orifice downhill only. This constraint enforces the
         # fact that water only flows downhill
-        constraints.append((self.state('Q_orifice') +
-                           (1 - self.state('is_downhill')) * 10, 0.0, 10.0))
+        constraints.append(
+            (self.state('Q_orifice') + (1 - self.state('is_downhill')) * 10, 0.0, 10.0)
+        )
 
         # Make sure is_downhill is true only when the sea is lower than the
         # water level in the storage.
         M = 2  # The so-called "big-M"
-        constraints.append((self.state('H_sea') - self.state('storage.HQ.H') -
-                           (1 - self.state('is_downhill')) * M, -np.inf, 0.0))
-        constraints.append((self.state('H_sea') - self.state('storage.HQ.H') +
-                           self.state('is_downhill') * M, 0.0, np.inf))
+        constraints.append(
+            (
+                self.state('H_sea')
+                - self.state('storage.HQ.H')
+                - (1 - self.state('is_downhill')) * M,
+                -np.inf,
+                0.0,
+            )
+        )
+        constraints.append(
+            (
+                self.state('H_sea') - self.state('storage.HQ.H') + self.state('is_downhill') * M,
+                0.0,
+                np.inf,
+            )
+        )
 
         # Orifice flow constraint. Uses the equation:
         # Q(HUp, HDown, d) = width * C * d * (2 * g * (HUp - HDown)) ^ 0.5
@@ -90,10 +105,15 @@ class Example(GoalProgrammingMixin, CSVMixin, ModelicaMixin,
         C = 1.0  # none    orifice constant
         g = 9.8  # m/s^2   gravitational acceleration
         constraints.append(
-            (((self.state('Q_orifice') / (w * C * d)) ** 2) / (2 * g) +
-             self.state('orifice.HQDown.H') - self.state('orifice.HQUp.H') -
-             M * (1 - self.state('is_downhill')),
-             -np.inf, 0.0))
+            (
+                ((self.state('Q_orifice') / (w * C * d)) ** 2) / (2 * g)
+                + self.state('orifice.HQDown.H')
+                - self.state('orifice.HQUp.H')
+                - M * (1 - self.state('is_downhill')),
+                -np.inf,
+                0.0,
+            )
+        )
 
         return constraints
 
@@ -124,21 +144,28 @@ class Example(GoalProgrammingMixin, CSVMixin, ModelicaMixin,
         _max = 0.44 + 1e-4
 
         results = self.extract_results()
-        n_level_satisfied = sum(
-            1 for x in results['storage.HQ.H'] if _min <= x <= _max)
+        n_level_satisfied = sum(1 for x in results['storage.HQ.H'] if _min <= x <= _max)
         q_pump_integral = sum(results['Q_pump'])
-        q_pump_sum_changes = np.sum(np.diff(results['Q_pump'])**2)
+        q_pump_sum_changes = np.sum(np.diff(results['Q_pump']) ** 2)
         self.intermediate_results.append(
-            (priority, n_level_satisfied, q_pump_integral, q_pump_sum_changes))
+            (priority, n_level_satisfied, q_pump_integral, q_pump_sum_changes)
+        )
 
     def post(self):
         # Call super() class to not overwrite default behaviour
         super().post()
-        for priority, n_level_satisfied, q_pump_integral, q_pump_sum_changes \
-                in self.intermediate_results:
+        for (
+            priority,
+            n_level_satisfied,
+            q_pump_integral,
+            q_pump_sum_changes,
+        ) in self.intermediate_results:
             print('\nAfter finishing goals of priority {}:'.format(priority))
-            print('Level goal satisfied at {} of {} time steps'.format(
-                n_level_satisfied, len(self.times())))
+            print(
+                'Level goal satisfied at {} of {} time steps'.format(
+                    n_level_satisfied, len(self.times())
+                )
+            )
             print('Integral of Q_pump = {:.2f}'.format(q_pump_integral))
             print('Sum of squares of changes in Q_pump: {:.2f}'.format(q_pump_sum_changes))
 

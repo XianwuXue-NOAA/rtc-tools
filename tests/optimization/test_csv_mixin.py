@@ -27,7 +27,7 @@ class Model(CSVMixin, ModelicaMixin, CollocatedIntegratedOptimizationProblem):
     def objective(self, ensemble_member):
         # Quadratic penalty on state 'x' at final time
         xf = self.state_at("x", self.times()[-1])
-        f = xf ** 2
+        f = xf**2
         return f
 
     def constraints(self, ensemble_member):
@@ -42,7 +42,6 @@ class Model(CSVMixin, ModelicaMixin, CollocatedIntegratedOptimizationProblem):
 
 
 class ModelEnsemble(Model):
-
     csv_ensemble_mode = True
 
     def __init__(self):

@@ -12,7 +12,6 @@ logger.setLevel(logging.INFO)
 
 
 def copy_libraries(*args):
-
     if not args:
         args = sys.argv[1:]
 
@@ -42,11 +41,15 @@ def copy_libraries(*args):
                     # Pick the largest one, assuming that all plugin packages
                     # to not provide a meaningful package.mo
                     if os.stat(s).st_size > os.stat(d).st_size:
-                        logger.warning("Overwriting '{}' with '{}' as the latter is larger.".format(d, s))
+                        logger.warning(
+                            "Overwriting '{}' with '{}' as the latter is larger.".format(d, s)
+                        )
                         os.remove(d)
                         shutil.copy2(s, d)
                     else:
-                        logger.warning("Not copying '{}' to '{}' as the latter is larger.".format(s, d))
+                        logger.warning(
+                            "Not copying '{}' to '{}' as the latter is larger.".format(s, d)
+                        )
                 else:
                     raise OSError("Could not combine two folders")
 
@@ -56,7 +59,8 @@ def copy_libraries(*args):
     for ep in pkg_resources.iter_entry_points(group='rtctools.libraries.modelica'):
         if ep.name == "library_folder":
             library_folders.append(
-                Path(pkg_resources.resource_filename(ep.module_name, ep.attrs[0])))
+                Path(pkg_resources.resource_filename(ep.module_name, ep.attrs[0]))
+            )
 
     tlds = {}
     for lf in library_folders:
@@ -78,7 +82,6 @@ def copy_libraries(*args):
 
 
 def download_examples(*args):
-
     if not args:
         args = sys.argv[1:]
 
@@ -102,8 +105,9 @@ def download_examples(*args):
     version = rtctools.__version__
     rtc_full_name = 'rtc-tools-{}'.format(version)
     try:
-        url = 'https://gitlab.com/deltares/rtc-tools/-/archive/' \
-            '{}/{}.zip'.format(version, rtc_full_name)
+        url = 'https://gitlab.com/deltares/rtc-tools/-/archive/' '{}/{}.zip'.format(
+            version, rtc_full_name
+        )
 
         opener = urllib.request.build_opener()
         opener.addheaders = [('User-agent', user_agent)]

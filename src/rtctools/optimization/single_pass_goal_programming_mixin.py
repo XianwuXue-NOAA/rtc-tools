@@ -92,7 +92,9 @@ class SinglePassGoalProgrammingMixin(_GoalProgrammingMixinBase):
         self.__path_objectives_per_priority = []
 
         if isinstance(self, GoalProgrammingMixin):
-            raise Exception("Cannot be an instance of both GoalProgrammingMixin and SinglePassGoalProgrammingMixin")
+            raise Exception(
+                "Cannot be an instance of both GoalProgrammingMixin and SinglePassGoalProgrammingMixin"
+            )
 
     @property
     def extra_variables(self):
@@ -104,7 +106,7 @@ class SinglePassGoalProgrammingMixin(_GoalProgrammingMixinBase):
 
     def bounds(self):
         bounds = super().bounds()
-        for epsilon in (self.__problem_epsilons + self.__problem_path_epsilons):
+        for epsilon in self.__problem_epsilons + self.__problem_path_epsilons:
             bounds[epsilon.name()] = (0.0, 1.0)
         return bounds
 
@@ -115,7 +117,7 @@ class SinglePassGoalProgrammingMixin(_GoalProgrammingMixinBase):
 
         # Append min/max timeseries to the constant inputs. Note that min/max
         # timeseries are shared between all ensemble members.
-        for (variable, value) in self.__problem_path_timeseries:
+        for variable, value in self.__problem_path_timeseries:
             if isinstance(value, np.ndarray):
                 value = Timeseries(self.times(), np.broadcast_to(value, (n_times, len(value))))
             elif not isinstance(value, Timeseries):
@@ -129,7 +131,7 @@ class SinglePassGoalProgrammingMixin(_GoalProgrammingMixinBase):
 
         # Append min/max values to the parameters. Note that min/max values
         # are shared between all ensemble members.
-        for (variable, value) in self.__problem_parameters:
+        for variable, value in self.__problem_parameters:
             parameters[variable] = value
 
         return parameters
@@ -143,7 +145,8 @@ class SinglePassGoalProgrammingMixin(_GoalProgrammingMixinBase):
 
         additional_constraints = itertools.chain(
             self.__constraint_store[ensemble_member].values(),
-            self.__problem_constraints[ensemble_member])
+            self.__problem_constraints[ensemble_member],
+        )
 
         for constraint in additional_constraints:
             constraints.append((constraint.function(self), constraint.min, constraint.max))
@@ -155,7 +158,8 @@ class SinglePassGoalProgrammingMixin(_GoalProgrammingMixinBase):
 
         additional_path_constraints = itertools.chain(
             self.__path_constraint_store[ensemble_member].values(),
-            self.__problem_path_constraints[ensemble_member])
+            self.__problem_path_constraints[ensemble_member],
+        )
 
         for constraint in additional_path_constraints:
             path_constraints.append((constraint.function(self), constraint.min, constraint.max))
@@ -163,7 +167,6 @@ class SinglePassGoalProgrammingMixin(_GoalProgrammingMixinBase):
         return path_constraints
 
     def solver_options(self):
-
         # TODO: Split off into private
 
         # Call parent
@@ -185,8 +188,7 @@ class SinglePassGoalProgrammingMixin(_GoalProgrammingMixinBase):
             if not self.goal_programming_options()['mu_reinit']:
                 ipopt_options['mu_strategy'] = 'monotone'
                 if not self._gp_first_run:
-                    ipopt_options['mu_init'] = self.solver_stats['iterations'][
-                        'mu'][-1]
+                    ipopt_options['mu_init'] = self.solver_stats['iterations']['mu'][-1]
 
         delattr(self, '_loop_breaker_solver_options')
 
@@ -288,13 +290,26 @@ class SinglePassGoalProgrammingMixin(_GoalProgrammingMixinBase):
         self._gp_validate_goals(goals, is_path_goal=False)
         self._gp_validate_goals(path_goals, is_path_goal=True)
 
-        priorities = sorted({int(goal.priority) for goal in itertools.chain(goals, path_goals) if not goal.is_empty})
+        priorities = sorted(
+            {int(goal.priority) for goal in itertools.chain(goals, path_goals) if not goal.is_empty}
+        )
 
         for priority in priorities:
-            subproblems.append((
-                priority,
-                [goal for goal in goals if int(goal.priority) == priority and not goal.is_empty],
-                [goal for goal in path_goals if int(goal.priority) == priority and not goal.is_empty]))
+            subproblems.append(
+                (
+                    priority,
+                    [
+                        goal
+                        for goal in goals
+                        if int(goal.priority) == priority and not goal.is_empty
+                    ],
+                    [
+                        goal
+                        for goal in path_goals
+                        if int(goal.priority) == priority and not goal.is_empty
+                    ],
+                )
+            )
 
         # Solve the subproblems one by one
         logger.info("Starting goal programming")
@@ -302,7 +317,9 @@ class SinglePassGoalProgrammingMixin(_GoalProgrammingMixinBase):
         success = False
 
         self.__constraint_store = [OrderedDict() for ensemble_member in range(self.ensemble_size)]
-        self.__path_constraint_store = [OrderedDict() for ensemble_member in range(self.ensemble_size)]
+        self.__path_constraint_store = [
+            OrderedDict() for ensemble_member in range(self.ensemble_size)
+        ]
 
         self.__problem_constraints = [[] for ensemble_member in range(self.ensemble_size)]
         self.__problem_path_constraints = [[] for ensemble_member in range(self.ensemble_size)]
@@ -325,15 +342,21 @@ class SinglePassGoalProgrammingMixin(_GoalProgrammingMixinBase):
         self.__objectives = []
 
         for i, (_, goals, path_goals) in enumerate(subproblems):
-            (subproblem_epsilons, subproblem_objectives,
-             subproblem_soft_constraints, hard_constraints,
-             subproblem_parameters) = \
-                self._gp_goal_constraints(goals, i, options, is_path_goal=False)
+            (
+                subproblem_epsilons,
+                subproblem_objectives,
+                subproblem_soft_constraints,
+                hard_constraints,
+                subproblem_parameters,
+            ) = self._gp_goal_constraints(goals, i, options, is_path_goal=False)
 
-            (subproblem_path_epsilons, subproblem_path_objectives,
-             subproblem_path_soft_constraints, path_hard_constraints,
-             subproblem_path_timeseries) = \
-                self._gp_goal_constraints(path_goals, i, options, is_path_goal=True)
+            (
+                subproblem_path_epsilons,
+                subproblem_path_objectives,
+                subproblem_path_soft_constraints,
+                path_hard_constraints,
+                subproblem_path_timeseries,
+            ) = self._gp_goal_constraints(path_goals, i, options, is_path_goal=True)
 
             # Put hard constraints in the constraint stores
             self._gp_update_constraint_store(self.__constraint_store, hard_constraints)
@@ -349,9 +372,11 @@ class SinglePassGoalProgrammingMixin(_GoalProgrammingMixinBase):
 
             for ensemble_member in range(self.ensemble_size):
                 self.__problem_constraints[ensemble_member].extend(
-                    subproblem_soft_constraints[ensemble_member])
+                    subproblem_soft_constraints[ensemble_member]
+                )
                 self.__problem_path_constraints[ensemble_member].extend(
-                    subproblem_path_soft_constraints[ensemble_member])
+                    subproblem_path_soft_constraints[ensemble_member]
+                )
 
             self.__objectives_per_priority.append(subproblem_objectives)
             self.__path_objectives_per_priority.append(subproblem_path_objectives)
@@ -364,7 +389,10 @@ class SinglePassGoalProgrammingMixin(_GoalProgrammingMixinBase):
 
             # Solve subproblem
             success = super().optimize(
-                preprocessing=False, postprocessing=False, log_solver_failure_as_error=log_solver_failure_as_error)
+                preprocessing=False,
+                postprocessing=False,
+                log_solver_failure_as_error=log_solver_failure_as_error,
+            )
             if not success:
                 break
 
@@ -376,15 +404,18 @@ class SinglePassGoalProgrammingMixin(_GoalProgrammingMixinBase):
             # two relevant options here for later use.
             options = self.goal_programming_options()
             self.__objective_constraint_options = {
-                k: v for k, v in options.items()
+                k: v
+                for k, v in options.items()
                 if k in {'fix_minimized_values', 'constraint_relaxation'}
             }
 
             # Store results.  Do this here, to make sure we have results even
             # if a subsequent priority fails.
             self.__results_are_current = False
-            self.__results = [self.extract_results(
-                ensemble_member) for ensemble_member in range(self.ensemble_size)]
+            self.__results = [
+                self.extract_results(ensemble_member)
+                for ensemble_member in range(self.ensemble_size)
+            ]
             self.__results_are_current = True
 
             # Call the post priority hook, so that intermediate results can be
@@ -403,16 +434,21 @@ class SinglePassGoalProgrammingMixin(_GoalProgrammingMixinBase):
         return success
 
     def transcribe(self):
-
         def _objective_func(subproblem_objectives, subproblem_path_objectives):
             val = 0.0
             for ensemble_member in range(self.ensemble_size):
                 n_objectives = self._gp_n_objectives(
-                    subproblem_objectives, subproblem_path_objectives, ensemble_member)
+                    subproblem_objectives, subproblem_path_objectives, ensemble_member
+                )
                 expr = self._gp_objective(subproblem_objectives, n_objectives, ensemble_member)
-                expr += ca.sum1(self.map_path_expression(
-                    self._gp_path_objective(subproblem_path_objectives, n_objectives, ensemble_member),
-                    ensemble_member))
+                expr += ca.sum1(
+                    self.map_path_expression(
+                        self._gp_path_objective(
+                            subproblem_path_objectives, n_objectives, ensemble_member
+                        ),
+                        ensemble_member,
+                    )
+                )
                 val += self.ensemble_member_probability(ensemble_member) * expr
 
             return val
@@ -426,8 +462,11 @@ class SinglePassGoalProgrammingMixin(_GoalProgrammingMixinBase):
 
             # Objectives
             for subproblem_objectives, subproblem_path_objectives in zip(
-                    self.__objectives_per_priority, self.__path_objectives_per_priority):
-                self.__objectives.append(_objective_func(subproblem_objectives, subproblem_path_objectives))
+                self.__objectives_per_priority, self.__path_objectives_per_priority
+            ):
+                self.__objectives.append(
+                    _objective_func(subproblem_objectives, subproblem_path_objectives)
+                )
 
             if self.single_pass_method == SinglePassMethod.UPDATE_OBJECTIVE_CONSTRAINT_BOUNDS:
                 # The objectives are also directly added as constraints
@@ -450,7 +489,9 @@ class SinglePassGoalProgrammingMixin(_GoalProgrammingMixinBase):
                 lb, ub = -np.inf, obj_val
 
             if self.single_pass_method == SinglePassMethod.APPEND_CONSTRAINTS_OBJECTIVE:
-                self.__additional_constraints.append((self.__objectives[self.__current_priority - 1], lb, ub))
+                self.__additional_constraints.append(
+                    (self.__objectives[self.__current_priority - 1], lb, ub)
+                )
             elif self.single_pass_method == SinglePassMethod.UPDATE_OBJECTIVE_CONSTRAINT_BOUNDS:
                 ind = self.__current_priority - 1
                 constraint = self.__additional_constraints[ind]
@@ -508,9 +549,10 @@ class CachingQPSol:
         self._tlcache = {}
 
     def __call__(self, name, solver_name, nlp, options):
-
         class Solver:
-            def __init__(self, nlp=nlp, solver_name=solver_name, options=options, cache=self._tlcache):
+            def __init__(
+                self, nlp=nlp, solver_name=solver_name, options=options, cache=self._tlcache
+            ):
                 x = nlp['x']
                 f = nlp['f']
                 g = nlp['g']
@@ -535,13 +577,15 @@ class CachingQPSol:
                 c = ca.substitute(gf, x, ca.DM.zeros(x.sparsity()))
 
                 # Identify the quadratic term in the objective
-                H = 0.5*ca.jacobian(gf, x, {"symmetric": True})
+                H = 0.5 * ca.jacobian(gf, x, {"symmetric": True})
 
                 if cache:
                     if not x.size1() == cache['A'].size2():
                         raise Exception(
                             "Number of variables {} does not match cached constraint matrix dimensions {}".format(
-                                x.size1(), cache['A'].shape))
+                                x.size1(), cache['A'].shape
+                            )
+                        )
 
                     n_g_cache = cache['A'].size1()
                     n_g = g.size1()
@@ -557,12 +601,12 @@ class CachingQPSol:
                             g_new = expand_g_new(x)
 
                         # Identify the constant term in the constraints
-                        b = ca.vertcat(cache['b'],
-                                       ca.substitute(g_new, x, ca.DM.zeros(x.sparsity())))
+                        b = ca.vertcat(
+                            cache['b'], ca.substitute(g_new, x, ca.DM.zeros(x.sparsity()))
+                        )
 
                         # Identify the linear term in the constraints
-                        A = ca.vertcat(cache['A'],
-                                       ca.jacobian(g_new, x))
+                        A = ca.vertcat(cache['A'], ca.jacobian(g_new, x))
                 else:
                     if expand:
                         expand_g = ca.Function('f', [x_mx], [g]).expand()
@@ -577,13 +621,9 @@ class CachingQPSol:
                 cache['A'] = A
                 cache['b'] = b
 
-                self._solver = ca.conic("mysolver",
-                                        solver_name,
-                                        {
-                                            'h': H.sparsity(),
-                                            'a': A.sparsity()
-                                        },
-                                        options)
+                self._solver = ca.conic(
+                    "mysolver", solver_name, {'h': H.sparsity(), 'a': A.sparsity()}, options
+                )
                 self._solver_in = {}
                 self._solver_in["h"] = ca.DM(H)
                 self._solver_in["g"] = ca.DM(c)
@@ -591,7 +631,6 @@ class CachingQPSol:
                 self._b = ca.DM(b)
 
             def __call__(self, x0, lbx, ubx, lbg, ubg):
-
                 self._solver_in["x0"] = x0
                 self._solver_in["lbx"] = lbx
                 self._solver_in["ubx"] = ubx

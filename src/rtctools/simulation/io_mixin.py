@@ -44,7 +44,7 @@ class IOMixin(SimulationProblem, metaclass=ABCMeta):
 
     @abstractmethod
     def write(self) -> None:
-        """"
+        """ "
         Writes output data to files, getting the data from the data store through the various get methods
         """
         pass
@@ -102,8 +102,11 @@ class IOMixin(SimulationProblem, metaclass=ABCMeta):
             if isfinite(value):
                 self.set_var(variable, value)
             else:
-                logger.debug("IOMixin: Found bad value {} at index [{}] in timeseries aliased to input {}"
-                             .format(value, t_idx, variable))
+                logger.debug(
+                    "IOMixin: Found bad value {} at index [{}] in timeseries aliased to input {}".format(
+                        value, t_idx, variable
+                    )
+                )
 
     def update(self, dt):
         # Time step

@@ -1,5 +1,6 @@
-from rtctools.optimization.collocated_integrated_optimization_problem \
-    import CollocatedIntegratedOptimizationProblem
+from rtctools.optimization.collocated_integrated_optimization_problem import (
+    CollocatedIntegratedOptimizationProblem,
+)
 from rtctools.optimization.csv_mixin import CSVMixin
 from rtctools.optimization.modelica_mixin import ModelicaMixin
 from rtctools.util import run_optimization_problem

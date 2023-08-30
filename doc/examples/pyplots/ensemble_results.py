@@ -38,12 +38,8 @@ for idx, forecast in enumerate(forecast_names):
     # Upper Subplot
     results = forcasts[forecast]
     if idx == 0:
-        axarr[0].plot(
-            times, results["v_max"], label="Max", linewidth=2, color="r", linestyle="--"
-        )
-        axarr[0].plot(
-            times, results["v_min"], label="Min", linewidth=2, color="g", linestyle="--"
-        )
+        axarr[0].plot(times, results["v_max"], label="Max", linewidth=2, color="r", linestyle="--")
+        axarr[0].plot(times, results["v_min"], label="Min", linewidth=2, color="g", linestyle="--")
     axarr[0].plot(
         times,
         results["v_storage"],
@@ -55,17 +51,27 @@ for idx, forecast in enumerate(forecast_names):
     # middle subplot
     # put dots to see at which times the decision variables are defined:
     axarr[1].scatter(times, results["q_in"], linewidth=1, color=get_cmap(cmaps[idx])(shades[0]))
-    axarr[1].scatter(times, results["q_release"], linewidth=1, color=get_cmap(cmaps[idx])(shades[1]))
+    axarr[1].scatter(
+        times, results["q_release"], linewidth=1, color=get_cmap(cmaps[idx])(shades[1])
+    )
 
     # add horizontal lines to the left of these dots, to indicate that the value is attained over an entire timestep:
     axarr[1].step(
-        times, results["q_in"],
-        linewidth=2, where='pre', label="{}:Inflow".format(forecast),
-        color=get_cmap(cmaps[idx])(shades[0]))
+        times,
+        results["q_in"],
+        linewidth=2,
+        where='pre',
+        label="{}:Inflow".format(forecast),
+        color=get_cmap(cmaps[idx])(shades[0]),
+    )
     axarr[1].step(
-        times, results["q_release"],
-        linewidth=1, where='pre', label="{}:Release".format(forecast),
-        color=get_cmap(cmaps[idx])(shades[1]))
+        times,
+        results["q_release"],
+        linewidth=1,
+        where='pre',
+        label="{}:Release".format(forecast),
+        color=get_cmap(cmaps[idx])(shades[1]),
+    )
 
     # Lower Subplot
     axarr[2].plot(

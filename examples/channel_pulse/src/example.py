@@ -7,9 +7,7 @@ from rtctools.optimization.modelica_mixin import ModelicaMixin
 from rtctools.util import run_optimization_problem
 
 
-class Example(
-    HomotopyMixin, CSVMixin, ModelicaMixin, CollocatedIntegratedOptimizationProblem
-):
+class Example(HomotopyMixin, CSVMixin, ModelicaMixin, CollocatedIntegratedOptimizationProblem):
     def parameters(self, ensemble_member):
         p = super().parameters(ensemble_member)
         times = self.times()

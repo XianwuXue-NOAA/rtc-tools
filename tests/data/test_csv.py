@@ -7,7 +7,6 @@ from .data_path import data_path
 
 
 class TestCSV(TestCase):
-
     def setUp(self):
         pass
 

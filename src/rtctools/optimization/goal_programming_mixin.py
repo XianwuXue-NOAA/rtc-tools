@@ -10,7 +10,11 @@ import numpy as np
 from rtctools._internal.alias_tools import AliasDict
 
 from .goal_programming_mixin_base import Goal, StateGoal, _GoalProgrammingMixinBase  # noqa: F401
-from .goal_programming_mixin_base import _EmptyEnsembleList, _EmptyEnsembleOrderedDict, _GoalConstraint
+from .goal_programming_mixin_base import (
+    _EmptyEnsembleList,
+    _EmptyEnsembleOrderedDict,
+    _GoalConstraint,
+)
 from .timeseries import Timeseries
 
 logger = logging.getLogger("rtctools")
@@ -62,8 +66,12 @@ class GoalProgrammingMixin(_GoalProgrammingMixinBase):
 
     def bounds(self):
         bounds = super().bounds()
-        for epsilon in (self.__subproblem_epsilons + self.__subproblem_path_epsilons +
-                        self.__problem_epsilons + self.__problem_path_epsilons):
+        for epsilon in (
+            self.__subproblem_epsilons
+            + self.__subproblem_path_epsilons
+            + self.__problem_epsilons
+            + self.__problem_path_epsilons
+        ):
             bounds[epsilon.name()] = (0.0, 1.0)
         return bounds
 
@@ -82,7 +90,7 @@ class GoalProgrammingMixin(_GoalProgrammingMixinBase):
 
         # Append min/max timeseries to the constant inputs. Note that min/max
         # timeseries are shared between all ensemble members.
-        for (variable, value) in self.__subproblem_path_timeseries + self.__problem_path_timeseries:
+        for variable, value in self.__subproblem_path_timeseries + self.__problem_path_timeseries:
             if isinstance(value, np.ndarray):
                 value = Timeseries(self.times(), np.broadcast_to(value, (n_times, len(value))))
             elif not isinstance(value, Timeseries):
@@ -104,7 +112,7 @@ class GoalProgrammingMixin(_GoalProgrammingMixinBase):
 
         # Append min/max values to the parameters. Note that min/max values
         # are shared between all ensemble members.
-        for (variable, value) in self.__subproblem_parameters + self.__problem_parameters:
+        for variable, value in self.__subproblem_parameters + self.__problem_parameters:
             parameters[variable] = value
         return parameters
 
@@ -116,13 +124,15 @@ class GoalProgrammingMixin(_GoalProgrammingMixinBase):
             seed = AliasDict(self.alias_relation)
             for key, result in self.__results[ensemble_member].items():
                 times = self.times(key)
-                if ((result.ndim == 1 and len(result) == len(times))
-                        or (result.ndim == 2 and result.shape[0] == len(times))):
+                if (result.ndim == 1 and len(result) == len(times)) or (
+                    result.ndim == 2 and result.shape[0] == len(times)
+                ):
                     # Only include seed timeseries which are consistent
                     # with the specified time stamps.
                     seed[key] = Timeseries(times, result)
-                elif ((result.ndim == 1 and len(result) == 1)
-                        or (result.ndim == 2 and result.shape[0] == 1)):
+                elif (result.ndim == 1 and len(result) == 1) or (
+                    result.ndim == 2 and result.shape[0] == 1
+                ):
                     seed[key] = result
 
         # Seed epsilons of current priority
@@ -144,14 +154,18 @@ class GoalProgrammingMixin(_GoalProgrammingMixinBase):
         return seed
 
     def objective(self, ensemble_member):
-        n_objectives = self._gp_n_objectives(self.__subproblem_objectives, self.__subproblem_path_objectives,
-                                             ensemble_member)
+        n_objectives = self._gp_n_objectives(
+            self.__subproblem_objectives, self.__subproblem_path_objectives, ensemble_member
+        )
         return self._gp_objective(self.__subproblem_objectives, n_objectives, ensemble_member)
 
     def path_objective(self, ensemble_member):
-        n_objectives = self._gp_n_objectives(self.__subproblem_objectives, self.__subproblem_path_objectives,
-                                             ensemble_member)
-        return self._gp_path_objective(self.__subproblem_path_objectives, n_objectives, ensemble_member)
+        n_objectives = self._gp_n_objectives(
+            self.__subproblem_objectives, self.__subproblem_path_objectives, ensemble_member
+        )
+        return self._gp_path_objective(
+            self.__subproblem_path_objectives, n_objectives, ensemble_member
+        )
 
     def constraints(self, ensemble_member):
         constraints = super().constraints(ensemble_member)
@@ -159,7 +173,8 @@ class GoalProgrammingMixin(_GoalProgrammingMixinBase):
         additional_constraints = itertools.chain(
             self.__constraint_store[ensemble_member].values(),
             self.__problem_constraints[ensemble_member],
-            self.__subproblem_soft_constraints[ensemble_member])
+            self.__subproblem_soft_constraints[ensemble_member],
+        )
 
         for constraint in additional_constraints:
             constraints.append((constraint.function(self), constraint.min, constraint.max))
@@ -172,7 +187,8 @@ class GoalProgrammingMixin(_GoalProgrammingMixinBase):
         additional_path_constraints = itertools.chain(
             self.__path_constraint_store[ensemble_member].values(),
             self.__problem_path_constraints[ensemble_member],
-            self.__subproblem_path_soft_constraints[ensemble_member])
+            self.__subproblem_path_soft_constraints[ensemble_member],
+        )
 
         for constraint in additional_path_constraints:
             path_constraints.append((constraint.function(self), constraint.min, constraint.max))
@@ -199,8 +215,7 @@ class GoalProgrammingMixin(_GoalProgrammingMixinBase):
             if not self.goal_programming_options()['mu_reinit']:
                 ipopt_options['mu_strategy'] = 'monotone'
                 if not self._gp_first_run:
-                    ipopt_options['mu_init'] = self.solver_stats['iterations'][
-                        'mu'][-1]
+                    ipopt_options['mu_init'] = self.solver_stats['iterations']['mu'][-1]
 
         delattr(self, '_loop_breaker_solver_options')
 
@@ -319,7 +334,9 @@ class GoalProgrammingMixin(_GoalProgrammingMixinBase):
 
         return options
 
-    def __goal_hard_constraint(self, goal, epsilon, existing_constraint, ensemble_member, options, is_path_goal):
+    def __goal_hard_constraint(
+        self, goal, epsilon, existing_constraint, ensemble_member, options, is_path_goal
+    ):
         if not is_path_goal:
             epsilon = epsilon[:1]
 
@@ -328,16 +345,24 @@ class GoalProgrammingMixin(_GoalProgrammingMixinBase):
         if goal.has_target_bounds:
             # We use a violation variable formulation, with the violation
             # variables epsilon bounded between 0 and 1.
-            m, M = np.full_like(epsilon, -np.inf, dtype=np.float64), np.full_like(epsilon, np.inf, dtype=np.float64)
+            m, M = np.full_like(epsilon, -np.inf, dtype=np.float64), np.full_like(
+                epsilon, np.inf, dtype=np.float64
+            )
 
             # A function range does not have to be specified for critical
             # goals. Avoid multiplying with NaN in that case.
             if goal.has_target_min:
-                m = (epsilon * ((goal.function_range[0] - goal_m) if not goal.critical else 0.0)
-                     + goal_m - goal.relaxation) / goal.function_nominal
+                m = (
+                    epsilon * ((goal.function_range[0] - goal_m) if not goal.critical else 0.0)
+                    + goal_m
+                    - goal.relaxation
+                ) / goal.function_nominal
             if goal.has_target_max:
-                M = (epsilon * ((goal.function_range[1] - goal_M) if not goal.critical else 0.0)
-                     + goal_M + goal.relaxation) / goal.function_nominal
+                M = (
+                    epsilon * ((goal.function_range[1] - goal_M) if not goal.critical else 0.0)
+                    + goal_M
+                    + goal.relaxation
+                ) / goal.function_nominal
 
             if goal.has_target_min and goal.has_target_max:
                 # Avoid comparing with NaN
@@ -353,7 +378,9 @@ class GoalProgrammingMixin(_GoalProgrammingMixinBase):
             inds = epsilon > options['violation_tolerance']
             if np.any(inds):
                 if is_path_goal:
-                    expr = self.map_path_expression(goal.function(self, ensemble_member), ensemble_member)
+                    expr = self.map_path_expression(
+                        goal.function(self, ensemble_member), ensemble_member
+                    )
                 else:
                     expr = goal.function(self, ensemble_member)
 
@@ -374,7 +401,9 @@ class GoalProgrammingMixin(_GoalProgrammingMixinBase):
                 self.linear_collocation = False
             else:
                 m = -np.inf * np.ones(epsilon.shape)
-                M = (epsilon + goal.relaxation) / goal.function_nominal + options['constraint_relaxation']
+                M = (epsilon + goal.relaxation) / goal.function_nominal + options[
+                    'constraint_relaxation'
+                ]
 
         if is_path_goal:
             m = Timeseries(self.times(), m)
@@ -386,8 +415,12 @@ class GoalProgrammingMixin(_GoalProgrammingMixinBase):
         constraint = _GoalConstraint(
             goal,
             lambda problem, ensemble_member=ensemble_member, goal=goal: (
-                goal.function(problem, ensemble_member) / goal.function_nominal),
-            m, M, True)
+                goal.function(problem, ensemble_member) / goal.function_nominal
+            ),
+            m,
+            M,
+            True,
+        )
 
         # Epsilon is fixed. Override previous {min,max} constraints for this
         # state.
@@ -419,9 +452,9 @@ class GoalProgrammingMixin(_GoalProgrammingMixinBase):
 
             for j, goal in enumerate(goals):
                 if (
-                        not goal.has_target_bounds or
-                        goal.violation_timeseries_id is not None or
-                        goal.function_value_timeseries_id is not None
+                    not goal.has_target_bounds
+                    or goal.violation_timeseries_id is not None
+                    or goal.function_value_timeseries_id is not None
                 ):
                     goal_functions[j] = goal.function(self, ensemble_member)
 
@@ -435,8 +468,7 @@ class GoalProgrammingMixin(_GoalProgrammingMixinBase):
             f = ca.Function('f', [self.solver_input], [expr])
             raw_function_values = np.array(f(self.solver_output))
             goal_function_values[ensemble_member] = {
-                k: raw_function_values[:, j].ravel()
-                for j, k in enumerate(goal_functions.keys())
+                k: raw_function_values[:, j].ravel() for j, k in enumerate(goal_functions.keys())
             }
 
         # Re-add constraints, this time with epsilon values fixed
@@ -450,15 +482,14 @@ class GoalProgrammingMixin(_GoalProgrammingMixinBase):
                         self.set_timeseries(
                             goal.function_value_timeseries_id,
                             Timeseries(times, function_value),
-                            ensemble_member
+                            ensemble_member,
                         )
 
                 if goal.critical:
                     continue
 
                 if goal.has_target_bounds:
-                    epsilon = self.__results[ensemble_member][
-                        eps_format.format(sym_index, j)]
+                    epsilon = self.__results[ensemble_member][eps_format.format(sym_index, j)]
 
                     # Store results
                     if goal.violation_timeseries_id is not None:
@@ -466,30 +497,44 @@ class GoalProgrammingMixin(_GoalProgrammingMixinBase):
                         epsilon_active = np.copy(epsilon)
                         m = goal.target_min
                         if isinstance(m, Timeseries):
-                            m = self.interpolate(times, goal.target_min.times, goal.target_min.values)
+                            m = self.interpolate(
+                                times, goal.target_min.times, goal.target_min.values
+                            )
                         M = goal.target_max
                         if isinstance(M, Timeseries):
-                            M = self.interpolate(times, goal.target_max.times, goal.target_max.values)
+                            M = self.interpolate(
+                                times, goal.target_max.times, goal.target_max.values
+                            )
                         w = np.ones_like(function_value)
                         if goal.has_target_min:
                             # Avoid comparing with NaN while making sure that
                             # w[i] is True when m[i] is not finite.
                             m = np.array(m)
                             m[~np.isfinite(m)] = -np.inf
-                            w = np.logical_and(w, (function_value / goal.function_nominal >
-                                                   m / goal.function_nominal + options['interior_distance']))
+                            w = np.logical_and(
+                                w,
+                                (
+                                    function_value / goal.function_nominal
+                                    > m / goal.function_nominal + options['interior_distance']
+                                ),
+                            )
                         if goal.has_target_max:
                             # Avoid comparing with NaN while making sure that
                             # w[i] is True when M[i] is not finite.
                             M = np.array(M)
                             M[~np.isfinite(M)] = np.inf
-                            w = np.logical_and(w, (function_value / goal.function_nominal <
-                                                   M / goal.function_nominal + options['interior_distance']))
+                            w = np.logical_and(
+                                w,
+                                (
+                                    function_value / goal.function_nominal
+                                    < M / goal.function_nominal + options['interior_distance']
+                                ),
+                            )
                         epsilon_active[w] = np.nan
                         self.set_timeseries(
                             goal.violation_timeseries_id,
                             Timeseries(times, epsilon_active),
-                            ensemble_member
+                            ensemble_member,
                         )
 
                     # Add a relaxation to appease the barrier method.
@@ -501,7 +546,8 @@ class GoalProgrammingMixin(_GoalProgrammingMixinBase):
                 existing_constraint = constraint_store[ensemble_member].get(fk, None)
 
                 constraint_store[ensemble_member][fk] = self.__goal_hard_constraint(
-                    goal, epsilon, existing_constraint, ensemble_member, options, is_path_goal)
+                    goal, epsilon, existing_constraint, ensemble_member, options, is_path_goal
+                )
 
     def __add_subproblem_objective_constraint(self):
         # We want to keep the additional variables/parameters we set around
@@ -512,9 +558,11 @@ class GoalProgrammingMixin(_GoalProgrammingMixinBase):
 
         for ensemble_member in range(self.ensemble_size):
             self.__problem_constraints[ensemble_member].extend(
-                self.__subproblem_soft_constraints[ensemble_member])
+                self.__subproblem_soft_constraints[ensemble_member]
+            )
             self.__problem_path_constraints[ensemble_member].extend(
-                self.__subproblem_path_soft_constraints[ensemble_member])
+                self.__subproblem_path_soft_constraints[ensemble_member]
+            )
 
         # Extract information about the objective value, this is used for the Pareto optimality constraint.
         # We only retain information about the objective functions defined through the goal framework as user
@@ -522,19 +570,27 @@ class GoalProgrammingMixin(_GoalProgrammingMixinBase):
         subproblem_objectives = self.__subproblem_objectives.copy()
         subproblem_path_objectives = self.__subproblem_path_objectives.copy()
 
-        def _constraint_func(problem,
-                             subproblem_objectives=subproblem_objectives,
-                             subproblem_path_objectives=subproblem_path_objectives):
+        def _constraint_func(
+            problem,
+            subproblem_objectives=subproblem_objectives,
+            subproblem_path_objectives=subproblem_path_objectives,
+        ):
             val = 0.0
             for ensemble_member in range(problem.ensemble_size):
                 # NOTE: Users might be overriding objective() and/or path_objective(). Use the
                 # private methods that work only on the goals.
                 n_objectives = problem._gp_n_objectives(
-                    subproblem_objectives, subproblem_path_objectives, ensemble_member)
+                    subproblem_objectives, subproblem_path_objectives, ensemble_member
+                )
                 expr = problem._gp_objective(subproblem_objectives, n_objectives, ensemble_member)
-                expr += ca.sum1(problem.map_path_expression(
-                    problem._gp_path_objective(subproblem_path_objectives, n_objectives, ensemble_member),
-                    ensemble_member))
+                expr += ca.sum1(
+                    problem.map_path_expression(
+                        problem._gp_path_objective(
+                            subproblem_path_objectives, n_objectives, ensemble_member
+                        ),
+                        ensemble_member,
+                    )
+                )
                 val += problem.ensemble_member_probability(ensemble_member) * expr
 
             return val
@@ -571,19 +627,34 @@ class GoalProgrammingMixin(_GoalProgrammingMixinBase):
 
         # Validate (in)compatible options
         if options['keep_soft_constraints'] and options['violation_relaxation']:
-            raise Exception("The option 'violation_relaxation' cannot be used when 'keep_soft_constraints' is set.")
+            raise Exception(
+                "The option 'violation_relaxation' cannot be used when 'keep_soft_constraints' is set."
+            )
 
         # Validate goal definitions
         self._gp_validate_goals(goals, is_path_goal=False)
         self._gp_validate_goals(path_goals, is_path_goal=True)
 
-        priorities = {int(goal.priority) for goal in itertools.chain(goals, path_goals) if not goal.is_empty}
+        priorities = {
+            int(goal.priority) for goal in itertools.chain(goals, path_goals) if not goal.is_empty
+        }
 
         for priority in sorted(priorities):
-            subproblems.append((
-                priority,
-                [goal for goal in goals if int(goal.priority) == priority and not goal.is_empty],
-                [goal for goal in path_goals if int(goal.priority) == priority and not goal.is_empty]))
+            subproblems.append(
+                (
+                    priority,
+                    [
+                        goal
+                        for goal in goals
+                        if int(goal.priority) == priority and not goal.is_empty
+                    ],
+                    [
+                        goal
+                        for goal in path_goals
+                        if int(goal.priority) == priority and not goal.is_empty
+                    ],
+                )
+            )
 
         # Solve the subproblems one by one
         logger.info("Starting goal programming")
@@ -591,7 +662,9 @@ class GoalProgrammingMixin(_GoalProgrammingMixinBase):
         success = False
 
         self.__constraint_store = [OrderedDict() for ensemble_member in range(self.ensemble_size)]
-        self.__path_constraint_store = [OrderedDict() for ensemble_member in range(self.ensemble_size)]
+        self.__path_constraint_store = [
+            OrderedDict() for ensemble_member in range(self.ensemble_size)
+        ]
 
         # Lists for when `keep_soft_constraints` is True
         self.__problem_constraints = [[] for ensemble_member in range(self.ensemble_size)]
@@ -611,15 +684,21 @@ class GoalProgrammingMixin(_GoalProgrammingMixinBase):
             # Call the pre priority hook
             self.priority_started(priority)
 
-            (self.__subproblem_epsilons, self.__subproblem_objectives,
-             self.__subproblem_soft_constraints, hard_constraints,
-             self.__subproblem_parameters) = \
-                self._gp_goal_constraints(goals, i, options, is_path_goal=False)
+            (
+                self.__subproblem_epsilons,
+                self.__subproblem_objectives,
+                self.__subproblem_soft_constraints,
+                hard_constraints,
+                self.__subproblem_parameters,
+            ) = self._gp_goal_constraints(goals, i, options, is_path_goal=False)
 
-            (self.__subproblem_path_epsilons, self.__subproblem_path_objectives,
-             self.__subproblem_path_soft_constraints, path_hard_constraints,
-             self.__subproblem_path_timeseries) = \
-                self._gp_goal_constraints(path_goals, i, options, is_path_goal=True)
+            (
+                self.__subproblem_path_epsilons,
+                self.__subproblem_path_objectives,
+                self.__subproblem_path_soft_constraints,
+                path_hard_constraints,
+                self.__subproblem_path_timeseries,
+            ) = self._gp_goal_constraints(path_goals, i, options, is_path_goal=True)
 
             # Put hard constraints in the constraint stores
             self._gp_update_constraint_store(self.__constraint_store, hard_constraints)
@@ -627,7 +706,10 @@ class GoalProgrammingMixin(_GoalProgrammingMixinBase):
 
             # Solve subproblem
             success = super().optimize(
-                preprocessing=False, postprocessing=False, log_solver_failure_as_error=log_solver_failure_as_error)
+                preprocessing=False,
+                postprocessing=False,
+                log_solver_failure_as_error=log_solver_failure_as_error,
+            )
             if not success:
                 break
 
@@ -636,8 +718,10 @@ class GoalProgrammingMixin(_GoalProgrammingMixinBase):
             # Store results.  Do this here, to make sure we have results even
             # if a subsequent priority fails.
             self.__results_are_current = False
-            self.__results = [self.extract_results(
-                ensemble_member) for ensemble_member in range(self.ensemble_size)]
+            self.__results = [
+                self.extract_results(ensemble_member)
+                for ensemble_member in range(self.ensemble_size)
+            ]
             self.__results_are_current = True
 
             # Call the post priority hook, so that intermediate results can be

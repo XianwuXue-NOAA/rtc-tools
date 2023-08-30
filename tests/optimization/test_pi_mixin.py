@@ -3,7 +3,7 @@ import bisect
 import numpy as np
 
 from rtctools.optimization.collocated_integrated_optimization_problem import (
-    CollocatedIntegratedOptimizationProblem
+    CollocatedIntegratedOptimizationProblem,
 )
 from rtctools.optimization.modelica_mixin import ModelicaMixin
 from rtctools.optimization.pi_mixin import PIMixin
@@ -14,7 +14,6 @@ from .data_path import data_path
 
 
 class Model(PIMixin, ModelicaMixin, CollocatedIntegratedOptimizationProblem):
-
     pi_parameter_config_basenames = ["rtcParameterConfig", "rtcParameterConfig_extra"]
     pi_check_for_duplicate_parameters = True
 
@@ -32,7 +31,7 @@ class Model(PIMixin, ModelicaMixin, CollocatedIntegratedOptimizationProblem):
     def objective(self, ensemble_member):
         # Quadratic penalty on state 'x' at final time
         xf = self.state_at("x", self.times("x")[-1], ensemble_member=ensemble_member)
-        f = xf ** 2
+        f = xf**2
         return f
 
     def constraints(self, ensemble_member):
@@ -47,7 +46,6 @@ class Model(PIMixin, ModelicaMixin, CollocatedIntegratedOptimizationProblem):
 
 
 class TestPIMixin(TestCase):
-
     def setUp(self):
         self.problem = Model()
         self.problem.optimize()
@@ -97,27 +95,15 @@ class TestPIMixin(TestCase):
         t_idx = bisect.bisect_left(self.problem.io.times_sec, 0.0)
 
         t = (
-            self.problem.get_timeseries("x", 0).times[
-                t_idx + 1
-            ]
+            self.problem.get_timeseries("x", 0).times[t_idx + 1]
             + (
-                self.problem.get_timeseries("x", 0).times[
-                    t_idx + 2
-                ]
-                - self.problem.get_timeseries("x", 0).times[
-                    t_idx + 1
-                ]
+                self.problem.get_timeseries("x", 0).times[t_idx + 2]
+                - self.problem.get_timeseries("x", 0).times[t_idx + 1]
             )
             / 2
         )
         x_ref = (
-            self.problem.get_timeseries("x", 0).values[
-                t_idx + 1
-            ]
-            + self.problem.get_timeseries("x", 0).values[
-                t_idx + 2
-            ]
+            self.problem.get_timeseries("x", 0).values[t_idx + 1]
+            + self.problem.get_timeseries("x", 0).values[t_idx + 2]
         ) / 2
-        self.assertAlmostEqual(
-            self.problem.timeseries_at("x", t), x_ref, self.tolerance
-        )
+        self.assertAlmostEqual(self.problem.timeseries_at("x", t), x_ref, self.tolerance)

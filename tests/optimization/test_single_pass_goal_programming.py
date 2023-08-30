@@ -3,16 +3,21 @@ import logging
 import numpy as np
 
 from rtctools.optimization.collocated_integrated_optimization_problem import (
-    CollocatedIntegratedOptimizationProblem
+    CollocatedIntegratedOptimizationProblem,
 )
 from rtctools.optimization.goal_programming_mixin import Goal, GoalProgrammingMixin
-from rtctools.optimization.linearized_order_goal_programming_mixin import LinearizedOrderGoalProgrammingMixin
-from rtctools.optimization.min_abs_goal_programming_mixin import MinAbsGoalProgrammingMixin, MinAbsStateGoal
+from rtctools.optimization.linearized_order_goal_programming_mixin import (
+    LinearizedOrderGoalProgrammingMixin,
+)
+from rtctools.optimization.min_abs_goal_programming_mixin import (
+    MinAbsGoalProgrammingMixin,
+    MinAbsStateGoal,
+)
 from rtctools.optimization.modelica_mixin import ModelicaMixin
 from rtctools.optimization.single_pass_goal_programming_mixin import (
     CachingQPSol,
     SinglePassGoalProgrammingMixin,
-    SinglePassMethod
+    SinglePassMethod,
 )
 from rtctools.optimization.timeseries import Timeseries
 
@@ -25,7 +30,6 @@ logger.setLevel(logging.WARNING)
 
 
 class PathGoal1(Goal):
-
     def function(self, optimization_problem, ensemble_member):
         return optimization_problem.state("x")
 
@@ -36,7 +40,6 @@ class PathGoal1(Goal):
 
 
 class PathGoal2(Goal):
-
     def function(self, optimization_problem, ensemble_member):
         return optimization_problem.state("x")
 
@@ -46,13 +49,11 @@ class PathGoal2(Goal):
 
 
 class GoalMinU(MinAbsStateGoal):
-
     state = 'u'
     priority = 3
 
 
 class ModelPathGoals:
-
     def __init__(self):
         super().__init__(
             input_folder=data_path(),
@@ -130,41 +131,43 @@ class ModelPathGoals:
         return discrete, lbx, ubx, lbg, ubg, x0, nlp
 
 
-class ModelGoalProgramming(ModelPathGoals,
-                           LinearizedOrderGoalProgrammingMixin,
-                           MinAbsGoalProgrammingMixin,
-                           GoalProgrammingMixin,
-                           ModelicaMixin,
-                           CollocatedIntegratedOptimizationProblem):
-
+class ModelGoalProgramming(
+    ModelPathGoals,
+    LinearizedOrderGoalProgrammingMixin,
+    MinAbsGoalProgrammingMixin,
+    GoalProgrammingMixin,
+    ModelicaMixin,
+    CollocatedIntegratedOptimizationProblem,
+):
     def goal_programming_options(self):
         options = super().goal_programming_options()
         options['keep_soft_constraints'] = True
         return options
 
 
-class ModelSinglePassGoalProgrammingAppend(ModelPathGoals,
-                                           LinearizedOrderGoalProgrammingMixin,
-                                           MinAbsGoalProgrammingMixin,
-                                           SinglePassGoalProgrammingMixin,
-                                           ModelicaMixin,
-                                           CollocatedIntegratedOptimizationProblem):
-
+class ModelSinglePassGoalProgrammingAppend(
+    ModelPathGoals,
+    LinearizedOrderGoalProgrammingMixin,
+    MinAbsGoalProgrammingMixin,
+    SinglePassGoalProgrammingMixin,
+    ModelicaMixin,
+    CollocatedIntegratedOptimizationProblem,
+):
     single_pass_method = SinglePassMethod.APPEND_CONSTRAINTS_OBJECTIVE
 
 
-class ModelSinglePassGoalProgrammingUpdate(ModelPathGoals,
-                                           LinearizedOrderGoalProgrammingMixin,
-                                           MinAbsGoalProgrammingMixin,
-                                           SinglePassGoalProgrammingMixin,
-                                           ModelicaMixin,
-                                           CollocatedIntegratedOptimizationProblem):
-
+class ModelSinglePassGoalProgrammingUpdate(
+    ModelPathGoals,
+    LinearizedOrderGoalProgrammingMixin,
+    MinAbsGoalProgrammingMixin,
+    SinglePassGoalProgrammingMixin,
+    ModelicaMixin,
+    CollocatedIntegratedOptimizationProblem,
+):
     single_pass_method = SinglePassMethod.UPDATE_OBJECTIVE_CONSTRAINT_BOUNDS
 
 
 class TestSinglePassGoalProgramming(TestCase):
-
     @classmethod
     def setUpClass(cls):
         cls.problem_gp = ModelGoalProgramming()
@@ -178,12 +181,12 @@ class TestSinglePassGoalProgramming(TestCase):
         self.assertAlmostEqual(
             np.array(self.problem_gp._objective_values),
             np.array(self.problem_append._objective_values),
-            1e-5
+            1e-5,
         )
         self.assertAlmostEqual(
             np.array(self.problem_gp._objective_values),
             np.array(self.problem_update._objective_values),
-            1e-5
+            1e-5,
         )
 
     def test_state_vector_instance(self):
@@ -191,8 +194,14 @@ class TestSinglePassGoalProgramming(TestCase):
         self.assertEqual(len({hash(x) for x in self.problem_update._state_vectors}), 1)
 
     def test_state_vector_length(self):
-        self.assertEqual(self.problem_gp._state_vectors[-1].size1(), self.problem_append._state_vectors[-1].size1())
-        self.assertEqual(self.problem_gp._state_vectors[-1].size1(), self.problem_update._state_vectors[-1].size1())
+        self.assertEqual(
+            self.problem_gp._state_vectors[-1].size1(),
+            self.problem_append._state_vectors[-1].size1(),
+        )
+        self.assertEqual(
+            self.problem_gp._state_vectors[-1].size1(),
+            self.problem_update._state_vectors[-1].size1(),
+        )
 
     def test_constraints_length(self):
         diff_lengths_update = np.diff([x.size1() for x in self.problem_update._constraints])
@@ -202,12 +211,15 @@ class TestSinglePassGoalProgramming(TestCase):
         np.testing.assert_array_equal(diff_lengths_append, [1, 1])
 
     def test_seed(self):
-        np.testing.assert_array_equal(self.problem_append._seeds[-1], self.problem_append._solver_outputs[-2])
-        np.testing.assert_array_equal(self.problem_update._seeds[-1], self.problem_update._solver_outputs[-2])
+        np.testing.assert_array_equal(
+            self.problem_append._seeds[-1], self.problem_append._solver_outputs[-2]
+        )
+        np.testing.assert_array_equal(
+            self.problem_update._seeds[-1], self.problem_update._solver_outputs[-2]
+        )
 
 
 class ModelSinglePassGoalProgrammingCachingQPSol(ModelSinglePassGoalProgrammingAppend):
-
     def pre(self):
         self._qpsol = CachingQPSol()
         super().pre()
@@ -219,7 +231,6 @@ class ModelSinglePassGoalProgrammingCachingQPSol(ModelSinglePassGoalProgrammingA
 
 
 class TestCachingQPSol(TestCase):
-
     @classmethod
     def setUpClass(cls):
         cls.problem = ModelSinglePassGoalProgrammingAppend()
@@ -228,7 +239,9 @@ class TestCachingQPSol(TestCase):
         cls.problem_cache.optimize()
 
     def test_objectives(self):
-        np.testing.assert_array_equal(self.problem._objective_values, self.problem_cache._objective_values)
+        np.testing.assert_array_equal(
+            self.problem._objective_values, self.problem_cache._objective_values
+        )
 
     def test_solver_outputs(self):
         self.assertEqual(len(self.problem_cache._solver_outputs), 3)

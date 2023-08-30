@@ -2,7 +2,11 @@ import casadi as ca
 
 import numpy as np
 
-from rtctools.optimization.goal_programming_mixin_base import Goal, StateGoal, _GoalProgrammingMixinBase
+from rtctools.optimization.goal_programming_mixin_base import (
+    Goal,
+    StateGoal,
+    _GoalProgrammingMixinBase,
+)
 from rtctools.optimization.goal_programming_mixin_base import _GoalConstraint
 
 
@@ -32,7 +36,7 @@ class LinearizedOrderGoal(Goal):
         # Strike a balance between "absolute error < eps" and "relative error < eps" by
         # multiplying eps with x**(order-1)
         if kind == 'balanced':
-            f = x**order - eps * x**(order-1) - (a * x + b)
+            f = x**order - eps * x ** (order - 1) - (a * x + b)
         elif kind == 'abs':
             f = x**order - eps - (a * x + b)
         else:
@@ -61,7 +65,7 @@ class LinearizedOrderGoal(Goal):
         xs = np.array(xs)
         ys = xs**order
 
-        a = (ys[1:] - ys[:-1])/(xs[1:] - xs[:-1])
+        a = (ys[1:] - ys[:-1]) / (xs[1:] - xs[:-1])
         b = ys[1:] - a * xs[1:]
         lines = list(zip(a, b))
 
@@ -76,6 +80,7 @@ class LinearizedOrderStateGoal(LinearizedOrderGoal, StateGoal):
     it is possible to just inherit from :py:class:`.LinearizedOrderGoal` to get the needed
     functionality for control of the linearization at goal level.
     """
+
     pass
 
 
@@ -111,8 +116,10 @@ class LinearizedOrderGoalProgrammingMixin(_GoalProgrammingMixinBase):
 
             if goal_linearize or (options['linearize_goal_order'] and goal_linearize is not False):
                 if not goal.has_target_bounds and goal.order > 1:
-                    raise Exception("Higher order minimization goals not allowed with "
-                                    "`linearize_goal_order` for goal {}".format(goal))
+                    raise Exception(
+                        "Higher order minimization goals not allowed with "
+                        "`linearize_goal_order` for goal {}".format(goal)
+                    )
 
         super()._gp_validate_goals(goals, is_path_goal)
 
@@ -147,7 +154,9 @@ class LinearizedOrderGoalProgrammingMixin(_GoalProgrammingMixinBase):
             # Make a linear epsilon, and constraints relating the linear
             # variable to the original objective function
             path_prefix = "path_" if is_path_goal else ""
-            linear_variable = ca.MX.sym(path_prefix + "lineps_{}_{}".format(sym_index, j), goal.size)
+            linear_variable = ca.MX.sym(
+                path_prefix + "lineps_{}_{}".format(sym_index, j), goal.size
+            )
 
             lo_epsilons.append(linear_variable)
 
@@ -163,9 +172,17 @@ class LinearizedOrderGoalProgrammingMixin(_GoalProgrammingMixinBase):
                 # having `keep_soft_constraints` = False. This is because the `epsilon` and
                 # the `linear_variable` no longer exist in the next priority.
                 for ensemble_member in range(self.ensemble_size):
-                    def _f(problem,
-                           goal=goal, epsilon_name=epsilon_name, linear_variable=linear_variable, a=a, b=b,
-                           ensemble_member=ensemble_member, is_path_constraint=is_path_goal):
+
+                    def _f(
+                        problem,
+                        goal=goal,
+                        epsilon_name=epsilon_name,
+                        linear_variable=linear_variable,
+                        a=a,
+                        b=b,
+                        ensemble_member=ensemble_member,
+                        is_path_constraint=is_path_goal,
+                    ):
                         if is_path_constraint:
                             eps = problem.variable(epsilon_name)
                             lin = problem.variable(linear_variable.name())
@@ -175,7 +192,9 @@ class LinearizedOrderGoalProgrammingMixin(_GoalProgrammingMixinBase):
 
                         return lin - a * eps - b
 
-                    lo_soft_constraints[ensemble_member].append(_GoalConstraint(goal, _f, 0.0, np.inf, False))
+                    lo_soft_constraints[ensemble_member].append(
+                        _GoalConstraint(goal, _f, 0.0, np.inf, False)
+                    )
 
             if is_path_goal and options['scale_by_problem_size']:
                 goal_m, goal_M = self._gp_min_max_arrays(goal, target_shape=len(self.times()))
@@ -184,9 +203,14 @@ class LinearizedOrderGoalProgrammingMixin(_GoalProgrammingMixinBase):
             else:
                 n_active = 1
 
-            def _objective_func(problem, ensemble_member,
-                                goal=goal, linear_variable=linear_variable, is_path_goal=is_path_goal,
-                                n_active=n_active):
+            def _objective_func(
+                problem,
+                ensemble_member,
+                goal=goal,
+                linear_variable=linear_variable,
+                is_path_goal=is_path_goal,
+                n_active=n_active,
+            ):
                 if is_path_goal:
                     lin = problem.variable(linear_variable.name())
                 else:
@@ -196,8 +220,13 @@ class LinearizedOrderGoalProgrammingMixin(_GoalProgrammingMixinBase):
 
             goal._objective_func = _objective_func
 
-        epsilons, objectives, soft_constraints, hard_constraints, extra_constants = \
-            super()._gp_goal_constraints(goals, sym_index, options, is_path_goal)
+        (
+            epsilons,
+            objectives,
+            soft_constraints,
+            hard_constraints,
+            extra_constants,
+        ) = super()._gp_goal_constraints(goals, sym_index, options, is_path_goal)
 
         epsilons = epsilons + lo_epsilons
         for ensemble_member in range(self.ensemble_size):

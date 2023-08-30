@@ -62,11 +62,30 @@ axarr[1].scatter(times, record["Inflow_Q".lower()], linewidth=1, color="mediumor
 # axarr[1].scatter(times,  record["DrinkingWaterExtractionPump_Q_target".lower()], linewidth=1, color="lightskyblue")
 
 # add horizontal lines to the left of these dots, to indicate that the value is attained over an entire timestep:
-axarr[1].step(times, record["Inflow_Q".lower()], linewidth=2, where='pre', label="Inflow_Q", color="mediumorchid")
-axarr[1].step(times, record["DrinkingWaterExtractionPump_Q_target".lower()],
-              linewidth=6, where='pre', label="ExtractionPump_Q_target", color="lightskyblue")
-axarr[1].step(times, record["DrinkingWaterExtractionPump_Q".lower()],
-              linewidth=1, where='pre', label="ExtractionPump_Q", color="mediumblue")
+axarr[1].step(
+    times,
+    record["Inflow_Q".lower()],
+    linewidth=2,
+    where='pre',
+    label="Inflow_Q",
+    color="mediumorchid",
+)
+axarr[1].step(
+    times,
+    record["DrinkingWaterExtractionPump_Q_target".lower()],
+    linewidth=6,
+    where='pre',
+    label="ExtractionPump_Q_target",
+    color="lightskyblue",
+)
+axarr[1].step(
+    times,
+    record["DrinkingWaterExtractionPump_Q".lower()],
+    linewidth=1,
+    where='pre',
+    label="ExtractionPump_Q",
+    color="mediumblue",
+)
 
 
 axarr[1].set_ylim(bottom=0)
@@ -78,10 +97,22 @@ axarr[2].set_ylabel("Flow Rate [m³/s]")
 axarr[2].scatter(times, record["UpperControlStructure_Q".lower()], linewidth=1, color="darkred")
 axarr[2].scatter(times, record["LowerControlStructure_Q".lower()], linewidth=1, color="darkorange")
 # add horizontal lines to the left of these dots, to indicate that the value is attained over an entire timestep:
-axarr[2].step(times, record["UpperControlStructure_Q".lower()], linewidth=2,
-              where='pre', label="UpperControlStructure_Q", color="darkred")
-axarr[2].step(times, record["LowerControlStructure_Q".lower()], linewidth=1,
-              where='pre', label="LowerControlStructure_Q", color="darkorange")
+axarr[2].step(
+    times,
+    record["UpperControlStructure_Q".lower()],
+    linewidth=2,
+    where='pre',
+    label="UpperControlStructure_Q",
+    color="darkred",
+)
+axarr[2].step(
+    times,
+    record["LowerControlStructure_Q".lower()],
+    linewidth=1,
+    where='pre',
+    label="LowerControlStructure_Q",
+    color="darkorange",
+)
 
 axarr[2].set_ylim(bottom=0)
 
@@ -95,9 +126,7 @@ fig.tight_layout()
 for i in range(n_subplots):
     box = axarr[i].get_position()
     axarr[i].set_position([box.x0, box.y0, box.width * 0.75, box.height])
-    axarr[i].legend(
-        loc="center left", bbox_to_anchor=(1, 0.5), frameon=False, prop={"size": 8}
-    )
+    axarr[i].legend(loc="center left", bbox_to_anchor=(1, 0.5), frameon=False, prop={"size": 8})
 
 plt.autoscale(enable=True, axis="x", tight=True)
 

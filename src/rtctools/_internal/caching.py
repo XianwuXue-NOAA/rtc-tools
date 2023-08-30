@@ -5,6 +5,7 @@ def cached(f):
                 return f(self, ensemble_member)
             else:
                 return f(self)
+
         # Add a check so that caching is applied to the 'toplevel'
         # method implementation in the class hierarchy only.
         call_in_progress = '__' + f.__name__ + '_in_progress'
@@ -20,4 +21,5 @@ def cached(f):
         setattr(self, cache_name, value)
         delattr(self, call_in_progress)
         return value
+
     return wrapper

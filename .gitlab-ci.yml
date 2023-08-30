@@ -24,6 +24,15 @@ flake8:
   tags:
     - docker
 
+flake8:
+  stage: style
+  script:
+    - tox -vv
+  variables:
+    TOXENV: black
+  tags:
+    - docker
+
 # build
 build:
   stage: build

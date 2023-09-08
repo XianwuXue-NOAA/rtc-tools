@@ -331,7 +331,8 @@ class SimulationProblem(DataStoreAccessor):
 
         # Substitute unscaled terms for scaled terms
         equality_constraints = ca.substitute(equality_constraints, unscaled_symbols, scaled_symbols)
-        minimized_residual = ca.substitute(minimized_residual, unscaled_symbols, scaled_symbols)
+        if minimized_residual.numel() > 0:
+            minimized_residual = ca.substitute(minimized_residual, unscaled_symbols, scaled_symbols)
 
         logger.debug('SimulationProblem: Initial Equations are ' + str(equality_constraints))
         logger.debug('SimulationProblem: Minimized Residuals are ' + str(minimized_residual))

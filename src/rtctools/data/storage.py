@@ -129,6 +129,22 @@ class DataStore:
             self.__timeseries_times_sec.flags.writeable = False
             self.__reference_datetime_fixed = True
 
+    def set_datetimes(self, datetimes: Iterable[datetime]):
+        """
+        Set the datetimes.
+
+        :param datetimes: Times as datetime objects.
+        """
+        datetimes = list(datetimes)
+
+        if not isinstance(datetimes[0], datetime):
+            raise TypeError("DateStore.set_timeseries() only support datetimes")
+
+        if self.__timeseries_datetimes is not None and datetimes != self.__timeseries_datetimes:
+            raise RuntimeError("Attempting to overwrite the input time series datetimes with different values. "
+                               "Please ensure all input time series have the same datetimes.")
+        self.__timeseries_datetimes = datetimes
+
     def set_timeseries(self,
                        variable: str,
                        datetimes: Iterable[datetime],
@@ -145,15 +161,7 @@ class DataStore:
         :param check_duplicates: If True, a warning will be given when overwriting values.
                                  If False, existing values can be silently overwritten with new values.
         """
-        datetimes = list(datetimes)
-
-        if not isinstance(datetimes[0], datetime):
-            raise TypeError("DateStore.set_timeseries() only support datetimes")
-
-        if self.__timeseries_datetimes is not None and datetimes != self.__timeseries_datetimes:
-            raise RuntimeError("Attempting to overwrite the input time series datetimes with different values. "
-                               "Please ensure all input time series have the same datetimes.")
-        self.__timeseries_datetimes = datetimes
+        self.set_datetimes(datetimes)
 
         if len(self.__timeseries_datetimes) != len(values):
             raise ValueError("Length of values ({}) must be the same as length of datetimes ({})"

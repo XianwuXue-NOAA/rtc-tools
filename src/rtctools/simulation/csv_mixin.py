@@ -56,6 +56,7 @@ class CSVMixin(IOMixin):
         self.__timeseries_times = _timeseries[_timeseries.dtype.names[0]]
 
         self.io.reference_datetime = self.__timeseries_times[0]
+        self.io.set_datetimes(self.__timeseries_times)
 
         for key in _timeseries.dtype.names[1:]:
             self.io.set_timeseries(

@@ -25,6 +25,7 @@ def copy_libraries(*args):
         sys.exit("Folder '{}' does not exist".format(path))
 
     # pkg_resources can be quite a slow import, so we do it here
+    # pylint: disable=import-outside-toplevel
     import pkg_resources
 
     def _copytree(src, dst, symlinks=False, ignore=None):
@@ -92,9 +93,10 @@ def download_examples(*args):
 
     path = Path(path)
 
-    import urllib.request
-    from urllib.error import HTTPError
-    from zipfile import ZipFile
+    # Importing these packages is normally not necessary when running rtc-tools.
+    import urllib.request  # pylint: disable=import-outside-toplevel
+    from urllib.error import HTTPError  # pylint: disable=import-outside-toplevel
+    from zipfile import ZipFile  # pylint: disable=import-outside-toplevel
 
     # GitLab is blocking requests unless we specify a user agent
     user_agent = 'Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:47.0) Gecko/20100101 Firefox/47.0'

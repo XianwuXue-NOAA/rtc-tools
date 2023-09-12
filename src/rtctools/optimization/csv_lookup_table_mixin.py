@@ -354,7 +354,8 @@ class CSVLookupTableMixin(OptimizationProblem):
                             'Need at least {} points.'.format(filename, k + 1))
 
                 if self.csv_lookup_table_debug:
-                    import pylab
+                    # Importing pylab is usually not necessary when running rtc-tools.
+                    import pylab  # pylint: disable=import-outside-toplevel
                     i = np.linspace(csvinput[inputs[0]][0], csvinput[
                                     inputs[0]][-1], self.csv_lookup_table_debug_points)
                     o = splev(i, tck)
@@ -390,7 +391,8 @@ class CSVLookupTableMixin(OptimizationProblem):
                             'Need at least {} points.'.format(filename, (kx + 1) * (ky + 1)))
 
                 if self.csv_lookup_table_debug:
-                    import pylab
+                    # Importing pylab is usually not necessary when running rtc-tools.
+                    import pylab  # pylint: disable=import-outside-toplevel
                     i1 = np.linspace(csvinput[inputs[0]][0], csvinput[
                                      inputs[0]][-1], self.csv_lookup_table_debug_points)
                     i2 = np.linspace(csvinput[inputs[1]][0], csvinput[

@@ -9,6 +9,7 @@ before_script:
 
 stages:
   - style
+  - quality
   - build
   - test
   - coverage
@@ -22,6 +23,16 @@ flake8:
     - tox -vv
   variables:
     TOXENV: flake8
+  tags:
+    - docker
+
+# code quality
+pylint:
+  stage: quality
+  script:
+    - tox -vv
+  variables:
+    TOXENV: pylint
   tags:
     - docker
 

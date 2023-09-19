@@ -355,7 +355,7 @@ class CSVLookupTableMixin(OptimizationProblem):
 
                 if self.csv_lookup_table_debug:
                     # Importing pylab is usually not necessary when running rtc-tools.
-                    import pylab  # pylint: disable=import-outside-toplevel
+                    import pylab  # pylint: disable=import-error,import-outside-toplevel
                     i = np.linspace(csvinput[inputs[0]][0], csvinput[
                                     inputs[0]][-1], self.csv_lookup_table_debug_points)
                     o = splev(i, tck)
@@ -392,7 +392,7 @@ class CSVLookupTableMixin(OptimizationProblem):
 
                 if self.csv_lookup_table_debug:
                     # Importing pylab is usually not necessary when running rtc-tools.
-                    import pylab  # pylint: disable=import-outside-toplevel
+                    import pylab  # pylint: disable=import-error,import-outside-toplevel
                     i1 = np.linspace(csvinput[inputs[0]][0], csvinput[
                                      inputs[0]][-1], self.csv_lookup_table_debug_points)
                     i2 = np.linspace(csvinput[inputs[1]][0], csvinput[

@@ -1,9 +1,11 @@
 ﻿import collections
 import re
 
+import casadi as ca
+
 import numpy as np
 
-from rtctools.simulation.simulation_problem import SimulationProblem
+from rtctools.simulation.simulation_problem import CustomResidual, SimulationProblem
 
 from test_case import TestCase
 
@@ -238,3 +240,53 @@ class TestSimulationNominal(TestCase):
             i += 1
 
         self.assertAlmostEqual(np.array(z_base), np.array(z_nominal), 1e-5)
+
+
+class SimulationModelCustomEquation(SimulationProblem):
+    def __init__(self):
+        custom_states = ["y"]
+        custom_residuals = self.custom_residuals()
+        super().__init__(
+            input_folder=data_path(),
+            output_folder=data_path(),
+            model_name="Model_custom_equation",
+            model_folder=data_path(),
+            custom_states=custom_states,
+            custom_residuals=custom_residuals,
+        )
+
+    def custom_residuals(self):
+        """
+        Define residuals for equations that are not in the Modelica file.
+
+        In particular, define a residual for y = -2 * x.
+        """
+        x = ca.MX.sym("x")
+        y = ca.MX.sym("y")
+        r_fun = ca.Function("r_fun", [x, y], [y - (-2 * x)])
+        residual = CustomResidual(r_fun, ["x", "y"])
+        return [residual]
+
+
+class TestSimulationCustomEquation(TestCase):
+    def setUp(self):
+        self.problem_delay = SimulationModelCustomEquation()
+
+    def test_model_custom_equation(self):
+        start = 0.0
+        stop = 1.0
+        dt = 0.5
+        x = []
+        y = []
+        self.problem_delay.setup_experiment(start, stop, dt)
+        self.problem_delay.initialize()
+        x.append(self.problem_delay.get_var("x"))
+        y.append(self.problem_delay.get_var("y"))
+        i = 0
+        while i < int(stop / dt):
+            self.problem_delay.update(dt)
+            x.append(self.problem_delay.get_var("x"))
+            y.append(self.problem_delay.get_var("y"))
+            i += 1
+        x_ref = [2.0, 1.0, 0.5]
+        self.assertAlmostEqual(x[-1], x_ref[-1], 1e-6)

@@ -2,7 +2,8 @@ import copy
 import itertools
 import logging
 from collections import OrderedDict
-from typing import Union
+from dataclasses import dataclass
+from typing import List, Union
 
 import casadi as ca
 
@@ -20,6 +21,16 @@ from rtctools._internal.debug_check_helpers import DebugLevel
 from rtctools.data.storage import DataStoreAccessor
 
 logger = logging.getLogger("rtctools")
+
+
+@dataclass
+class CustomResidual:
+    """
+    Describes a residual of the form :math:`function(inputs) = 0`.
+    """
+
+    function: ca.Function
+    inputs: List[ca.MX]
 
 
 class SimulationProblem(DataStoreAccessor):
@@ -64,6 +75,11 @@ class SimulationProblem(DataStoreAccessor):
             kwargs["model_folder"], model_name, self.compiler_options()
         )
 
+        # Get custom residuals.
+        custom_residuals: List[CustomResidual] = kwargs.get("custom_residuals", [])
+        custom_state_names = kwargs.get("custom_states", [])
+        self.__custom_states = []
+
         # Extract the CasADi MX variables used in the model
         self.__mx = {}
         self.__mx["time"] = [self.__pymoca_model.time]
@@ -80,12 +96,13 @@ class SimulationProblem(DataStoreAccessor):
                 # therefore belong to the collection of algebraic variables,
                 # rather than to the control inputs.
                 self.__mx["algebraics"].append(v.symbol)
+            elif v.symbol.name() in kwargs.get("lookup_tables", []):
+                self.__mx["lookup_tables"].append(v.symbol)
+            elif v.symbol.name() in custom_state_names:
+                self.__mx["algebraics"].append(v.symbol)
+                self.__custom_states.append(v)
             else:
-                if v.symbol.name() in kwargs.get("lookup_tables", []):
-                    self.__mx["lookup_tables"].append(v.symbol)
-                else:
-                    # All inputs are constant inputs
-                    self.__mx["constant_inputs"].append(v.symbol)
+                self.__mx["constant_inputs"].append(v.symbol)
 
         # Log variables in debug mode
         if logger.getEffectiveLevel() == logging.DEBUG:
@@ -131,7 +148,9 @@ class SimulationProblem(DataStoreAccessor):
 
         # Store the nominals in an AliasDict
         self.__nominals = AliasDict(self.alias_relation)
-        for v in itertools.chain(self.__pymoca_model.states, self.__pymoca_model.alg_states):
+        for v in itertools.chain(
+            self.__pymoca_model.states, self.__pymoca_model.alg_states, self.__custom_states
+        ):
             sym_name = v.symbol.name()
 
             # If the nominal is 0.0 or 1.0 or -1.0, ignore: get_variable_nominal returns a default
@@ -205,6 +224,14 @@ class SimulationProblem(DataStoreAccessor):
                     self.__indices[alias[1:]] = (i, -1.0)
                 else:
                     self.__indices[alias] = (i, 1.0)
+
+        # Add custom residuals to the DAE residuals.
+        custom_residuals_mx: List[ca.MX] = []
+        for residual in custom_residuals:
+            args = [self.__sym_dict[arg] for arg in residual.inputs]
+            residual_mx = residual.function(*args)
+            custom_residuals_mx.append(residual_mx)
+        self.__dae_residual = ca.vertcat(self.__dae_residual, *custom_residuals_mx)
 
         # Call parent class for default behaviour.
         super().__init__(**kwargs)
@@ -395,6 +422,7 @@ class SimulationProblem(DataStoreAccessor):
         bound_vars = (
             self.__pymoca_model.states
             + self.__pymoca_model.alg_states
+            + self.__custom_states
             + self.__pymoca_model.der_states
         )
         symbolic_bounds = ca.vertcat(*[ca.horzcat(v.min, v.max) for v in bound_vars])

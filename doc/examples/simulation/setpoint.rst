@@ -158,6 +158,11 @@ controller. In its simplest form, we load the current values of the volume and
 target volume variables, calculate their difference, and set ``P_control`` to be
 as close as possible to eliminating that difference during the upcoming timestep.
 
+**Warning**: the control variable is computed here in an explicit way,
+which may result in numerical instabilities.
+A more stable approach is using custom residuals;
+see also :ref:`custom equations`.
+
 .. literalinclude:: ../../../examples/simulation/src/example.py
   :language: python
   :pyobject: Example.update

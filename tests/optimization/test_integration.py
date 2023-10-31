@@ -1,5 +1,7 @@
 import logging
 
+import casadi as ca
+
 import numpy as np
 
 from rtctools.optimization.collocated_integrated_optimization_problem import (
@@ -73,6 +75,61 @@ class TestSingleShooting(TestCase):
 
     def setUp(self):
         self.problem = SingleShootingModel()
+        self.problem.optimize()
+        self.results = self.problem.extract_results()
+        self.tolerance = 1e-6
+
+class SingleShootingExtraVariablesModel(SingleShootingBaseModel):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self._extra_var = ca.MX.sym("x_abs")
+
+        self._path_var_a = ca.MX.sym("a_path")
+        self._path_var_x = ca.MX.sym("x_path")
+
+    def constraints(self, ensemble_member):
+        constraints = super().constraints(ensemble_member).copy()
+
+        # Make an absolute version of the value of x at the final timestep
+        xf = self.state_at("x", self.times("x")[-1], ensemble_member=ensemble_member)
+        x_abs = self.extra_variable("x_abs", ensemble_member=ensemble_member)
+
+        constraints.append((x_abs - xf, 0.0, np.inf))
+        constraints.append((x_abs + xf, 0.0, np.inf))
+
+        return constraints
+
+    def objective(self, ensemble_member):
+        # Minizize the absolute value of x at the final timestep
+        return self.extra_variable("x_abs", ensemble_member=ensemble_member)
+
+    def path_constraints(self, ensemble_member: int):
+        constraints = super().path_constraints(ensemble_member).copy()
+
+        # Add constraints between path variables and states/algebraic states
+        constraints.append((self._path_var_x - self.state("x"), 0.0, 0.0))
+        constraints.append((self._path_var_a - self.state("a"), 0.0, 0.0))
+
+        return constraints
+
+    @property
+    def path_variables(self):
+        return [self._path_var_a, self._path_var_x]
+
+    @property
+    def extra_variables(self):
+        return [self._extra_var]
+
+
+class TestSingleShootingExtraVariables(TestCase):
+    def test_objective_value(self):
+        objective_value_tol = 1e-6
+        self.assertAlmostLessThan(abs(self.problem.objective_value), 0.0, objective_value_tol)
+
+    def setUp(self):
+        self.problem = SingleShootingExtraVariablesModel()
         self.problem.optimize()
         self.results = self.problem.extract_results()
         self.tolerance = 1e-6

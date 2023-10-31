@@ -7,8 +7,10 @@ import numpy as np
 from rtctools.optimization.collocated_integrated_optimization_problem import (
     CollocatedIntegratedOptimizationProblem,
 )
+from rtctools.optimization.control_tree_mixin import ControlTreeMixin
 from rtctools.optimization.goal_programming_mixin import Goal, GoalProgrammingMixin
 from rtctools.optimization.modelica_mixin import ModelicaMixin
+from rtctools.optimization.timeseries import Timeseries
 
 from test_case import TestCase
 
@@ -199,3 +201,56 @@ class TestGoalProgramming(TestCase):
             0.1,
             objective_value_tol,
         )
+
+
+class EnsembleGoal2(Goal):
+    def function(self, optimization_problem, ensemble_member):
+        if ensemble_member == 0:
+            time = 0.7
+        elif ensemble_member == 1:
+            time = 0.8
+        else:
+            raise Exception("Invalid ensemble member")
+
+        return optimization_problem.state_at("x", time, ensemble_member=ensemble_member)
+
+    function_range = (-1e1, 1e1)
+    priority = 3
+    target_min = 0.1
+
+
+class SingleShootingGoalProgrammingEnsembleControlTreeModel(GoalProgrammingMixin, ControlTreeMixin, SingleShootingBaseModel):
+    ensemble_size = 2
+
+    def goals(self):
+        return [Goal1(), EnsembleGoal2(), Goal3()]
+
+    def control_tree_options(self):
+        options = super().control_tree_options()
+        options["forecast_variables"] = ["branching_input"]
+        options["branching_times"] = [0.2]
+        options["k"] = 2
+        return options
+
+    def constant_inputs(self, ensemble_member: int):
+        inputs = super().constant_inputs(ensemble_member)
+
+        times = self.times()
+        values = np.ones_like(times) * ensemble_member
+        inputs["branching_input"] = Timeseries(times, values)
+
+        return inputs
+
+
+class TestGoalProgrammingEnsembleControlTree(TestCase):
+    def setUp(self):
+        self.problem = SingleShootingGoalProgrammingEnsembleControlTreeModel()
+        self.problem.optimize()
+        self.tolerance = 1e-6
+
+    def test_unequal_control_and_state(self):
+        results_0 = self.problem.extract_results(0)
+        results_1 = self.problem.extract_results(1)
+
+        self.assertFalse(np.array_equal(results_0["u"], results_1["u"]))
+        self.assertFalse(np.array_equal(results_0["x"], results_1["x"]))

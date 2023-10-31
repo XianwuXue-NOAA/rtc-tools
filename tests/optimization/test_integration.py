@@ -254,3 +254,46 @@ class TestGoalProgrammingEnsembleControlTree(TestCase):
 
         self.assertFalse(np.array_equal(results_0["u"], results_1["u"]))
         self.assertFalse(np.array_equal(results_0["x"], results_1["x"]))
+
+
+class NotAllStatesIntegratedModel(SingleShootingBaseModel):
+    def objective(self, ensemble_member):
+        # Quadratic penalty on state 'x' at final time
+        xf = self.state_at("x", self.times("x")[-1], ensemble_member=ensemble_member)
+        return xf**2
+    
+    @property
+    def integrated_states(self):
+        return [*self.algebraic_states, *self.differentiated_states[:-1]]
+
+class NotAllStatesIntegratedTest(TestCase):
+    def test_integration_exception_raised(self):
+
+        with self.assertRaisesRegex(Exception, "integrated_states should specify all model states, or none at all"):
+            self.problem.optimize()
+        
+    def setUp(self):
+        self.problem = NotAllStatesIntegratedModel()
+
+
+class OldApiErrorModel(SingleShootingBaseModel):
+    def objective(self, ensemble_member):
+        # Quadratic penalty on state 'x' at final time
+        xf = self.state_at("x", self.times("x")[-1], ensemble_member=ensemble_member)
+        return xf ** 2
+
+    @property
+    def integrated_states(self):
+        return [*self.algebraic_states, *self.differentiated_states[:-1]]
+
+    @property
+    def integrate_states(self):
+        return False
+
+class OldApiErrorTest(TestCase):
+    def test_integration_exception_raised(self):
+        with self.assertRaisesRegex(Exception, "integrated_states should specify all model states, or none at all"):
+            self.problem.optimize()
+
+    def setUp(self):
+        self.problem = OldApiErrorModel()

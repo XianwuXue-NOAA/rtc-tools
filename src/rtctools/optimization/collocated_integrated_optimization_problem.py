@@ -556,8 +556,8 @@ class CollocatedIntegratedOptimizationProblem(OptimizationProblem, metaclass=ABC
         if theta < 1:
             warnings.warn(
                 (
-                    "Explicit collocation/integration is deprecated ",
-                    "and will be removed in a future version.",
+                    "Explicit collocation/integration is deprecated "
+                    "and will be removed in a future version."
                 ),
                 FutureWarning,
                 stacklevel=1,

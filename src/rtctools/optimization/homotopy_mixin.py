@@ -82,7 +82,6 @@ class HomotopyMixin(OptimizationProblem):
                 constants["theta"] = self.get_timeseries("theta")
         except AttributeError:
             pass
-        # constants['semi_implicit_step'] = Timeseries(self.times(), np.array([0, *np.diff(self.times())]))
 
         return constants
 

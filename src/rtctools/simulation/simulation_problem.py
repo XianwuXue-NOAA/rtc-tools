@@ -708,8 +708,13 @@ class SimulationProblem(DataStoreAccessor):
                 pass
 
         # Use rootfinder() to make a function that takes a step forward in time by trying to zero
-        # res_vals().
-        self.__do_step = ca.rootfinder("next_state", "fast_newton", self.__res_vals)
+        # res_vals()
+        options = {
+            "nlpsol": "ipopt",
+            "nlpsol_options": self.solver_options(),
+            "error_on_fail": False,
+        }
+        self.__do_step = ca.rootfinder("next_state", "nlpsol", self.__res_vals, options)
 
     def pre(self):
         """

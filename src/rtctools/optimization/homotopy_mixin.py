@@ -1,5 +1,6 @@
 import logging
 from typing import Dict, Union
+
 import numpy as np
 
 from .optimization_problem import OptimizationProblem

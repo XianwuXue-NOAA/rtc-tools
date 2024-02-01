@@ -95,7 +95,7 @@ class HomotopyMixin(OptimizationProblem):
             # Note that we use a try-except here instead of hasattr, to avoid
             # explicit name mangling.
             # parameters[options["homotopy_parameter"]] = self._HomotopyMixin__theta
-            if isinstance(self._HomotopyMixin__theta, float):
+            if isinstance(self._HomotopyMixin__theta, float) or isinstance(self._HomotopyMixin__theta, int):
                 parameters[options["homotopy_parameter"]] = self._HomotopyMixin__theta
                 self.io.set_timeseries(
                     options["homotopy_parameter"],

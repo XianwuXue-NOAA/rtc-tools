@@ -625,7 +625,7 @@ class GoalProgrammingMixin(_GoalProgrammingMixinBase):
             self.pre()
 
         # Group goals into subproblems
-        subproblems = []
+        self.__subproblems = []
         goals = self.goals()
         path_goals = self.path_goals()
 
@@ -647,7 +647,7 @@ class GoalProgrammingMixin(_GoalProgrammingMixinBase):
         }
 
         for priority in sorted(priorities):
-            subproblems.append(
+            self.__subproblems.append(
                 (
                     priority,
                     [
@@ -685,7 +685,7 @@ class GoalProgrammingMixin(_GoalProgrammingMixinBase):
         self.__results_are_current = False
         self.__original_constant_input_keys = {}
         self.__original_parameter_keys = {}
-        for i, (priority, goals, path_goals) in enumerate(subproblems):
+        for i, (priority, goals, path_goals) in enumerate(self.__subproblems):
             logger.info("Solving goals at priority {}".format(priority))
 
             # Call the pre priority hook

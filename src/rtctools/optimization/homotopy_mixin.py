@@ -64,15 +64,22 @@ class HomotopyMixin(OptimizationProblem):
             # parameters[options["homotopy_parameter"]] = self._HomotopyMixin__theta
             if isinstance(self._HomotopyMixin__theta, float):
                 # parameters[options["homotopy_parameter"]] = self._HomotopyMixin__theta
-                self.io.set_timeseries(options["homotopy_parameter"], self.io.datetimes,
-                                       np.full_like(np.arange(len(self.io.datetimes), dtype=float),
-                                                    self._HomotopyMixin__theta))
-                constants['theta'] = self.get_timeseries('theta')
+                self.io.set_timeseries(
+                    options["homotopy_parameter"],
+                    self.io.datetimes,
+                    np.full_like(
+                        np.arange(len(self.io.datetimes), dtype=float), self._HomotopyMixin__theta
+                    ),
+                )
+                constants["theta"] = self.get_timeseries("theta")
 
             else:
-                self.io.set_timeseries(self.homotopy_options()["homotopy_parameter"], self.io.datetimes,
-                                       self._HomotopyMixin__theta)
-                constants['theta'] = self.get_timeseries('theta')
+                self.io.set_timeseries(
+                    self.homotopy_options()["homotopy_parameter"],
+                    self.io.datetimes,
+                    self._HomotopyMixin__theta,
+                )
+                constants["theta"] = self.get_timeseries("theta")
         except AttributeError:
             pass
         # constants['semi_implicit_step'] = Timeseries(self.times(), np.array([0, *np.diff(self.times())]))
@@ -91,14 +98,21 @@ class HomotopyMixin(OptimizationProblem):
             # parameters[options["homotopy_parameter"]] = self._HomotopyMixin__theta
             if isinstance(self._HomotopyMixin__theta, float):
                 parameters[options["homotopy_parameter"]] = self._HomotopyMixin__theta
-                self.io.set_timeseries(options["homotopy_parameter"], self.io.datetimes,
-                                       np.full_like(np.arange(len(self.io.datetimes), dtype=float), self._HomotopyMixin__theta))
+                self.io.set_timeseries(
+                    options["homotopy_parameter"],
+                    self.io.datetimes,
+                    np.full_like(
+                        np.arange(len(self.io.datetimes), dtype=float), self._HomotopyMixin__theta
+                    ),
+                )
             else:
-                self.io.set_timeseries(self.homotopy_options()["homotopy_parameter"], self.io.datetimes, self._HomotopyMixin__theta)
+                self.io.set_timeseries(
+                    self.homotopy_options()["homotopy_parameter"],
+                    self.io.datetimes,
+                    self._HomotopyMixin__theta,
+                )
         except AttributeError:
             pass
-
-
 
         return parameters
 
@@ -134,7 +148,7 @@ class HomotopyMixin(OptimizationProblem):
             "delta_theta_0": 1.0,
             "delta_theta_min": 0.01,
             "homotopy_parameter": "theta",
-            "non_linear_thresh_time_idx": len(self.io.datetimes)
+            "non_linear_thresh_time_idx": len(self.io.datetimes),
         }
 
     def dynamic_parameters(self):
@@ -208,7 +222,10 @@ class HomotopyMixin(OptimizationProblem):
                     if self.__theta == options["theta_start"]:
                         break
                 else:
-                    if self.__theta[0:options["non_linear_thresh_time_idx"]].any() == options["theta_start"]:
+                    if (
+                        self.__theta[0 : options["non_linear_thresh_time_idx"]].any()
+                        == options["theta_start"]
+                    ):
                         break
                 if isinstance(self.__theta, float):
                     self.__theta -= delta_theta

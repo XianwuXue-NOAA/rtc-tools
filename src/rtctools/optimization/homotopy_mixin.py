@@ -33,7 +33,7 @@ class HomotopyMixin(OptimizationProblem):
         # stored within this class. That is, when the GoalProgrammingMixin
         # class is not used or at the first run of the goal programming loop.
         overwrite_seed = False
-        if isinstance(self.__theta, float):
+        if isinstance(self.__theta, float) or isinstance(self.__theta, int):
             if self.__theta > options["theta_start"]:
                 overwrite_seed = True
         else:
@@ -53,38 +53,6 @@ class HomotopyMixin(OptimizationProblem):
                 ):
                     seed[key] = result
         return seed
-
-    def constant_inputs(self, ensemble_member):
-        constants = super().constant_inputs(ensemble_member)
-        options = self.homotopy_options()
-        try:
-            # Only set the theta if we are in the optimization loop. We want
-            # to avoid accidental usage of the parameter value in e.g. pre().
-            # Note that we use a try-except here instead of hasattr, to avoid
-            # explicit name mangling.
-            # parameters[options["homotopy_parameter"]] = self._HomotopyMixin__theta
-            if isinstance(self._HomotopyMixin__theta, float):
-                # parameters[options["homotopy_parameter"]] = self._HomotopyMixin__theta
-                self.io.set_timeseries(
-                    options["homotopy_parameter"],
-                    self.io.datetimes,
-                    np.full_like(
-                        np.arange(len(self.io.datetimes), dtype=float), self._HomotopyMixin__theta
-                    ),
-                )
-                constants["theta"] = self.get_timeseries("theta")
-
-            else:
-                self.io.set_timeseries(
-                    self.homotopy_options()["homotopy_parameter"],
-                    self.io.datetimes,
-                    self._HomotopyMixin__theta,
-                )
-                constants["theta"] = self.get_timeseries("theta")
-        except AttributeError:
-            pass
-
-        return constants
 
     def parameters(self, ensemble_member):
         parameters = super().parameters(ensemble_member)
@@ -156,7 +124,7 @@ class HomotopyMixin(OptimizationProblem):
     def dynamic_parameters(self):
         dynamic_parameters = super().dynamic_parameters()
 
-        if isinstance(self.__theta, float):
+        if isinstance(self.__theta, float) or isinstance(self.__theta, int):
             if self.__theta > 0:
                 # For theta = 0, we don't mark the homotopy parameter as being dynamic,
                 # so that the correct sparsity structure is obtained for the linear model.
@@ -204,7 +172,7 @@ class HomotopyMixin(OptimizationProblem):
                     self.extract_results(ensemble_member)
                     for ensemble_member in range(self.ensemble_size)
                 ]
-                if isinstance(self.__theta, float):
+                if isinstance(self.__theta, float) or isinstance(self.__theta, int):
                     if self.__theta == 0.0:
                         self.check_collocation_linearity = False
                         self.linear_collocation = False
@@ -220,7 +188,7 @@ class HomotopyMixin(OptimizationProblem):
                         self.clear_transcription_cache()
 
             else:
-                if isinstance(self.__theta, float):
+                if isinstance(self.__theta, float) or isinstance(self.__theta, int):
                     if self.__theta == options["theta_start"]:
                         break
                 else:
@@ -229,7 +197,7 @@ class HomotopyMixin(OptimizationProblem):
                         == options["theta_start"]
                     ):
                         break
-                if isinstance(self.__theta, float):
+                if isinstance(self.__theta, float) or isinstance(self.__theta, int):
                     self.__theta -= delta_theta
                     delta_theta /= 2
                 else:
@@ -252,14 +220,14 @@ class HomotopyMixin(OptimizationProblem):
                         logger.info(failure_message)
                     break
 
-            if isinstance(self.__theta, float):
+            if isinstance(self.__theta, float) or isinstance(self.__theta, int):
                 self.__theta += delta_theta
             else:
                 for i in range(0, len(self.__theta)):
                     if i in range(0, options["non_linear_thresh_time_idx"]):
                         self.__theta[i] += delta_theta
 
-            if isinstance(self.__theta, float):
+            if isinstance(self.__theta, float) or isinstance(self.__theta, int):
                 if self.__theta > 1.0:
                     do_theta_loop = False
             else:

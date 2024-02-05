@@ -63,23 +63,19 @@ class HomotopyMixin(OptimizationProblem):
             # to avoid accidental usage of the parameter value in e.g. pre().
             # Note that we use a try-except here instead of hasattr, to avoid
             # explicit name mangling.
-            # parameters[options["homotopy_parameter"]] = self._HomotopyMixin__theta
-            if isinstance(self._HomotopyMixin__theta, float) or isinstance(
-                self._HomotopyMixin__theta, int
-            ):
-                parameters[options["homotopy_parameter"]] = self._HomotopyMixin__theta
+            if isinstance(self.__theta, float) or isinstance(self.__theta, int):
+                parameters[options["homotopy_parameter"]] = self.__theta
                 self.io.set_timeseries(
                     options["homotopy_parameter"],
                     self.io.datetimes,
-                    np.full_like(
-                        np.arange(len(self.io.datetimes), dtype=float), self._HomotopyMixin__theta
-                    ),
+                    np.full_like(np.arange(len(self.io.datetimes), dtype=float), self.__theta),
                 )
             else:
+                parameters[options["homotopy_parameter"]] = self.__theta
                 self.io.set_timeseries(
                     self.homotopy_options()["homotopy_parameter"],
                     self.io.datetimes,
-                    self._HomotopyMixin__theta,
+                    self.__theta,
                 )
         except AttributeError:
             pass

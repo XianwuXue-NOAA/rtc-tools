@@ -18,6 +18,13 @@
 - Optimization: Fix and modernise DAE integration for collocoated integration.
 - Simulation: support models with an empty DAE.
 
+### Patches
+
+#### 2.6.1
+
+- Doc: fix readthedocs by adding a .readthedocs.yaml config file.
+- Pymoca: enable to use the most recent version of pymoca in the 0.9.x series.
+
 ## 2.5
 
 ### Features

@@ -55,9 +55,11 @@ class HomotopyMixin(OptimizationProblem):
         return seed
 
     def parameters(self, ensemble_member):
+        self.io.set_parameter("non_linear_thresh_time_idx", len(self.io.datetimes))
         parameters = super().parameters(ensemble_member)
 
         options = self.homotopy_options()
+
         try:
             # Only set the theta if we are in the optimization loop. We want
             # to avoid accidental usage of the parameter value in e.g. pre().
@@ -114,7 +116,6 @@ class HomotopyMixin(OptimizationProblem):
             "delta_theta_0": 1.0,
             "delta_theta_min": 0.01,
             "homotopy_parameter": "theta",
-            "non_linear_thresh_time_idx": len(self.io.datetimes),
         }
 
     def dynamic_parameters(self):
@@ -135,24 +136,31 @@ class HomotopyMixin(OptimizationProblem):
 
         return dynamic_parameters
 
-    def optimize(self, preprocessing=True, postprocessing=True, log_solver_failure_as_error=True):
+    def optimize(
+        self,
+        preprocessing=True,
+        postprocessing=True,
+        log_solver_failure_as_error=True,
+        ensemble_member=0,
+    ):
         # Pre-processing
         if preprocessing:
             self.pre()
 
         options = self.homotopy_options()
+        parameters = self.parameters(ensemble_member)
         delta_theta = options["delta_theta_0"]
 
         do_theta_loop = False
 
         # Homotopy loop
-        if options["non_linear_thresh_time_idx"] == len(self.io.datetimes):
+        if parameters["non_linear_thresh_time_idx"] == len(self.io.datetimes):
             self.__theta = options["theta_start"]
             if self.__theta <= 1.0:
                 do_theta_loop = True
         else:
             self.__theta = np.full_like(self.io.datetimes, float(options["theta_start"]))
-            for i in range(options["non_linear_thresh_time_idx"], len(self.__theta)):
+            for i in range(parameters["non_linear_thresh_time_idx"], len(self.__theta)):
                 self.__theta[i] = float(0.0)
             if self.__theta.any() <= 1.0:
                 do_theta_loop = True
@@ -189,7 +197,7 @@ class HomotopyMixin(OptimizationProblem):
                         break
                 else:
                     if (
-                        self.__theta[0 : options["non_linear_thresh_time_idx"]].any()
+                        self.__theta[0 : parameters["non_linear_thresh_time_idx"]].any()
                         == options["theta_start"]
                     ):
                         break
@@ -198,9 +206,11 @@ class HomotopyMixin(OptimizationProblem):
                     delta_theta /= 2
                 else:
                     for i in range(0, len(self.__theta)):
-                        for i in range(0, options["non_linear_thresh_time_idx"]):
+                        if i in range(0, parameters["non_linear_thresh_time_idx"]):
                             self.__theta[i] -= delta_theta
-                            delta_theta /= 2
+                        if i in range(parameters["non_linear_thresh_time_idx"], len(self.__theta)):
+                            self.__theta[i] += delta_theta
+                    delta_theta /= 2
 
                 if delta_theta < options["delta_theta_min"]:
                     failure_message = (
@@ -220,7 +230,7 @@ class HomotopyMixin(OptimizationProblem):
                 self.__theta += delta_theta
             else:
                 for i in range(0, len(self.__theta)):
-                    if i in range(0, options["non_linear_thresh_time_idx"]):
+                    if i in range(0, parameters["non_linear_thresh_time_idx"]):
                         self.__theta[i] += delta_theta
 
             if isinstance(self.__theta, float) or isinstance(self.__theta, int):

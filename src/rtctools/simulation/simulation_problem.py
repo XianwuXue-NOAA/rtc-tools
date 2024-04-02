@@ -82,9 +82,21 @@ class SimulationProblem(DataStoreAccessor):
                 model_name = self.__class__.__name__
 
         # Load model from pymoca backend
-        self.__pymoca_model = pymoca.backends.casadi.api.transfer_model(
-            kwargs["model_folder"], model_name, self.compiler_options()
-        )
+        compiler_options = self.compiler_options()
+        logger.info(f"Loading/compiling model {model_name}.")
+        try:
+            self.__pymoca_model = pymoca.backends.casadi.api.transfer_model(
+                kwargs["model_folder"], model_name, compiler_options
+            )
+        except RuntimeError as error:
+            if compiler_options.get("cache", False):
+                raise error
+            compiler_options["cache"] = False
+            logger.warning(f"Loading model {model_name} using a cache file failed: {error}.")
+            logger.info(f"Compiling model {model_name}.")
+            self.__pymoca_model = pymoca.backends.casadi.api.transfer_model(
+                kwargs["model_folder"], model_name, compiler_options
+            )
 
         # Extract the CasADi MX variables used in the model
         self.__mx = {}

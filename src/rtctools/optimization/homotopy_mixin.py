@@ -67,18 +67,18 @@ class HomotopyMixin(OptimizationProblem):
             # explicit name mangling.
             if isinstance(self.__theta, float) or isinstance(self.__theta, int):
                 parameters[options["homotopy_parameter"]] = self.__theta
-                self.io.set_timeseries(
-                    options["homotopy_parameter"],
-                    self.io.datetimes,
-                    np.full_like(np.arange(len(self.io.datetimes), dtype=float), self.__theta),
-                )
+                # self.io.set_timeseries(
+                #     options["homotopy_parameter"],
+                #     self.io.datetimes,
+                #     np.full_like(np.arange(len(self.io.datetimes), dtype=float), self.__theta),
+                # )
             else:
-                parameters[options["homotopy_parameter"]] = self.__theta
-                self.io.set_timeseries(
-                    self.homotopy_options()["homotopy_parameter"],
-                    self.io.datetimes,
-                    self.__theta,
-                )
+                parameters[options["homotopy_parameter"]] = self.__theta[0]
+                # self.io.set_timeseries(
+                #     self.homotopy_options()["homotopy_parameter"],
+                #     self.io.datetimes,
+                #     self.__theta,
+                # )
         except AttributeError:
             pass
 

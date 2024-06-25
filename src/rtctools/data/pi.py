@@ -801,13 +801,24 @@ class Timeseries:
         # Add series to xml
         self.__xml_root.append(series)
 
-    def write(self):
+    def write(self, output_folder=None, output_filename=None):
         """
         Writes the time series data to disk.
+
+        :param output_folder:   The folder in which the output file is located.
+                                If None, the original folder is used.
+        :param output_filename: The name of the output file without extension.
+                                If None, the original filename is used.
         """
+        if output_folder is None:
+            output_folder = self.__folder
+        if output_filename is None:
+            output_filename = self.__basename
+        xml_path = os.path.join(output_folder, output_filename + ".xml")
+        binary_path = os.path.join(output_folder, output_filename + ".bin")
 
         if self.__binary:
-            f = io.open(self.binary_path, "wb")
+            f = io.open(binary_path, "wb")
 
         if self.make_new_file:
             # Force reinitialization in case write() is called more than once
@@ -911,7 +922,7 @@ class Timeseries:
             f.close()
 
         self.format_xml_data()
-        self.__tree.write(self.__path_xml)
+        self.__tree.write(xml_path)
 
     def format_xml_data(self):
         """

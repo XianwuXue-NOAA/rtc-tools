@@ -369,8 +369,6 @@ class Timeseries:
         self.__folder = folder
         self.__basename = basename
 
-        self.__path_xml = os.path.join(self.__folder, basename + ".xml")
-
         self.__internal_dtype = np.float64
         self.__pi_dtype = np.float32
 
@@ -378,7 +376,7 @@ class Timeseries:
         if self.make_new_file:
             self.__reset_xml_tree()
         else:
-            self.__tree = DefusedElementTree.parse(self.__path_xml)
+            self.__tree = DefusedElementTree.parse(self.path)
             self.__xml_root = self.__tree.getroot()
 
         self.__values = [{}]
@@ -1182,7 +1180,7 @@ class Timeseries:
 
     @property
     def path(self):
-        return self.__path_xml
+        return os.path.join(self.__folder, self.__basename + ".xml")
 
     @property
     def binary_path(self):

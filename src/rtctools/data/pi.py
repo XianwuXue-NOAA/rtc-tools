@@ -369,8 +369,6 @@ class Timeseries:
         self.__folder = folder
         self.__basename = basename
 
-        self.__path_xml = os.path.join(self.__folder, basename + ".xml")
-
         self.__internal_dtype = np.float64
         self.__pi_dtype = np.float32
 
@@ -378,7 +376,7 @@ class Timeseries:
         if self.make_new_file:
             self.__reset_xml_tree()
         else:
-            self.__tree = DefusedElementTree.parse(self.__path_xml)
+            self.__tree = DefusedElementTree.parse(self.path)
             self.__xml_root = self.__tree.getroot()
 
         self.__values = [{}]
@@ -801,13 +799,22 @@ class Timeseries:
         # Add series to xml
         self.__xml_root.append(series)
 
-    def write(self):
+    def write(self, output_folder=None, output_filename=None):
         """
         Writes the time series data to disk.
+
+        :param output_folder:   The folder in which the output file is located.
+                                If None, the original folder is used.
+        :param output_filename: The name of the output file without extension.
+                                If None, the original filename is used.
         """
+        if output_folder is not None:
+            self.__folder = output_folder
+        if output_filename is not None:
+            self.__basename = output_filename
 
         if self.__binary:
-            f = io.open(self.binary_path, "wb")
+            binary_file = io.open(self.binary_path, "wb")
 
         if self.make_new_file:
             # Force reinitialization in case write() is called more than once
@@ -871,7 +878,7 @@ class Timeseries:
                 # Write output
                 nans = np.isnan(values)
                 if self.__binary:
-                    f.write(values.astype(self.__pi_dtype).tobytes())
+                    binary_file.write(values.astype(self.__pi_dtype).tobytes())
                 else:
                     events = series.findall("pi:event", ns)
 
@@ -908,10 +915,10 @@ class Timeseries:
                             series.remove(events[i])
 
         if self.__binary:
-            f.close()
+            binary_file.close()
 
         self.format_xml_data()
-        self.__tree.write(self.__path_xml)
+        self.__tree.write(self.path)
 
     def format_xml_data(self):
         """
@@ -1171,7 +1178,7 @@ class Timeseries:
 
     @property
     def path(self):
-        return self.__path_xml
+        return os.path.join(self.__folder, self.__basename + ".xml")
 
     @property
     def binary_path(self):

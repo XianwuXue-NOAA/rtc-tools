@@ -1,4 +1,6 @@
 import bisect
+import os
+import xml.etree.ElementTree as ET
 
 import numpy as np
 from rtctools.optimization.collocated_integrated_optimization_problem import (
@@ -9,6 +11,8 @@ from rtctools.optimization.pi_mixin import PIMixin
 from test_case import TestCase
 
 from .data_path import data_path
+
+NAMESPACES = {"fews": "http://www.wldelft.nl/fews", "pi": "http://www.wldelft.nl/fews/PI"}
 
 
 class Model(PIMixin, ModelicaMixin, CollocatedIntegratedOptimizationProblem):
@@ -105,3 +109,13 @@ class TestPIMixin(TestCase):
             + self.problem.get_timeseries("x", 0).values[t_idx + 2]
         ) / 2
         self.assertAlmostEqual(self.problem.timeseries_at("x", t), x_ref, self.tolerance)
+
+    def test_write_xml_to_other_file(self):
+        self.problem.timeseries_import.write(output_filename="timeseries_import_copy")
+        file_result = os.path.join(data_path(), "timeseries_import_copy.xml")
+        file_ref = os.path.join(data_path(), "timeseries_import.xml")
+        tree_result = ET.parse(file_result)
+        tree_ref = ET.parse(file_ref)
+        series_result = tree_result.findall("pi:series", NAMESPACES)
+        series_ref = tree_ref.findall("pi:series", NAMESPACES)
+        self.assertEqual(len(series_result), len(series_ref))

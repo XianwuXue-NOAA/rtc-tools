@@ -619,6 +619,18 @@ class GoalProgrammingMixin(_GoalProgrammingMixinBase):
         # will have been discretized, mapped and stored.
         self.__problem_constraints[-1].append(constraint)
 
+    def __update_eps_on_skip(self, goals, i, is_path_goal):
+        assert i > 0  # The solve step of the first priority should never be skipped.
+        base_key = "path_eps_{}_{}" if is_path_goal else "eps_{}_{}"
+        for i_goal in range(len(goals)):
+            for ensemble_member in range(self.ensemble_size):
+                old_key = base_key.format(i - 1, i_goal)
+                if old_key in self.__results[ensemble_member]:
+                    new_key = base_key.format(i, i_goal)
+                    self.__results[ensemble_member][new_key] = self.__results[ensemble_member][
+                        old_key
+                    ]
+
     def optimize(self, preprocessing=True, postprocessing=True, log_solver_failure_as_error=True):
         # Do pre-processing
         if preprocessing:
@@ -707,29 +719,58 @@ class GoalProgrammingMixin(_GoalProgrammingMixinBase):
                 self.__subproblem_path_timeseries,
             ) = self._gp_goal_constraints(path_goals, i, options, is_path_goal=True)
 
+            skip_solve = True
+            if i == 0:
+                skip_solve = False
+            else:
+                for goal in itertools.chain(goals, path_goals):
+                    if not goal.critical and not goal.has_target_bounds:
+                        skip_solve = False
+                        break
+                    pre_solve_vals = [
+                        self.__results[ensemble][goal.function_key]
+                        for ensemble in range(self.ensemble_size)
+                    ]
+                    pre_solve_vals = np.concatenate(pre_solve_vals)
+                    if (goal.has_target_min and np.any(pre_solve_vals < goal.target_min)) or (
+                        goal.has_target_max and np.any(pre_solve_vals > goal.target_max)
+                    ):
+                        skip_solve = False
+                        break
+
             # Put hard constraints in the constraint stores
             self._gp_update_constraint_store(self.__constraint_store, hard_constraints)
             self._gp_update_constraint_store(self.__path_constraint_store, path_hard_constraints)
 
-            # Solve subproblem
-            success = super().optimize(
-                preprocessing=False,
-                postprocessing=False,
-                log_solver_failure_as_error=log_solver_failure_as_error,
-            )
-            if not success:
-                break
+            if skip_solve:
+                logger.info(
+                    "Solve for priority {} is skipped, because the previous solution\
+ is already satisfactory.".format(
+                        priority
+                    )
+                )
+                self.__update_eps_on_skip(goals, i, is_path_goal=False)
+                self.__update_eps_on_skip(path_goals, i, is_path_goal=True)
+            else:
+                # Solve subproblem
+                success = super().optimize(
+                    preprocessing=False,
+                    postprocessing=False,
+                    log_solver_failure_as_error=log_solver_failure_as_error,
+                )
+                if not success:
+                    break
 
-            self._gp_first_run = False
+                self._gp_first_run = False
 
-            # Store results.  Do this here, to make sure we have results even
-            # if a subsequent priority fails.
-            self.__results_are_current = False
-            self.__results = [
-                self.extract_results(ensemble_member)
-                for ensemble_member in range(self.ensemble_size)
-            ]
-            self.__results_are_current = True
+                # Store results.  Do this here, to make sure we have results even
+                # if a subsequent priority fails.
+                self.__results_are_current = False
+                self.__results = [
+                    self.extract_results(ensemble_member)
+                    for ensemble_member in range(self.ensemble_size)
+                ]
+                self.__results_are_current = True
 
             # Call the post priority hook, so that intermediate results can be
             # logged/inspected.

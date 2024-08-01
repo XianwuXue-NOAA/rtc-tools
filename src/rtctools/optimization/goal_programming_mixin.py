@@ -495,9 +495,6 @@ class GoalProgrammingMixin(_GoalProgrammingMixinBase):
                     continue
 
                 if goal.has_target_bounds:
-                    tmp = self.__results[ensemble_member]["path_eps_0_0"]
-                    tmp2 = self.__results[ensemble_member]
-                    # tmp3 = self.__results[ensemble_member]["path_eps_1_0"]
                     epsilon = self.__results[ensemble_member][eps_format.format(sym_index, j)]
 
                     # Store results
@@ -625,7 +622,7 @@ class GoalProgrammingMixin(_GoalProgrammingMixinBase):
     def __update_eps_on_skip(self, goals, i, is_path_goal):
         assert i > 0 # The solve step of the first priority should never be skipped.
         base_key = "path_eps_{}_{}" if is_path_goal else "eps_{}_{}"
-        for i_goal, goal in enumerate(goals):
+        for i_goal in range(len(goals)):
             for ensemble_member in range(self.ensemble_size):
                 old_key = base_key.format(i - 1, i_goal)
                 if old_key in self.__results[ensemble_member]:
@@ -741,7 +738,8 @@ class GoalProgrammingMixin(_GoalProgrammingMixinBase):
             self._gp_update_constraint_store(self.__path_constraint_store, path_hard_constraints)
 
             if skip_solve:
-                logger.info("Solve for priority {} is skipped, because the previous solution is already satisfactory.".format(priority))
+                logger.info("Solve for priority {} is skipped, because the previous solution is already satisfactory."\
+                            .format(priority))
                 self.__update_eps_on_skip(goals, i, is_path_goal=False)
                 self.__update_eps_on_skip(path_goals, i, is_path_goal=True)
             else:

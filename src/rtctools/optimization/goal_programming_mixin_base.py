@@ -1081,6 +1081,7 @@ class _GoalProgrammingMixinBase(OptimizationProblem, metaclass=ABCMeta):
 
         :param priority: The priority level that was started.
         """
+        self.keep_priority = True
         pass
 
     def priority_completed(self, priority: int) -> None:

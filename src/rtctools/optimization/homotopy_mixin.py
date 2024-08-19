@@ -24,7 +24,7 @@ class HomotopyMixin(OptimizationProblem):
 
     """
 
-    def smartseed(self, seed):
+    def previous_result_seed(self, seed):
         # TODO rename function
         # TODO appraoch should work with csv and xml output
         # TODO approach is not robust
@@ -49,28 +49,18 @@ class HomotopyMixin(OptimizationProblem):
     def seed(self, ensemble_member):
         seed = super().seed(ensemble_member)
         options = self.homotopy_options()
-        # TODO set default self.ss and rename
-        # If smartseed is true, go into the data to retrieve the seed from the last result.
-        self.ss = True
-        if self.ss:
-            smart_seed = self.smartseed(seed)
+        # TODO this is more general than homotopy - move to parent function
+        # TODO set default self.use_previous_result_seed
+        # If use_previous_result_seed is true, go into the data to retrieve the seed from the last result.
+        self.use_previous_result_seed = True
+        if self.use_previous_result_seed:
+            smart_seed = self.previous_result_seed(seed)
             return smart_seed
-        else:
-            if self.__theta==1.0:
-                self.__theta = 1.1 # TODO not robust solution
 
         # Overwrite the seed only when the results of the latest run are
         # stored within this class. That is, when the GoalProgrammingMixin
         # class is not used or at the first run of the goal programming loop.
-        # TODO rephrase without extra overwrite_seed variable
-        overwrite_seed = False
-        if isinstance(self.__theta, float) or isinstance(self.__theta, int):
-            if self.__theta > options["theta_start"]:
-                overwrite_seed = True
-        else:
-            if self.__theta.any() > options["theta_start"]:
-                overwrite_seed = True
-        if overwrite_seed and getattr(self, "_gp_first_run", True):
+        elif self.__theta > options["theta_start"] and getattr(self, "_gp_first_run", True):
             for key, result in self.__results[ensemble_member].items():
                 times = self.times(key)
                 if (result.ndim == 1 and len(result) == len(times)) or (

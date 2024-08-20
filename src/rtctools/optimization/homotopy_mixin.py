@@ -25,8 +25,9 @@ class HomotopyMixin(OptimizationProblem):
     """
 
     def previous_result_seed(self, seed):
+        # TODO generalize for used outside of homotopy
         # TODO rename function
-        # TODO appraoch should work with csv and xml output
+        # TODO approach should work with csv and xml output
         # TODO approach is not robust
         prev_result = "<path_to_csv>results.csv"
         df = pd.read_csv(prev_result) # Read in the data from the previous results
@@ -35,7 +36,10 @@ class HomotopyMixin(OptimizationProblem):
 
         # Assign the data from the results into the dictionary
         # TODO not robust
-        # TODO add defualt for time since previous solution (1 hr)
+        # TODO detect time difference between t0 of prevous and current run
+        # TODO detect if timesteps are consistent.
+        # TODO detect if output was missing
+        # TODO determine if separate output with all varaible outout is needed from previous run (full results dictionary)
         for key, result in dict_prev_result.items():
             times = self.times(key)
             times = times[1:]
@@ -49,13 +53,12 @@ class HomotopyMixin(OptimizationProblem):
     def seed(self, ensemble_member):
         seed = super().seed(ensemble_member)
         options = self.homotopy_options()
+        seeding_options = self.seeding_options()
         # TODO this is more general than homotopy - move to parent function
-        # TODO set default self.use_previous_result_seed
-        # If use_previous_result_seed is true, go into the data to retrieve the seed from the last result.
-        self.use_previous_result_seed = True
-        if self.use_previous_result_seed:
-            smart_seed = self.previous_result_seed(seed)
-            return smart_seed
+        # TODO set default use_previous_result_seed
+        if seeding_options["use_previous_result_seed"]:
+            seed = self.previous_result_seed(seed)
+            return seed
 
         # Overwrite the seed only when the results of the latest run are
         # stored within this class. That is, when the GoalProgrammingMixin
@@ -122,6 +125,31 @@ class HomotopyMixin(OptimizationProblem):
             "delta_theta_0": 1.0,
             "delta_theta_min": 0.01,
             "homotopy_parameter": "theta",
+        }
+
+    def seeding_options(self) -> Dict[str, Union[str, float]]:
+        # TODO call super here and move to goal_programmin_mixin, see def seed()
+        """
+        Returns a dictionary of options controlling the seeding process.
+
+        +-------------------------------------+------------+---------------+
+        | Option                              | Type       | Default value |
+        +=====================================+============+===============+
+        | ``use_previous_result_seed``        | ``Bool``   | ``False``     |
+        +-------------------------------------+------------+---------------+
+
+        The seeding process is controlled by the seeding_options. If ``use_previous_result_seed`` is
+        true then, for the first priority, the solution to a previous run will be used as a seed.
+        In this case the timeseries_export.xml or timeseries_export.csv from the revious run should
+        be placed within the input folder of the model. The time differnce between initial start
+        times of runs and timestep consistency is detected in ``previous_result_seed``.
+        Otherwise, the seed is determined using information only from the current model.
+
+        :returns: A dictionary of seeding options.
+        """
+
+        return {
+            "use_previous_result_seed": False,
         }
 
     def dynamic_parameters(self):

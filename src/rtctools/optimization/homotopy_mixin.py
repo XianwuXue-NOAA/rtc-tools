@@ -26,19 +26,11 @@ class HomotopyMixin(OptimizationProblem):
     def seed(self, ensemble_member):
         seed = super().seed(ensemble_member)
         options = self.homotopy_options()
-        seeding_options = self.seeding_options()
-        # TODO this is more general than homotopy - move to parent function
-        # TODO set default use_previous_result_seed
-        # TODO should this only be used at first priority - check if that is in goal programming
-        #  mixin
-        if seeding_options["use_previous_result_seed"]:
-            seed = self.previous_result_seed(seed)
-            return seed
 
         # Overwrite the seed only when the results of the latest run are
         # stored within this class. That is, when the GoalProgrammingMixin
         # class is not used or at the first run of the goal programming loop.
-        elif self.__theta > options["theta_start"] and getattr(self, "_gp_first_run", True):
+        if self.__theta > options["theta_start"] and getattr(self, "_gp_first_run", True):
             for key, result in self.__results[ensemble_member].items():
                 times = self.times(key)
                 if (result.ndim == 1 and len(result) == len(times)) or (

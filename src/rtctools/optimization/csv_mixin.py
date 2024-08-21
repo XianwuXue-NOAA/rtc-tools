@@ -254,11 +254,12 @@ class CSVMixin(IOMixin):
                 dt = times[1] - times[0]
                 for i in range(len(times) - 1):
                     if times[i + 1] - times[i] != dt:
-                        raise Exception(
+                        logger.warning(
                             "CSVMixin: Expecting equidistant timeseries, the time step towards "
                             "{} is not the same as the time step(s) before. "
                             "Set csv_equidistant = False if this is intended.".format(times[i + 1])
                         )
+                        return seed
 
             previous_timeseries_times_t0 = self.__previous_timeseries_times[0]
             t0_difference = self.io.reference_datetime - previous_timeseries_times_t0

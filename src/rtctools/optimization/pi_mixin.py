@@ -1,6 +1,8 @@
 import logging
 from datetime import timedelta
 
+import numpy as np
+
 import rtctools.data.pi as pi
 import rtctools.data.rtc as rtc
 from rtctools.optimization.io_mixin import IOMixin
@@ -170,7 +172,6 @@ class PIMixin(IOMixin):
                 )
             )
 
-        # Convert timeseries timestamps to seconds since t0 for internal use
         previous_timeseries_times = self.__previous_timeseries.times
 
         # Timestamp check
@@ -184,35 +185,56 @@ class PIMixin(IOMixin):
             dt = previous_timeseries_times[1] - previous_timeseries_times[0]
             for i in range(len(previous_timeseries_times) - 1):
                 if previous_timeseries_times[i + 1] - previous_timeseries_times[i] != dt:
-                    raise Exception(
+                    logger.warning(
                         "PIMixin: Expecting equidistant timeseries, the time step "
                         "towards {} is not the same as the time step(s) before. Seeding using "
                         "an imported result is only supported for equidistant timesteps".format(
                             previous_timeseries_times[i + 1]
                         )
                     )
+                    return seed
                 # Check if timestep is same as timeseries_import
                 if dt != self.__timeseries_import.dt:
-                    raise Exception(
+                    logger.warning(
                         "PIMixin: The timesteps in timeseries_import {} differ from the timesteps "
                         "in the imported previous result {}. This is not supported".format(
                             self.__timeseries_import.dt, dt
                         )
                     )
+                    return seed
 
         previous_timeseries_times_t0 = previous_timeseries_times[0]
-        t0_difference = previous_timeseries_times_t0 - self.io.reference_datetime
+        t0_difference = self.io.reference_datetime - previous_timeseries_times_t0
         index_difference = int(t0_difference / dt)
+
+        # Check that timeseries_import values are in the seed
+        if len(previous_timeseries_times) < abs(index_difference):
+            logger.warning(
+                "Imported result does not overlap with {} range. "
+                "Default seed is used".format(self.timeseries_import_basename)
+            )
+            return seed
         times = self.times()
 
         for ensemble_member in range(self.__previous_timeseries.ensemble_size):
             if ensemble_member == current_ensemble_member:
                 for variable, values in self.__previous_timeseries.items(ensemble_member):
-                    values = values[index_difference:]
-                    if len(times) < len(values):
-                        values = values[: len(times)]
-                    elif len(times) > len(values):
-                        values = values + [values[-1]] * (len(times) - len(values))
+                    if index_difference >= 0:
+                        values = np.asarray(values[index_difference:], dtype=np.float64)
+                        if len(times) < len(values):
+                            values = values[: len(times)]
+                        elif len(times) > len(values):
+                            # extend the last entry
+                            values = np.append(values, [values[-1]] * (len(times) - len(values)))
+                    else:
+                        values = np.asarray(values, dtype=np.float64)
+                        # extend first entry back to t0
+                        values = np.append([values[0]] * abs(index_difference), values)
+                        if len(times) < len(values):
+                            values = values[: len(times)]
+                        elif len(times) > len(values):
+                            # extend the last entry
+                            values = np.append(values, [values[-1]] * (len(times) - len(values)))
                     seed[variable] = Timeseries(times, values)
 
         logger.debug("PIMixin: Updated seed with previous result timeseries.")

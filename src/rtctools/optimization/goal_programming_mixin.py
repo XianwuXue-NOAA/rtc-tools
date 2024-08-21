@@ -130,9 +130,11 @@ class GoalProgrammingMixin(_GoalProgrammingMixinBase):
         The seeding process is controlled by the seeding_options. If ``import_previous_result_seed``
         is true then, for the first priority, the solution to a previous run will be used as a seed.
         In this case the timeseries_export.xml or timeseries_export.csv from the revious run should
-        be placed within the input folder of the model. The time differnce between initial start
-        times of runs and timestep consistency is detected in ``import_previous_result_seed()``.
-        Otherwise, the seed is determined using information only from the current model.
+        be placed within the input folder of the model. By default these files should be given the
+        name "imported_timeseries_export". This can be changes by overwiting
+        "imported_previous_result_timeseries_basename".
+        If ``import_previous_result_seed`` is false then the seed is determined using information
+        only from the current model.
 
         :returns: A dictionary of seeding options.
         """

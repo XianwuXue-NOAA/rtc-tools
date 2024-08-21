@@ -143,32 +143,8 @@ class GoalProgrammingMixin(_GoalProgrammingMixinBase):
             "import_previous_result_seed": False,
         }
 
-    def read_imported_previous_result(self, seed, ensemble_member):
-        # call super to read result from CSVMixin or PIMixin
-        seed = super.read_imported_previous_result(seed, ensemble_member)
-        # TODO rename function
-        # TODO approach should work with csv and xml output
-        # TODO approach is not robust
-        # prev_result = "<path_to_csv>results.csv"
-        # df = pd.read_csv(prev_result)  # Read in the data from the previous results
-        # df.drop(columns=df.columns[0], axis=1, inplace=True)  # Drop first column with the time
-        # dict_prev_result = df.to_dict("list")  # Convert to dictionary
-
-        # # Assign the data from the results into the dictionary
-        # # TODO not robust
-        # # TODO detect time difference between t0 of prevous and current run
-        # # TODO detect if timesteps are consistent.
-        # # TODO detect if output was missing and fill with zeros
-        # # TODO determine if separate output with all varaible outout is needed from previous run
-        #  (full results dictionary)
-        # for key, result in dict_prev_result.items():
-        #     times = self.times(key)
-        #     times = times[1:]
-        #     result = result[1:]
-
-        #     seed[key] = Timeseries(times, result)
-
-        # Return the result
+    def seed_with_imported_result(self, seed, ensemble_member):
+        seed = super().seed_with_imported_result(seed, ensemble_member)
         return seed
 
     def seed(self, ensemble_member):
@@ -176,7 +152,8 @@ class GoalProgrammingMixin(_GoalProgrammingMixinBase):
         if self._gp_first_run:
             seed = super().seed(ensemble_member)
             if seeding_options["import_previous_result_seed"]:
-                seed = self.read_imported_previous_result(seed, ensemble_member)
+                logger.info("Using imported results as a seed for the first optimization problem")
+                seed = self.seed_with_imported_result(seed, ensemble_member)
         else:
             # Seed with previous results
             seed = AliasDict(self.alias_relation)

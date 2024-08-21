@@ -154,7 +154,7 @@ class PIMixin(IOMixin):
                         check_duplicates=self.pi_check_for_duplicate_parameters,
                     )
 
-    def read_imported_previous_result(self, seed, current_ensemble_member):
+    def seed_with_imported_result(self, seed, current_ensemble_member):
         try:
             self.__previous_timeseries = pi.Timeseries(
                 self.__data_config,
@@ -209,10 +209,10 @@ class PIMixin(IOMixin):
             if ensemble_member == current_ensemble_member:
                 for variable, values in self.__previous_timeseries.items(ensemble_member):
                     values = values[index_difference:]
-                    if len(times) < values:
+                    if len(times) < len(values):
                         values = values[: len(times)]
-                    else:
-                        values = values + [values[-1]] * (len(self.times) - len(values))
+                    elif len(times) > len(values):
+                        values = values + [values[-1]] * (len(times) - len(values))
                     seed[variable] = Timeseries(times, values)
 
         logger.debug("PIMixin: Updated seed with previous result timeseries.")

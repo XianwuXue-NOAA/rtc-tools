@@ -219,7 +219,7 @@ class CSVMixin(IOMixin):
                             "Set csv_equidistant = False if this is intended.".format(times[i + 1])
                         )
 
-    def read_imported_previous_result(self, seed):
+    def seed_with_imported_result(self, seed, current_ensemble_member):
         # TODO support non-equidistant timesteps
         if not self.csv_equidistant:
             raise Exception(
@@ -236,6 +236,10 @@ class CSVMixin(IOMixin):
                 with_time=True,
             )
 
+            self.__previous_timeseries_times = _previous_timeseries[
+                _previous_timeseries.dtype.names[0]
+            ]
+
             # Check if the timeseries are truly equidistant
             if self.csv_validate_timeseries:
                 times = self.__previous_timeseries_times
@@ -248,23 +252,38 @@ class CSVMixin(IOMixin):
                             "Set csv_equidistant = False if this is intended.".format(times[i + 1])
                         )
 
-            self.__previous_timeseries_times = _previous_timeseries[
-                _previous_timeseries.dtype.names[0]
-            ]
-
             previous_timeseries_times_t0 = self.__previous_timeseries_times[0]
-            t0_difference = previous_timeseries_times_t0 - self.io.reference_datetime
+            t0_difference = self.io.reference_datetime - previous_timeseries_times_t0
             index_difference = int(t0_difference / dt)
 
-            # TODO check that timeseries_import values are in the seed
+            # Check that timeseries_import values are in the seed
+            if len(self.__previous_timeseries_times) < abs(index_difference):
+                logger.info(
+                    "Imported result does not overlap with timeseries_import range. "
+                    "Default seed is used"
+                )
+                return seed
             times = self.times()
 
-            for key in _previous_timeseries.dtype.names[index_difference:]:
-                values = np.asarray(_previous_timeseries[key][index_difference:], dtype=np.float64)
-                if len(times) < values:
-                    values = values[: len(times)]
+            for key in _previous_timeseries.dtype.names[1:]:
+                if index_difference >= 0:
+                    values = np.asarray(
+                        _previous_timeseries[key][index_difference:], dtype=np.float64
+                    )
+                    if len(times) < len(values):
+                        values = values[: len(times)]
+                    elif len(times) > len(values):
+                        # extend the last entry
+                        values = np.append(values, [values[-1]] * (len(times) - len(values)))
                 else:
-                    values = values + [values[-1]] * (len(self.times) - len(values))
+                    values = np.asarray(_previous_timeseries[key], dtype=np.float64)
+                    # extend first entry back to t0
+                    values = np.append([values[0]] * abs(index_difference), values)
+                    if len(times) < len(values):
+                        values = values[: len(times)]
+                    elif len(times) > len(values):
+                        # extend the last entry
+                        values = np.append(values, [values[-1]] * (len(times) - len(values)))
                 seed[key] = Timeseries(times, values)
 
             logger.debug("CSVMixin: Updated seed with previous result timeseries.")

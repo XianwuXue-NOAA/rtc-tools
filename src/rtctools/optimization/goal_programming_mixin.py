@@ -124,23 +124,23 @@ class GoalProgrammingMixin(_GoalProgrammingMixinBase):
         +-------------------------------------+------------+---------------+
         | Option                              | Type       | Default value |
         +=====================================+============+===============+
-        | ``import_previous_result_seed``        | ``Bool``   | ``False``     |
+        | ``import_seed``        | ``Bool``   | ``False``     |
         +-------------------------------------+------------+---------------+
 
-        The seeding process is controlled by the seeding_options. If ``import_previous_result_seed``
+        The seeding process is controlled by the seeding_options. If ``import_seed``
         is true then, for the first priority, the solution to a previous run will be used as a seed.
         In this case the timeseries_export.xml or timeseries_export.csv from the revious run should
         be placed within the input folder of the model. By default these files should be given the
-        name "imported_timeseries_export". This can be changes by overwiting
+        name "imported_seed". This can be changes by overwiting
         "imported_previous_result_timeseries_basename".
-        If ``import_previous_result_seed`` is false then the seed is determined using information
+        If ``import_seed`` is false then the seed is determined using information
         only from the current model.
 
         :returns: A dictionary of seeding options.
         """
 
         return {
-            "import_previous_result_seed": False,
+            "import_seed": False,
         }
 
     def seed_with_imported_result(self, seed, ensemble_member):
@@ -151,7 +151,7 @@ class GoalProgrammingMixin(_GoalProgrammingMixinBase):
         seeding_options = self.seeding_options()
         if self._gp_first_run:
             seed = super().seed(ensemble_member)
-            if seeding_options["import_previous_result_seed"]:
+            if seeding_options["import_seed"]:
                 logger.info("Using imported results as a seed for the first optimization problem")
                 seed = self.seed_with_imported_result(seed, ensemble_member)
         else:

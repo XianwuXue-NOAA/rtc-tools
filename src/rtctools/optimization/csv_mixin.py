@@ -228,13 +228,21 @@ class CSVMixin(IOMixin):
 
         # TODO support csv ensemble mode
         if not self.csv_ensemble_mode:
-            _previous_timeseries = csv.load(
-                os.path.join(
-                    self._input_folder, self.imported_previous_result_timeseries_basename + ".csv"
-                ),
-                delimiter=self.csv_delimiter,
-                with_time=True,
-            )
+            try:
+                _previous_timeseries = csv.load(
+                    os.path.join(
+                        self._input_folder,
+                        self.imported_previous_result_timeseries_basename + ".csv",
+                    ),
+                    delimiter=self.csv_delimiter,
+                    with_time=True,
+                )
+            except IOError:
+                raise Exception(
+                    "CSVMixin: {}.csv not found in {}.".format(
+                        self.imported_previous_result_timeseries_basename, self._input_folder
+                    )
+                )
 
             self.__previous_timeseries_times = _previous_timeseries[
                 _previous_timeseries.dtype.names[0]
@@ -258,9 +266,9 @@ class CSVMixin(IOMixin):
 
             # Check that timeseries_import values are in the seed
             if len(self.__previous_timeseries_times) < abs(index_difference):
-                logger.info(
-                    "Imported result does not overlap with timeseries_import range. "
-                    "Default seed is used"
+                logger.warning(
+                    "Imported result does not overlap with {} range. "
+                    "Default seed is used".format(self.timeseries_import_basename)
                 )
                 return seed
             times = self.times()

@@ -26,6 +26,8 @@ class DataStoreAccessor(metaclass=ABCMeta):
     timeseries_import_basename = "timeseries_import"
     #: Export file basename
     timeseries_export_basename = "timeseries_export"
+    #: Imported previous result file basename
+    imported_previous_result_timeseries_basename = "imported_timeseries_export"
 
     def __init__(self, **kwargs):
         # Save arguments

@@ -4,6 +4,7 @@ from datetime import timedelta
 import rtctools.data.pi as pi
 import rtctools.data.rtc as rtc
 from rtctools.optimization.io_mixin import IOMixin
+from rtctools.optimization.timeseries import Timeseries
 
 logger = logging.getLogger("rtctools")
 
@@ -152,6 +153,70 @@ class PIMixin(IOMixin):
                         ensemble_member,
                         check_duplicates=self.pi_check_for_duplicate_parameters,
                     )
+
+    def read_imported_previous_result(self, seed, current_ensemble_member):
+        try:
+            self.__previous_timeseries = pi.Timeseries(
+                self.__data_config,
+                self._input_folder,
+                self.imported_previous_result_timeseries_basename,
+                binary=self.pi_binary_timeseries,
+                pi_validate_times=self.pi_validate_timeseries,
+            )
+        except IOError:
+            raise Exception(
+                "PIMixin: {}.xml not found in {}.".format(
+                    self.imported_previous_result_timeseries_basename, self._input_folder
+                )
+            )
+
+        # Convert timeseries timestamps to seconds since t0 for internal use
+        previous_timeseries_times = self.__previous_timeseries.times
+
+        # Timestamp check
+        if self.pi_validate_timeseries:
+            for i in range(len(previous_timeseries_times) - 1):
+                if previous_timeseries_times[i] >= previous_timeseries_times[i + 1]:
+                    raise Exception("PIMixin: Time stamps must be strictly increasing.")
+
+        # Check if the timeseries are truly equidistant
+        if self.pi_validate_timeseries:
+            dt = previous_timeseries_times[1] - previous_timeseries_times[0]
+            for i in range(len(previous_timeseries_times) - 1):
+                if previous_timeseries_times[i + 1] - previous_timeseries_times[i] != dt:
+                    raise Exception(
+                        "PIMixin: Expecting equidistant timeseries, the time step "
+                        "towards {} is not the same as the time step(s) before. Seeding using "
+                        "an imported result is only supported for equidistant timesteps".format(
+                            previous_timeseries_times[i + 1]
+                        )
+                    )
+                # Check if timestep is same as timeseries_import
+                if dt != self.__timeseries_import.dt:
+                    raise Exception(
+                        "PIMixin: The timesteps in timeseries_import {} differ from the timesteps "
+                        "in the imported previous result {}. This is not supported".format(
+                            self.__timeseries_import.dt, dt
+                        )
+                    )
+
+        previous_timeseries_times_t0 = previous_timeseries_times[0]
+        t0_difference = previous_timeseries_times_t0 - self.io.reference_datetime
+        index_difference = int(t0_difference / dt)
+        times = self.times()
+
+        for ensemble_member in range(self.__previous_timeseries.ensemble_size):
+            if ensemble_member == current_ensemble_member:
+                for variable, values in self.__previous_timeseries.items(ensemble_member):
+                    values = values[index_difference:]
+                    if len(times) < values:
+                        values = values[: len(times)]
+                    else:
+                        values = values + [values[-1]] * (len(self.times) - len(values))
+                    seed[variable] = Timeseries(times, values)
+
+        logger.debug("PIMixin: Updated seed with previous result timeseries.")
+        return seed
 
     def solver_options(self):
         # Call parent

@@ -219,6 +219,57 @@ class CSVMixin(IOMixin):
                             "Set csv_equidistant = False if this is intended.".format(times[i + 1])
                         )
 
+    def read_imported_previous_result(self, seed):
+        # TODO support non-equidistant timesteps
+        if not self.csv_equidistant:
+            raise Exception(
+                "Seeding using an imported result is only supported for equidistant timesteps"
+            )
+
+        # TODO support csv ensemble mode
+        if not self.csv_ensemble_mode:
+            _previous_timeseries = csv.load(
+                os.path.join(
+                    self._input_folder, self.imported_previous_result_timeseries_basename + ".csv"
+                ),
+                delimiter=self.csv_delimiter,
+                with_time=True,
+            )
+
+            # Check if the timeseries are truly equidistant
+            if self.csv_validate_timeseries:
+                times = self.__previous_timeseries_times
+                dt = times[1] - times[0]
+                for i in range(len(times) - 1):
+                    if times[i + 1] - times[i] != dt:
+                        raise Exception(
+                            "CSVMixin: Expecting equidistant timeseries, the time step towards "
+                            "{} is not the same as the time step(s) before. "
+                            "Set csv_equidistant = False if this is intended.".format(times[i + 1])
+                        )
+
+            self.__previous_timeseries_times = _previous_timeseries[
+                _previous_timeseries.dtype.names[0]
+            ]
+
+            previous_timeseries_times_t0 = self.__previous_timeseries_times[0]
+            t0_difference = previous_timeseries_times_t0 - self.io.reference_datetime
+            index_difference = int(t0_difference / dt)
+
+            # TODO check that timeseries_import values are in the seed
+            times = self.times()
+
+            for key in _previous_timeseries.dtype.names[index_difference:]:
+                values = np.asarray(_previous_timeseries[key][index_difference:], dtype=np.float64)
+                if len(times) < values:
+                    values = values[: len(times)]
+                else:
+                    values = values + [values[-1]] * (len(self.times) - len(values))
+                seed[key] = Timeseries(times, values)
+
+            logger.debug("CSVMixin: Updated seed with previous result timeseries.")
+        return seed
+
     def ensemble_member_probability(self, ensemble_member):
         if self.csv_ensemble_mode:
             return self.__ensemble["probability"][ensemble_member]

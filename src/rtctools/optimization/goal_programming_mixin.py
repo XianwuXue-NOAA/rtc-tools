@@ -117,9 +117,64 @@ class GoalProgrammingMixin(_GoalProgrammingMixinBase):
             parameters[variable] = value
         return parameters
 
+    def seeding_options(self) -> Dict[str, Union[str, float]]:
+        """
+        Returns a dictionary of options controlling the seeding process.
+
+        +-------------------------------------+------------+---------------+
+        | Option                              | Type       | Default value |
+        +=====================================+============+===============+
+        | ``import_previous_result_seed``        | ``Bool``   | ``False``     |
+        +-------------------------------------+------------+---------------+
+
+        The seeding process is controlled by the seeding_options. If ``import_previous_result_seed``
+        is true then, for the first priority, the solution to a previous run will be used as a seed.
+        In this case the timeseries_export.xml or timeseries_export.csv from the revious run should
+        be placed within the input folder of the model. The time differnce between initial start
+        times of runs and timestep consistency is detected in ``import_previous_result_seed()``.
+        Otherwise, the seed is determined using information only from the current model.
+
+        :returns: A dictionary of seeding options.
+        """
+
+        return {
+            "import_previous_result_seed": False,
+        }
+
+    def read_imported_previous_result(self, seed, ensemble_member):
+        # call super to read result from CSVMixin or PIMixin
+        seed = super.read_imported_previous_result(seed, ensemble_member)
+        # TODO rename function
+        # TODO approach should work with csv and xml output
+        # TODO approach is not robust
+        # prev_result = "<path_to_csv>results.csv"
+        # df = pd.read_csv(prev_result)  # Read in the data from the previous results
+        # df.drop(columns=df.columns[0], axis=1, inplace=True)  # Drop first column with the time
+        # dict_prev_result = df.to_dict("list")  # Convert to dictionary
+
+        # # Assign the data from the results into the dictionary
+        # # TODO not robust
+        # # TODO detect time difference between t0 of prevous and current run
+        # # TODO detect if timesteps are consistent.
+        # # TODO detect if output was missing and fill with zeros
+        # # TODO determine if separate output with all varaible outout is needed from previous run
+        #  (full results dictionary)
+        # for key, result in dict_prev_result.items():
+        #     times = self.times(key)
+        #     times = times[1:]
+        #     result = result[1:]
+
+        #     seed[key] = Timeseries(times, result)
+
+        # Return the result
+        return seed
+
     def seed(self, ensemble_member):
+        seeding_options = self.seeding_options()
         if self._gp_first_run:
             seed = super().seed(ensemble_member)
+            if seeding_options["import_previous_result_seed"]:
+                seed = self.read_imported_previous_result(seed, ensemble_member)
         else:
             # Seed with previous results
             seed = AliasDict(self.alias_relation)

@@ -26,6 +26,9 @@ class GoalProgrammingMixin(_GoalProgrammingMixinBase):
     Adds lexicographic goal programming to your optimization problem.
     """
 
+    # Keep track if seeding has failed at the first priority with an imported seed
+    seeding_failed = False
+
     def __init__(self, **kwargs):
         # Call parent class first for default behaviour.
         super().__init__(**kwargs)
@@ -131,7 +134,7 @@ class GoalProgrammingMixin(_GoalProgrammingMixinBase):
         is true then, for the first priority, the solution to a previous run will be used as a seed.
         In this case the timeseries_export.xml or timeseries_export.csv from the revious run should
         be placed within the input folder of the model. By default these files should be given the
-        name "imported_seed". This can be changes by overwiting
+        name "imported_seed". This can be changed by overwiting
         "imported_previous_result_timeseries_basename".
         If ``import_seed`` is false then the seed is determined using information
         only from the current model.
@@ -151,7 +154,7 @@ class GoalProgrammingMixin(_GoalProgrammingMixinBase):
         seeding_options = self.seeding_options()
         if self._gp_first_run:
             seed = super().seed(ensemble_member)
-            if seeding_options["import_seed"]:
+            if seeding_options["import_seed"] and not self.seeding_failed:
                 logger.info("Using imported results as a seed for the first optimization problem")
                 seed = self.seed_with_imported_result(seed, ensemble_member)
         else:

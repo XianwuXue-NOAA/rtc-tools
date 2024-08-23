@@ -722,61 +722,80 @@ class GoalProgrammingMixin(_GoalProgrammingMixinBase):
         self.__results_are_current = False
         self.__original_constant_input_keys = {}
         self.__original_parameter_keys = {}
-        for i, (priority, goals, path_goals) in enumerate(subproblems):
-            logger.info("Solving goals at priority {}".format(priority))
 
-            # Call the pre priority hook
-            self.priority_started(priority)
+        redo_with_default_seed = True
 
-            (
-                self.__subproblem_epsilons,
-                self.__subproblem_objectives,
-                self.__subproblem_soft_constraints,
-                hard_constraints,
-                self.__subproblem_parameters,
-            ) = self._gp_goal_constraints(goals, i, options, is_path_goal=False)
+        while redo_with_default_seed:
+            # Assume no restart is needed
+            redo_with_default_seed = False
+            for i, (priority, goals, path_goals) in enumerate(subproblems):
+                logger.info("Solving goals at priority {}".format(priority))
 
-            (
-                self.__subproblem_path_epsilons,
-                self.__subproblem_path_objectives,
-                self.__subproblem_path_soft_constraints,
-                path_hard_constraints,
-                self.__subproblem_path_timeseries,
-            ) = self._gp_goal_constraints(path_goals, i, options, is_path_goal=True)
+                # Call the pre priority hook
+                self.priority_started(priority)
 
-            # Put hard constraints in the constraint stores
-            self._gp_update_constraint_store(self.__constraint_store, hard_constraints)
-            self._gp_update_constraint_store(self.__path_constraint_store, path_hard_constraints)
+                (
+                    self.__subproblem_epsilons,
+                    self.__subproblem_objectives,
+                    self.__subproblem_soft_constraints,
+                    hard_constraints,
+                    self.__subproblem_parameters,
+                ) = self._gp_goal_constraints(goals, i, options, is_path_goal=False)
 
-            # Solve subproblem
-            success = super().optimize(
-                preprocessing=False,
-                postprocessing=False,
-                log_solver_failure_as_error=log_solver_failure_as_error,
-            )
-            if not success:
-                break
+                (
+                    self.__subproblem_path_epsilons,
+                    self.__subproblem_path_objectives,
+                    self.__subproblem_path_soft_constraints,
+                    path_hard_constraints,
+                    self.__subproblem_path_timeseries,
+                ) = self._gp_goal_constraints(path_goals, i, options, is_path_goal=True)
 
-            self._gp_first_run = False
+                # Put hard constraints in the constraint stores
+                self._gp_update_constraint_store(self.__constraint_store, hard_constraints)
+                self._gp_update_constraint_store(
+                    self.__path_constraint_store, path_hard_constraints
+                )
 
-            # Store results.  Do this here, to make sure we have results even
-            # if a subsequent priority fails.
-            self.__results_are_current = False
-            self.__results = [
-                self.extract_results(ensemble_member)
-                for ensemble_member in range(self.ensemble_size)
-            ]
-            self.__results_are_current = True
+                # Solve subproblem
+                success = super().optimize(
+                    preprocessing=False,
+                    postprocessing=False,
+                    log_solver_failure_as_error=log_solver_failure_as_error,
+                )
+                if not success:
+                    # if an imported seed was used then we should retry with default seed
+                    if self.seeding_options()["import_seed"] and not self.seeding_failed:
+                        self.seeding_failed = True
+                        redo_with_default_seed = True
+                        logger.info(
+                            "Failed to find a solution with imported_seed, falling back on default "
+                            "seed"
+                        )
+                        break
+                    else:
+                        redo_with_default_seed = False
+                        break
 
-            # Call the post priority hook, so that intermediate results can be
-            # logged/inspected.
-            self.priority_completed(priority)
+                self._gp_first_run = False
 
-            if options["keep_soft_constraints"]:
-                self.__add_subproblem_objective_constraint()
-            else:
-                self.__soft_to_hard_constraints(goals, i, is_path_goal=False)
-                self.__soft_to_hard_constraints(path_goals, i, is_path_goal=True)
+                # Store results.  Do this here, to make sure we have results even
+                # if a subsequent priority fails.
+                self.__results_are_current = False
+                self.__results = [
+                    self.extract_results(ensemble_member)
+                    for ensemble_member in range(self.ensemble_size)
+                ]
+                self.__results_are_current = True
+
+                # Call the post priority hook, so that intermediate results can be
+                # logged/inspected.
+                self.priority_completed(priority)
+
+                if options["keep_soft_constraints"]:
+                    self.__add_subproblem_objective_constraint()
+                else:
+                    self.__soft_to_hard_constraints(goals, i, is_path_goal=False)
+                    self.__soft_to_hard_constraints(path_goals, i, is_path_goal=True)
 
         logger.info("Done goal programming")
 

@@ -142,7 +142,6 @@ class HomotopyMixin(OptimizationProblem):
                     if self.seeding_options()["import_seed"] and 0.0 < options["theta_start"]:
                         self.seeding_failed = True
                         self.__theta = -delta_theta
-                        # TODO if this is a bad seed then the seed should be reset to default
                         logger.info(
                             "Failed to find a solution to non-linear problem with "
                             "imported_seed, falling back on default homotopy options"

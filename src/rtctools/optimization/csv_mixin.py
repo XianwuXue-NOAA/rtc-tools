@@ -220,14 +220,14 @@ class CSVMixin(IOMixin):
                         )
 
     def seed_with_imported_result(self, seed, current_ensemble_member):
-        # TODO support non-equidistant timesteps
         if not self.csv_equidistant:
             raise Exception(
                 "Seeding using an imported result is only supported for equidistant timesteps"
             )
 
-        # TODO support csv ensemble mode
-        if not self.csv_ensemble_mode:
+        if self.csv_ensemble_mode:
+            raise Exception("Seeding using an imported result is not supported for ensemble mode")
+        else:
             try:
                 _previous_timeseries = csv.load(
                     os.path.join(

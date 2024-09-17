@@ -11,6 +11,12 @@ class Example(CSVMixin, ModelicaMixin, CollocatedIntegratedOptimizationProblem):
     A basic example for introducing users to RTC-Tools 2
     """
 
+    def parameters(self, ensemble_member):
+        parameters = super().parameters(ensemble_member)
+        parameters["test_parameter[1]"] = 1.1
+        parameters["test_parameter[2]"] = 1.2
+        return parameters
+
     def objective(self, ensemble_member):
         # Minimize water pumped. The total water pumped is the integral of the
         # water pumped from the starting time until the stoping time. In

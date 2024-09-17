@@ -5,10 +5,11 @@ model Example
   input Modelica.Units.SI.VolumeFlowRate Q_in(fixed = true);
   input Modelica.Units.SI.VolumeFlowRate Q_release(fixed = false, min = 0.0, max = 6.5);
   output Modelica.Units.SI.Volume V_storage;
+  parameter Real[2] test_parameter;
 equation
   connect(inflow.QOut, storage.QIn) annotation(Line(points = {{-47, 0}, {-10, 0}}));
   connect(storage.QOut, outfall.QIn) annotation(Line(points = {{8, 0}, {47, 0}}));
-  storage.Q_release = Q_release;
+  storage.Q_release = test_parameter[1] * Q_release;
   inflow.Q = Q_in;
   V_storage = storage.V;
   annotation(Diagram(coordinateSystem(extent = {{-148.5, -105}, {148.5, 105}}, initialScale = 0.1, grid = {5, 5})));

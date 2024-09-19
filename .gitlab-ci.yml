@@ -30,14 +30,14 @@ stages:
 #     - pre-commit run --all-files --show-diff-on-failure
 
 # build
-# build:
-#   stage: build
-#   script:
-#     - python setup.py sdist bdist_wheel
-#   artifacts:
-#     paths:
-#       - dist/
-#     expire_in: 1 week
+build:
+  stage: build
+  script:
+    - python setup.py sdist bdist_wheel
+  artifacts:
+    paths:
+      - dist/
+    expire_in: 1 week
 
 .python_tox_matrix:
   image: python:${VERSION}

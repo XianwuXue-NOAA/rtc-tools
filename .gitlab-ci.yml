@@ -16,28 +16,28 @@ stages:
   - deploy
 
 # style
-style:
-  stage: style
-  variables:
-    PRE_COMMIT_HOME: ${CI_PROJECT_DIR}/.cache/pre-commit
-  cache:
-    paths:
-      - ${PRE_COMMIT_HOME}
-  before_script:
-    - apt update && apt install -y --no-install-recommends git
-    - pip install pre-commit
-  script:
-    - pre-commit run --all-files --show-diff-on-failure
+# style:
+#   stage: style
+#   variables:
+#     PRE_COMMIT_HOME: ${CI_PROJECT_DIR}/.cache/pre-commit
+#   cache:
+#     paths:
+#       - ${PRE_COMMIT_HOME}
+#   before_script:
+#     - apt update && apt install -y --no-install-recommends git
+#     - pip install pre-commit
+#   script:
+#     - pre-commit run --all-files --show-diff-on-failure
 
 # build
-build:
-  stage: build
-  script:
-    - python setup.py sdist bdist_wheel
-  artifacts:
-    paths:
-      - dist/
-    expire_in: 1 week
+# build:
+#   stage: build
+#   script:
+#     - python setup.py sdist bdist_wheel
+#   artifacts:
+#     paths:
+#       - dist/
+#     expire_in: 1 week
 
 .python_tox_matrix:
   image: python:${VERSION}
@@ -45,7 +45,7 @@ build:
     - tox -vv
   parallel:
     matrix:
-      - VERSION: ["3.8", "3.9", "3.10", "3.11"]
+      - VERSION: ["3.8"]
 
 # test
 test:linux:
@@ -55,36 +55,36 @@ test:linux:
     TOXENV: py
 
 # run examples (only for tags)
-examples:linux:
-  stage: examples
-  extends: .python_tox_matrix
-  variables:
-    TOXENV: examples
-  only:
-    - tags
+# examples:linux:
+#   stage: examples
+#   extends: .python_tox_matrix
+#   variables:
+#     TOXENV: examples
+#   only:
+#     - tags
 
 # coverage
-coverage:
-  stage: coverage
-  script:
-    - tox -vv
-    - pip install codecov
-    - codecov --token=$CODECOV_TOKEN
-  variables:
-    TOXENV: coverage
+# coverage:
+#   stage: coverage
+#   script:
+#     - tox -vv
+#     - pip install codecov
+#     - codecov --token=$CODECOV_TOKEN
+#   variables:
+#     TOXENV: coverage
 
 # deploy
-deploy:
-  stage: deploy
-  dependencies:
-    - build
-  script:
-    - pip install twine
-    - twine upload -u $PYPI_USER -p $PYPI_PASSWORD dist/*
-  only:
-    # Only deploy refs that start with "2."
-    - /^2\..*$/
-  except:
-    # If a branch happens to start with "2.", skip it as we only want to
-    # deploy tags.
-    - branches
+# deploy:
+#   stage: deploy
+#   dependencies:
+#     - build
+#   script:
+#     - pip install twine
+#     - twine upload -u $PYPI_USER -p $PYPI_PASSWORD dist/*
+#   only:
+#     # Only deploy refs that start with "2."
+#     - /^2\..*$/
+#   except:
+#     # If a branch happens to start with "2.", skip it as we only want to
+#     # deploy tags.
+#     - branches

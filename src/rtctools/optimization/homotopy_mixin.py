@@ -137,24 +137,35 @@ class HomotopyMixin(OptimizationProblem):
 
             else:
                 if self.__theta == options["theta_start"]:
-                    break
-
-                self.__theta -= delta_theta
-                delta_theta /= 2
-
-                if delta_theta < options["delta_theta_min"]:
-                    failure_message = (
-                        "Solver failed with homotopy parameter theta = {}. Theta cannot "
-                        "be decreased further, as that would violate the minimum delta "
-                        "theta of {}.".format(self.__theta, options["delta_theta_min"])
-                    )
-                    if log_solver_failure_as_error:
-                        logger.error(failure_message)
+                    # if an imported seed was used and theta != 0.0 then we fallback to using
+                    # default homotopy approach
+                    if self.seeding_options()["import_seed"] and 0.0 < options["theta_start"]:
+                        self.seeding_failed = True
+                        self.__theta = -delta_theta
+                        logger.info(
+                            "Failed to find a solution to non-linear problem with "
+                            "imported_seed, falling back on default homotopy options"
+                        )
                     else:
-                        # In this case we expect some higher level process to deal
-                        # with the solver failure, so we only log it as info here.
-                        logger.info(failure_message)
-                    break
+                        break
+
+                else:
+                    self.__theta -= delta_theta
+                    delta_theta /= 2
+
+                    if delta_theta < options["delta_theta_min"]:
+                        failure_message = (
+                            "Solver failed with homotopy parameter theta = {}. Theta cannot "
+                            "be decreased further, as that would violate the minimum delta "
+                            "theta of {}.".format(self.__theta, options["delta_theta_min"])
+                        )
+                        if log_solver_failure_as_error:
+                            logger.error(failure_message)
+                        else:
+                            # In this case we expect some higher level process to deal
+                            # with the solver failure, so we only log it as info here.
+                            logger.info(failure_message)
+                        break
 
             self.__theta += delta_theta
 

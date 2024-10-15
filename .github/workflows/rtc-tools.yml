@@ -30,7 +30,7 @@ jobs:
         # Fetch all tags/branches in order to obtain the correct version.
         fetch-depth: 0
         fetch-tags: true
-    - run: python -c "import versioneer; print(versioneer.get_version())"
+    - run: python setup.py version
     - run: python setup.py sdist bdist_wheel
     - uses: actions/upload-artifact@v4
       if: success()

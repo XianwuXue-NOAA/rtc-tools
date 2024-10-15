@@ -98,8 +98,5 @@ jobs:
     timeout-minutes: 30
     steps:
     - uses: actions/checkout@v4.1.0
-    - uses: actions/download-artifact@v4.1.0
-      with:
-        name: "${{ github.job }}"
     - run: pip install twine
     - run: twine upload -u "${{ secrets.PYPI_USER }}" -p "${{ secrets.PYPI_PASSWORD }}" dist/*

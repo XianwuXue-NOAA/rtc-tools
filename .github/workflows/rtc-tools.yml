@@ -26,6 +26,9 @@ jobs:
     timeout-minutes: 30
     steps:
     - uses: actions/checkout@v4.1.0
+      with:
+        # Fetch all tags/branches in order to obtain the correct version.
+        fetch-depth: 0
     - run: python setup.py sdist bdist_wheel
     - uses: actions/upload-artifact@v4
       if: success()

@@ -1,7 +1,11 @@
 # Deltares RTC-Tools
 
-[![Pipeline](https://gitlab.com/deltares/rtc-tools/badges/master/pipeline.svg)](https://gitlab.com/deltares/rtc-tools/commits/master)
-[![Coverage](https://codecov.io/gl/deltares/rtc-tools/branch/master/graph/badge.svg)](https://codecov.io/gl/deltares/rtc-tools)
+[![Pipeline](https://github.com/deltares/rtc-tools/actions/workflows/rtc-tools.yml/badge.svg)](
+    https://github.com/deltares/rtc-tools/actions/workflows/rtc-tools.yml
+)
+[![Coverage](https://codecov.io/gl/deltares/rtc-tools/branch/master/graph/badge.svg)](
+    https://codecov.io/gl/deltares/rtc-tools
+)
 
 
 RTC-Tools is an open-source Python package for simulation and optimization of cyber-physical systems.  It can be used for model-predictive control and operational decision making of water and energy systems.  It is developed and maintained by Deltares, in collaboration with partners.

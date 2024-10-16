@@ -139,8 +139,25 @@ class GoalProgrammingMixin(_GoalProgrammingMixinBase):
             "retry_without_seed": False,
         }
 
-    def seed_with_imported_result(self, seed, ensemble_member):
-        seed = super().seed_with_imported_result(seed, ensemble_member)
+    def seed_without_import(self, seed, ensemble_member):
+        # Unload seeds
+        i_unloaded_seeds = 0
+        for variable in self.dae_variables["free_variables"]:
+            variable = variable.name()
+            try:
+                Timeseries(*self.io.get_timeseries_sec(variable, ensemble_member))
+            except KeyError:
+                pass
+            else:
+                if logger.getEffectiveLevel() == logging.DEBUG:
+                    logger.debug("IOMixin: Unseeded free variable {}".format(variable))
+                i_unloaded_seeds += 1
+                seed[variable] = Timeseries(self.io.times_sec, 0.0)
+        if i_unloaded_seeds > 0.0:
+            logger.info("Imported seed is ignored.")
+        else:
+            # TODO check this works as expected
+            self.try_to_solve = False
         return seed
 
     def seed(self, ensemble_member):
@@ -152,8 +169,7 @@ class GoalProgrammingMixin(_GoalProgrammingMixinBase):
                 and seeding_options["retry_without_seed"]
                 and len(seed) > 0
             ):
-                logger.info("Ignore seed.")
-                seed = {}
+                seed = self.seed_without_import(seed, ensemble_member)
         else:
             # Seed with previous results
             seed = AliasDict(self.alias_relation)
@@ -753,10 +769,9 @@ class GoalProgrammingMixin(_GoalProgrammingMixinBase):
             self._gp_update_constraint_store(self.__constraint_store, hard_constraints)
             self._gp_update_constraint_store(self.__path_constraint_store, path_hard_constraints)
 
-            try_to_solve = True
+            self.try_to_solve = True
             i_try = 0
-            while try_to_solve:
-                try_to_solve = False
+            while self.try_to_solve and i_try < 3:
                 i_try += 1
                 # Solve subproblem
                 success = super().optimize(
@@ -768,12 +783,17 @@ class GoalProgrammingMixin(_GoalProgrammingMixinBase):
                     not success
                     and self._gp_first_run
                     and self.seeding_options()["retry_without_seed"]
-                    and i_try < 2
+                    and not self._gp_first_run_failed
                 ):
                     logger.info("Failed to find a solution with given seed, try without seed.")
                     self._gp_first_run_failed = True
-                    try_to_solve = True
+                    self.try_to_solve = True
+                    break
+                elif not success:
+                    self.try_to_solve = False
+                    break
                 else:
+                    self.try_to_solve = False
                     self._gp_first_run = False
             if not success:
                 break

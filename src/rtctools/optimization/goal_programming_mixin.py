@@ -768,11 +768,13 @@ class GoalProgrammingMixin(_GoalProgrammingMixinBase):
                     not success
                     and self._gp_first_run
                     and self.seeding_options()["retry_without_seed"]
+                    and i_try < 2
                 ):
                     logger.info("Failed to find a solution with given seed, try without seed.")
                     self._gp_first_run_failed = True
                     try_to_solve = True
-                self._gp_first_run = False
+                else:
+                    self._gp_first_run = False
             if not success:
                 break
 

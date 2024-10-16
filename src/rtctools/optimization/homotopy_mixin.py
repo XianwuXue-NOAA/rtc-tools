@@ -139,9 +139,12 @@ class HomotopyMixin(OptimizationProblem):
                 if self.__theta == options["theta_start"]:
                     # if an imported seed was used and theta != 0.0 then we fallback to using
                     # default homotopy approach
-                    if self.seeding_options()["import_seed"] and 0.0 < options["theta_start"]:
+                    if (
+                        self.seeding_options(0)["retry_without_seed"]
+                        and 0.0 < options["theta_start"]
+                    ):
                         self.seeding_failed = True
-                        self.__theta = -delta_theta
+                        self.__theta = 0.0
                         logger.info(
                             "Failed to find a solution to non-linear problem with "
                             "imported_seed, falling back on default homotopy options"

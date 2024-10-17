@@ -97,6 +97,7 @@ class PIMixin(IOMixin):
             "import_seed": False,
             "extend_seed_forwards": False,
             "extend_seed_backwards": False,
+            "seed_variables_in_timeseries_import": False,
         }
 
     def read(self):

@@ -158,6 +158,7 @@ class GoalProgrammingMixin(_GoalProgrammingMixinBase):
         else:
             # TODO check this works as expected
             self.try_to_solve = False
+            logger.info("No imported seed was provided.")
         return seed
 
     def seed(self, ensemble_member):
@@ -788,14 +789,14 @@ class GoalProgrammingMixin(_GoalProgrammingMixinBase):
                     logger.info("Failed to find a solution with given seed, try without seed.")
                     self._gp_first_run_failed = True
                     self.try_to_solve = True
-                    break
+                    # TODO if we are using homotopy we may actaully want to break here already
                 elif not success:
                     self.try_to_solve = False
-                    break
                 else:
                     self.try_to_solve = False
                     self._gp_first_run = False
-            if not success:
+            if not success and not self.try_to_solve:
+                # TODO if we are using homotopy we may actaully want to break here already
                 break
 
             # Store results.  Do this here, to make sure we have results even

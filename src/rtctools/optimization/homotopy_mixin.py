@@ -116,7 +116,7 @@ class HomotopyMixin(OptimizationProblem):
         # Homotopy loop
         self.__theta = options["theta_start"]
 
-        while self.__theta <= 1.0:
+        while 0.0 <= self.__theta <= 1.0:
             logger.info("Solving with homotopy parameter theta = {}.".format(self.__theta))
 
             success = super().optimize(
@@ -139,12 +139,17 @@ class HomotopyMixin(OptimizationProblem):
                 if self.__theta == options["theta_start"]:
                     # if an imported seed was used and theta != 0.0 then we fallback to using
                     # default homotopy approach
-                    if self.seeding_options()["import_seed"] and 0.0 < options["theta_start"]:
-                        self.seeding_failed = True
+                    if (
+                        self.seeding_options()["import_seed_timeseries"]
+                        and 0.0 < options["theta_start"]
+                        and self._gp_first_run
+                        and not self._gp_first_run_failed
+                    ):
+                        self._gp_first_run_failed = True
                         self.__theta = -delta_theta
                         logger.info(
                             "Failed to find a solution to non-linear problem with "
-                            "imported_seed, falling back on default homotopy options"
+                            "imported seed timeseries, falling back on default homotopy options"
                         )
                     else:
                         break

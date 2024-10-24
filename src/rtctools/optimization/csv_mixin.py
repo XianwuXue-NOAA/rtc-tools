@@ -219,7 +219,7 @@ class CSVMixin(IOMixin):
                             "Set csv_equidistant = False if this is intended.".format(times[i + 1])
                         )
 
-    def seed_with_imported_result(self, seed, current_ensemble_member):
+    def seed_with_imported_timeseries(self, seed, current_ensemble_member):
         if not self.csv_equidistant:
             raise Exception(
                 "Seeding using an imported result is only supported for equidistant timesteps"
@@ -232,7 +232,7 @@ class CSVMixin(IOMixin):
                 _previous_timeseries = csv.load(
                     os.path.join(
                         self._input_folder,
-                        self.imported_previous_result_timeseries_basename + ".csv",
+                        self.imported_seed_timeseries_basename + ".csv",
                     ),
                     delimiter=self.csv_delimiter,
                     with_time=True,
@@ -240,7 +240,7 @@ class CSVMixin(IOMixin):
             except IOError:
                 raise Exception(
                     "CSVMixin: {}.csv not found in {}.".format(
-                        self.imported_previous_result_timeseries_basename, self._input_folder
+                        self.imported_seed_timeseries_basename, self._input_folder
                     )
                 )
 

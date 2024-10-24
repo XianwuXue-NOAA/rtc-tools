@@ -26,9 +26,6 @@ class GoalProgrammingMixin(_GoalProgrammingMixinBase):
     Adds lexicographic goal programming to your optimization problem.
     """
 
-    # Keep track if seeding has failed at the first priority with an imported seed
-    seeding_failed = False
-
     def __init__(self, **kwargs):
         # Call parent class first for default behaviour.
         super().__init__(**kwargs)
@@ -36,6 +33,7 @@ class GoalProgrammingMixin(_GoalProgrammingMixinBase):
         # Initialize instance variables, so that the overridden methods may be
         # called outside of the goal programming loop, for example in pre().
         self._gp_first_run = True
+        self._gp_first_run_failed = False
         self.__results_are_current = False
         self.__subproblem_epsilons = []
         self.__subproblem_objectives = []
@@ -127,36 +125,34 @@ class GoalProgrammingMixin(_GoalProgrammingMixinBase):
         +-------------------------------------+------------+---------------+
         | Option                              | Type       | Default value |
         +=====================================+============+===============+
-        | ``import_seed``        | ``Bool``   | ``False``     |
+        | ``import_seed_timeseries``          | ``Bool``   | ``False``     |
         +-------------------------------------+------------+---------------+
 
-        The seeding process is controlled by the seeding_options. If ``import_seed``
-        is true then, for the first priority, the solution to a previous run will be used as a seed.
-        In this case the timeseries_export.xml or timeseries_export.csv from the revious run should
-        be placed within the input folder of the model. By default these files should be given the
-        name "imported_seed". This can be changed by overwiting
-        "imported_previous_result_timeseries_basename".
-        If ``import_seed`` is false then the seed is determined using information
-        only from the current model.
+        The seeding process is controlled by the seeding_options. If ``import_seed_timeseries``
+        is true then, for the first priority, the imported seed will be used.
+        By default these files should be given the name "seed_timeseries". This can be changed by
+        overwiting "imported_seed_timeseries_basename".
+        If ``import_seed_timeseries`` is false then the seed is determined using information
+        only from the ``timeseries_import`` nd modelica model.
 
         :returns: A dictionary of seeding options.
         """
 
         return {
-            "import_seed": False,
+            "import_seed_timeseries": False,
         }
 
-    def seed_with_imported_result(self, seed, ensemble_member):
-        seed = super().seed_with_imported_result(seed, ensemble_member)
+    def seed_with_imported_timeseries(self, seed, ensemble_member):
+        seed = super().seed_with_imported_timeseries(seed, ensemble_member)
         return seed
 
     def seed(self, ensemble_member):
         seeding_options = self.seeding_options()
         if self._gp_first_run:
             seed = super().seed(ensemble_member)
-            if seeding_options["import_seed"] and not self.seeding_failed:
-                logger.info("Using imported results as a seed for the first optimization problem")
-                seed = self.seed_with_imported_result(seed, ensemble_member)
+            if seeding_options["import_seed_timeseries"] and not self._gp_first_run_failed:
+                logger.info("Using imported seed for the first optimization problem")
+                seed = self.seed_with_imported_timeseries(seed, ensemble_member)
         else:
             # Seed with previous results
             seed = AliasDict(self.alias_relation)
@@ -764,12 +760,16 @@ class GoalProgrammingMixin(_GoalProgrammingMixinBase):
                 )
                 if not success:
                     # if an imported seed was used then we should retry with default seed
-                    if self.seeding_options()["import_seed"] and not self.seeding_failed:
-                        self.seeding_failed = True
+                    if (
+                        self.seeding_options()["import_seed_timeseries"]
+                        and self._gp_first_run
+                        and not self._gp_first_run_failed
+                    ):
+                        self._gp_first_run_failed = True
                         redo_with_default_seed = True
                         logger.info(
-                            "Failed to find a solution with imported_seed, falling back on default "
-                            "seed"
+                            "Failed to find a solution with imported seed timeseries, falling back "
+                            "on default seed."
                         )
                         break
                     else:

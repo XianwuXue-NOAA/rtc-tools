@@ -156,19 +156,19 @@ class PIMixin(IOMixin):
                         check_duplicates=self.pi_check_for_duplicate_parameters,
                     )
 
-    def seed_with_imported_result(self, seed, current_ensemble_member):
+    def seed_with_imported_timeseries(self, seed, current_ensemble_member):
         try:
             self.__previous_timeseries = pi.Timeseries(
                 self.__data_config,
                 self._input_folder,
-                self.imported_previous_result_timeseries_basename,
+                self.imported_seed_timeseries_basename,
                 binary=self.pi_binary_timeseries,
                 pi_validate_times=self.pi_validate_timeseries,
             )
         except IOError:
             raise Exception(
                 "PIMixin: {}.xml not found in {}.".format(
-                    self.imported_previous_result_timeseries_basename, self._input_folder
+                    self.imported_seed_timeseries_basename, self._input_folder
                 )
             )
 

@@ -156,9 +156,9 @@ class PIMixin(IOMixin):
                         check_duplicates=self.pi_check_for_duplicate_parameters,
                     )
 
-    def seed_with_imported_timeseries(self, seed, current_ensemble_member):
+    def seed_with_imported_timeseries(self, seed, seeding_options, current_ensemble_member):
         try:
-            self.__previous_timeseries = pi.Timeseries(
+            self.__import_seed_timeseries = pi.Timeseries(
                 self.__data_config,
                 self._input_folder,
                 self.imported_seed_timeseries_basename,
@@ -166,75 +166,95 @@ class PIMixin(IOMixin):
                 pi_validate_times=self.pi_validate_timeseries,
             )
         except IOError:
-            raise Exception(
+            logger.warning(
                 "PIMixin: {}.xml not found in {}.".format(
                     self.imported_seed_timeseries_basename, self._input_folder
                 )
             )
+            self._gp_first_run_failed = True
+            return seed
 
-        previous_timeseries_times = self.__previous_timeseries.times
+        import_seed_timeseries_times = self.__import_seed_timeseries.times
 
         # Timestamp check
         if self.pi_validate_timeseries:
-            for i in range(len(previous_timeseries_times) - 1):
-                if previous_timeseries_times[i] >= previous_timeseries_times[i + 1]:
-                    raise Exception("PIMixin: Time stamps must be strictly increasing.")
+            for i in range(len(import_seed_timeseries_times) - 1):
+                if import_seed_timeseries_times[i] >= import_seed_timeseries_times[i + 1]:
+                    logger.warning("PIMixin: Time stamps must be strictly increasing.")
+                    self._gp_first_run_failed = True
+                    return seed
 
         # Check if the timeseries are truly equidistant
         if self.pi_validate_timeseries:
-            dt = previous_timeseries_times[1] - previous_timeseries_times[0]
-            for i in range(len(previous_timeseries_times) - 1):
-                if previous_timeseries_times[i + 1] - previous_timeseries_times[i] != dt:
+            dt = import_seed_timeseries_times[1] - import_seed_timeseries_times[0]
+            for i in range(len(import_seed_timeseries_times) - 1):
+                if import_seed_timeseries_times[i + 1] - import_seed_timeseries_times[i] != dt:
                     logger.warning(
-                        "PIMixin: Expecting equidistant timeseries, the time step "
-                        "towards {} is not the same as the time step(s) before. Seeding using "
-                        "an imported result is only supported for equidistant timesteps".format(
-                            previous_timeseries_times[i + 1]
+                        "PIMixin: Expecting equidistant timeseries, the time step towards "
+                        "{} is not the same as the time step(s) before. Using an imported "
+                        "seed timeseries is only supported for equidistant timesteps".format(
+                            import_seed_timeseries_times[i + 1]
                         )
                     )
+                    self._gp_first_run_failed = True
                     return seed
                 # Check if timestep is same as timeseries_import
                 if dt != self.__timeseries_import.dt:
                     logger.warning(
                         "PIMixin: The timesteps in timeseries_import {} differ from the timesteps "
-                        "in the imported previous result {}. This is not supported".format(
+                        "in the imported seed timeseries {}. This is not supported".format(
                             self.__timeseries_import.dt, dt
                         )
                     )
+                    self._gp_first_run_failed = True
                     return seed
 
-        previous_timeseries_times_t0 = previous_timeseries_times[0]
-        t0_difference = self.io.reference_datetime - previous_timeseries_times_t0
+        import_seed_timeseries_times_t0 = import_seed_timeseries_times[0]
+        t0_difference = self.io.reference_datetime - import_seed_timeseries_times_t0
         index_difference = int(t0_difference / dt)
 
         # Check that timeseries_import values are in the seed
-        if len(previous_timeseries_times) < abs(index_difference):
+        if len(import_seed_timeseries_times) < abs(index_difference):
             logger.warning(
                 "Imported result does not overlap with {} range. "
                 "Default seed is used".format(self.timeseries_import_basename)
             )
+            self._gp_first_run_failed = True
             return seed
         times = self.times()
 
-        for ensemble_member in range(self.__previous_timeseries.ensemble_size):
+        for ensemble_member in range(self.__import_seed_timeseries.ensemble_size):
             if ensemble_member == current_ensemble_member:
-                for variable, values in self.__previous_timeseries.items(ensemble_member):
+                for variable, values in self.__import_seed_timeseries.items(ensemble_member):
                     if index_difference >= 0:
                         values = np.asarray(values[index_difference:], dtype=np.float64)
                         if len(times) < len(values):
                             values = values[: len(times)]
                         elif len(times) > len(values):
-                            # extend the last entry
-                            values = np.append(values, [values[-1]] * (len(times) - len(values)))
+                            if seeding_options["extend_seed_forwards"]:
+                                # extend the last entry
+                                values = np.append(
+                                    values, [values[-1]] * (len(times) - len(values))
+                                )
+                            else:
+                                values = np.append(values, np.nan * (len(times) - len(values)))
                     else:
                         values = np.asarray(values, dtype=np.float64)
-                        # extend first entry back to t0
-                        values = np.append([values[0]] * abs(index_difference), values)
+                        if seeding_options["extend_seed_backwards"]:
+                            # extend first entry back to t0
+                            values = np.append([values[0]] * abs(index_difference), values)
+                        else:
+                            values = np.append(np.nan * abs(index_difference), values)
                         if len(times) < len(values):
                             values = values[: len(times)]
                         elif len(times) > len(values):
-                            # extend the last entry
-                            values = np.append(values, [values[-1]] * (len(times) - len(values)))
+                            if seeding_options["extend_seed_forwards"]:
+                                # extend the last entry
+                                values = np.append(
+                                    values, [values[-1]] * (len(times) - len(values))
+                                )
+                            else:
+                                values = np.append(values, np.nan * (len(times) - len(values)))
                     seed[variable] = Timeseries(times, values)
 
         logger.debug("PIMixin: Updated seed with previous result timeseries.")

@@ -122,28 +122,45 @@ class GoalProgrammingMixin(_GoalProgrammingMixinBase):
         """
         Returns a dictionary of options controlling the seeding process.
 
-        +-------------------------------------+------------+---------------+
-        | Option                              | Type       | Default value |
-        +=====================================+============+===============+
-        | ``import_seed_timeseries``          | ``Bool``   | ``False``     |
-        +-------------------------------------+------------+---------------+
+        +------------------------------------------+------------+---------------+
+        | Option                                   | Type       | Default value |
+        +==========================================+============+===============+
+        | ``import_seed_timeseries``               | ``Bool``   | ``False``     |
+        +------------------------------------------+------------+---------------+
+        | ``extend_seed_forwards``                 | ``Bool``   | ``True``      |
+        +------------------------------------------+------------+---------------+
+        | ``extend_seed_backwards``                | ``Bool``   | ``True``     |
+        +------------------------------------------+------------+---------------+
 
-        The seeding process is controlled by the seeding_options. If ``import_seed_timeseries``
-        is true then, for the first priority, the imported seed will be used.
-        By default these files should be given the name "seed_timeseries". This can be changed by
-        overwiting "imported_seed_timeseries_basename".
+        The seeding process is controlled by the seeding_options. If ``import_seed``
+        is true then, The imported seed will be merged with the timeseries_import and used for
+        seeding for the first priority. By default these files should be given the name
+        ``import_seed_timeseries``. This can be changed by overwiting ``imported_seed_timeseries
+        basename``. The seed could for example be a copy of the timeseries_export.xml from a
+        previous run.
+
         If ``import_seed_timeseries`` is false then the seed is determined using information
         only from the ``timeseries_import`` nd modelica model.
+
+        If the imported seed ends before the current forecast horizon and  ``extend_seed_forwards``
+        is True then the final value in the imported seed will be extrapolated to the end of the
+        time horizon.
+
+        If the imported seed starts after the current forecast horizon and ``extend_seed_backwards``
+        is True then the initial value in the imported seed will be extrapolated to fill that gap
+        at the beginning of the timehorizon.
 
         :returns: A dictionary of seeding options.
         """
 
         return {
             "import_seed_timeseries": False,
+            "extend_seed_forwards": True,
+            "extend_seed_backwards": True,
         }
 
-    def seed_with_imported_timeseries(self, seed, ensemble_member):
-        seed = super().seed_with_imported_timeseries(seed, ensemble_member)
+    def seed_with_imported_timeseries(self, seed, seeding_options, ensemble_member):
+        seed = super().seed_with_imported_timeseries(seed, seeding_options, ensemble_member)
         return seed
 
     def seed(self, ensemble_member):
@@ -152,7 +169,7 @@ class GoalProgrammingMixin(_GoalProgrammingMixinBase):
             seed = super().seed(ensemble_member)
             if seeding_options["import_seed_timeseries"] and not self._gp_first_run_failed:
                 logger.info("Using imported seed for the first optimization problem")
-                seed = self.seed_with_imported_timeseries(seed, ensemble_member)
+                seed = self.seed_with_imported_timeseries(seed, seeding_options, ensemble_member)
         else:
             # Seed with previous results
             seed = AliasDict(self.alias_relation)

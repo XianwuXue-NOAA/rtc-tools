@@ -219,17 +219,23 @@ class CSVMixin(IOMixin):
                             "Set csv_equidistant = False if this is intended.".format(times[i + 1])
                         )
 
-    def seed_with_imported_timeseries(self, seed, current_ensemble_member):
+    def seed_with_imported_timeseries(self, seed, seeding_options, current_ensemble_member):
         if not self.csv_equidistant:
-            raise Exception(
-                "Seeding using an imported result is only supported for equidistant timesteps"
+            logger.warning(
+                "Seeding using an imported timeseries is only supported for equidistant timesteps"
             )
+            self._gp_first_run_failed = True
+            return seed
 
         if self.csv_ensemble_mode:
-            raise Exception("Seeding using an imported result is not supported for ensemble mode")
+            logger.warning(
+                "Seeding using an imported timeseries is not supported for ensemble mode"
+            )
+            self._gp_first_run_failed = True
+            return seed
         else:
             try:
-                _previous_timeseries = csv.load(
+                _import_seed_timeseries = csv.load(
                     os.path.join(
                         self._input_folder,
                         self.imported_seed_timeseries_basename + ".csv",
@@ -238,19 +244,21 @@ class CSVMixin(IOMixin):
                     with_time=True,
                 )
             except IOError:
-                raise Exception(
+                logger.warning(
                     "CSVMixin: {}.csv not found in {}.".format(
                         self.imported_seed_timeseries_basename, self._input_folder
                     )
                 )
+                self._gp_first_run_failed = True
+                return seed
 
-            self.__previous_timeseries_times = _previous_timeseries[
-                _previous_timeseries.dtype.names[0]
+            self.__import_seed_timeseries_times = _import_seed_timeseries[
+                _import_seed_timeseries.dtype.names[0]
             ]
 
             # Check if the timeseries are truly equidistant
             if self.csv_validate_timeseries:
-                times = self.__previous_timeseries_times
+                times = self.__import_seed_timeseries_times
                 dt = times[1] - times[0]
                 for i in range(len(times) - 1):
                     if times[i + 1] - times[i] != dt:
@@ -259,40 +267,51 @@ class CSVMixin(IOMixin):
                             "{} is not the same as the time step(s) before. "
                             "Set csv_equidistant = False if this is intended.".format(times[i + 1])
                         )
+                        self._gp_first_run_failed = True
                         return seed
 
-            previous_timeseries_times_t0 = self.__previous_timeseries_times[0]
+            previous_timeseries_times_t0 = self.__import_seed_timeseries_times[0]
             t0_difference = self.io.reference_datetime - previous_timeseries_times_t0
             index_difference = int(t0_difference / dt)
 
             # Check that timeseries_import values are in the seed
-            if len(self.__previous_timeseries_times) < abs(index_difference):
+            if len(self.__import_seed_timeseries_times) < abs(index_difference):
                 logger.warning(
-                    "Imported result does not overlap with {} range. "
+                    "Imported seed timeseries does not overlap with {} range. "
                     "Default seed is used".format(self.timeseries_import_basename)
                 )
+                self._gp_first_run_failed = True
                 return seed
             times = self.times()
 
-            for key in _previous_timeseries.dtype.names[1:]:
+            for key in _import_seed_timeseries.dtype.names[1:]:
                 if index_difference >= 0:
                     values = np.asarray(
-                        _previous_timeseries[key][index_difference:], dtype=np.float64
+                        _import_seed_timeseries[key][index_difference:], dtype=np.float64
                     )
                     if len(times) < len(values):
                         values = values[: len(times)]
                     elif len(times) > len(values):
-                        # extend the last entry
-                        values = np.append(values, [values[-1]] * (len(times) - len(values)))
+                        if seeding_options["extend_seed_forwards"]:
+                            # extend the last entry
+                            values = np.append(values, [values[-1]] * (len(times) - len(values)))
+                        else:
+                            values = np.append(values, np.nan * (len(times) - len(values)))
                 else:
-                    values = np.asarray(_previous_timeseries[key], dtype=np.float64)
-                    # extend first entry back to t0
-                    values = np.append([values[0]] * abs(index_difference), values)
+                    values = np.asarray(_import_seed_timeseries[key], dtype=np.float64)
+                    if seeding_options["extend_seed_backwards"]:
+                        # extend first entry back to t0
+                        values = np.append([values[0]] * abs(index_difference), values)
+                    else:
+                        values = np.append(np.nan * abs(index_difference), values)
                     if len(times) < len(values):
                         values = values[: len(times)]
                     elif len(times) > len(values):
-                        # extend the last entry
-                        values = np.append(values, [values[-1]] * (len(times) - len(values)))
+                        if seeding_options["extend_seed_forwards"]:
+                            # extend the last entry
+                            values = np.append(values, [values[-1]] * (len(times) - len(values)))
+                        else:
+                            values = np.append(values, np.nan * (len(times) - len(values)))
                 seed[key] = Timeseries(times, values)
 
             logger.debug("CSVMixin: Updated seed with previous result timeseries.")

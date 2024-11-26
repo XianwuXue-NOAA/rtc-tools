@@ -20,7 +20,6 @@
 import os
 import re
 
-import sphinx_rtd_theme
 from rtctools._version import get_versions
 
 # -- General configuration ------------------------------------------------
@@ -139,8 +138,6 @@ html_theme = "sphinx_rtd_theme"
 # html_theme_options = {}
 
 # Add any paths that contain custom themes here, relative to this directory.
-html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
-
 html_static_path = ["_static"]
 
 html_css_files = [

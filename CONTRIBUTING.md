@@ -104,12 +104,11 @@ pip install pytest
 pytest tests
 ```
 
-To build the documentation, you will need Sphinx amd the sphnix-rtd-theme:
+To build the documentation, you will need matploblib, sphinx and sphinx-rtd-theme:
 
 ```bash
-pip install sphinx
-pip install sphnix-rtd-theme
-cd docs
+pip install matplotlib sphinx sphinx-rtd-theme
+cd doc
 make html
 ```
 

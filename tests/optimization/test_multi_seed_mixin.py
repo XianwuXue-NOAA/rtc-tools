@@ -42,9 +42,9 @@ class MinimizeQOutGoal(Goal):
 
 
 class Reservoir(
-    MultiSeedMixin,
     HomotopyMixin,
     GoalProgrammingMixin,
+    MultiSeedMixin,
     IOMixin,
     ModelicaMixin,
     CollocatedIntegratedOptimizationProblem,
@@ -53,6 +53,8 @@ class Reservoir(
     """Optimization problem for controlling a reservoir."""
 
     def __init__(self, **kwargs):
+        self.use_seeds_from_files = False
+        self.seed_files = []
         kwargs["model_name"] = "Reservoir"
         kwargs["input_folder"] = DATA_DIR
         kwargs["output_folder"] = DATA_DIR
@@ -71,24 +73,42 @@ class Reservoir(
     def path_goals(self):
         return [WaterVolumeGoal(self)]
 
-    def seed_ids(self):
-        return [DATA_DIR / "seed.csv", None]
+    def seed_from_file(self, file: Path):
+        raise NotImplementedError()
 
-    def use_seed_id(self):
+    def seeds(self):
+        if not self.use_seeds_from_files:
+            return [None]
         if not self._gp_first_run:
-            return False
+            return [None]
         theta_name = self.homotopy_options()["homotopy_parameter"]
         theta = self.parameters(ensemble_member=0)[theta_name]
         theta_start = self.homotopy_options()["theta_start"]
         if theta > theta_start:
-            return False
-        return True
+            return [None]
+        return [self.seed_from_file(seed_file) for seed_file in self.seed_files]
 
     def homotopy_options(self):
         options = super().homotopy_options()
-        if self.selected_seed_id() is not None:
+        if self.use_seeds_from_files:
             options["theta_start"] = 1.0
         return options
+
+    def optimize(self, preprocessing=True, postprocessing=True, log_solver_failure_as_error=True):
+        if preprocessing:
+            self.pre()
+        for use_seeds_from_files in [True, False]:
+            self.use_seeds_from_files = use_seeds_from_files
+            success = super().optimize(
+                preprocessing=False,
+                postprocessing=False,
+                log_solver_failure_as_error=log_solver_failure_as_error,
+            )
+            if success:
+                break
+        if postprocessing:
+            self.post()
+        return success
 
 
 class ReservoirCSV(
@@ -99,8 +119,12 @@ class ReservoirCSV(
 ):
     """Reservoir class using CSV files."""
 
-    def seed_from_id(self, seed_id: Path):
-        times, var_dict = get_timeseries_from_csv(seed_id)
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.seed_files = [DATA_DIR / "seed.csv"]
+
+    def seed_from_file(self, seed_file: Path):
+        times, var_dict = get_timeseries_from_csv(seed_file)
         times_sec = self.io.datetime_to_sec(times, self.io.reference_datetime)
         seed = {}
         for var, values in var_dict.items():
@@ -119,11 +143,15 @@ class ReservoirPI(
 
     pi_parameter_config_basenames = []
 
-    def seed_from_id(self, seed_id: Path):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.seed_files = [DATA_DIR / "seed.xml"]
+
+    def seed_from_file(self, seed_file: Path):
         timeseries = PiTimeseries(
             data_config=self.data_config,
-            folder=seed_id.parent,
-            basename=seed_id.stem,
+            folder=seed_file.parent,
+            basename=seed_file.stem,
             binary=False,
         )
         times = timeseries.times
@@ -140,7 +168,9 @@ class DummySolver(OptimizationProblem):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.success = []  # Keep track of solver results.
+        # Keep track of solver options and seeds.
+        self.success = []
+        self.seeds_q_out = []
 
     def enforced_solver_result(self):
         """Return the enforced solver result."""
@@ -153,6 +183,8 @@ class DummySolver(OptimizationProblem):
         postprocessing: bool = True,
         log_solver_failure_as_error: bool = True,
     ) -> bool:
+        seed = self.seed(ensemble_member=0)
+        self.seeds_q_out.append(seed.get("q_out"))
         success = super().optimize(preprocessing, postprocessing, log_solver_failure_as_error)
         if self.enforced_solver_result() is not None:
             success = self.enforced_solver_result()
@@ -165,22 +197,19 @@ class ReservoirTest(Reservoir, DummySolver):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        # Keep track of seeds/priorities/thetas of each run.
-        self.seeds_q_out = []
+        # Keep track of priorities of each run.
         self.priorities = []
         self.thetas = []
-        self.used_seeds = []
+        self.used_seed_from_file = []
 
     def enforced_solver_result(self):
         # Enforce failure when using a seed.
-        return False if self.selected_seed_id() is not None else None
+        return False if self.use_seeds_from_files else None
 
     def priority_started(self, priority: int):
         super().priority_started(priority)
         # Keep track of seeds/priorities/thetas for testing purposes.
-        seed = self.seed(ensemble_member=0)
-        self.seeds_q_out.append(seed.get("q_out"))
-        self.used_seeds.append(self.selected_seed_id() is not None)
+        self.used_seed_from_file.append(self.use_seeds_from_files)
         self.priorities.append(priority)
         self.thetas.append(self.parameters(ensemble_member=0)["theta"])
 
@@ -203,7 +232,7 @@ class TestSeedMixin(TestCase):
     def _test_seeding_with_fallback(self, model: ReservoirTest):
         """Test using a seed from a file with a fallback option."""
         model.optimize()
-        ref_used_seeds = [True, False, False, False, False]
+        ref_used_seed_from_file = [True, False, False, False, False]
         ref_thetas = [1, 0, 0, 1, 1]
         ref_priorities = [1, 1, 2, 1, 2]
         ref_success = [False, True, True, True, True]
@@ -211,7 +240,7 @@ class TestSeedMixin(TestCase):
             Timeseries([0, 1, 2, 3, 4], [1, 1, 2, 3, 3]),
             None,
         ]
-        self.assertEqual(model.used_seeds, ref_used_seeds)
+        self.assertEqual(model.used_seed_from_file, ref_used_seed_from_file)
         self.assertEqual(model.thetas, ref_thetas)
         self.assertEqual(model.priorities, ref_priorities)
         self.assertEqual(model.success, ref_success)
@@ -226,3 +255,9 @@ class TestSeedMixin(TestCase):
         """Test using a seed from a PI file with a fallback option."""
         model = ReservoirPITest()
         self._test_seeding_with_fallback(model)
+
+
+if __name__ == "__main__":
+    test = TestSeedMixin()
+    test.test_seeding_with_fallback_csv()
+    pass

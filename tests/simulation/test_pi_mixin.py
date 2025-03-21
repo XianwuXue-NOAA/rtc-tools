@@ -1,7 +1,7 @@
-﻿from rtctools.simulation.pi_mixin import PIMixin
+from rtctools.simulation.pi_mixin import PIMixin
 from rtctools.simulation.simulation_problem import SimulationProblem
-from test_case import TestCase
 
+from ..test_case import TestCase
 from .data_path import data_path
 
 

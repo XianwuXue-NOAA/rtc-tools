@@ -1,13 +1,14 @@
 import bisect
 
 import numpy as np
+
 from rtctools.optimization.collocated_integrated_optimization_problem import (
     CollocatedIntegratedOptimizationProblem,
 )
 from rtctools.optimization.modelica_mixin import ModelicaMixin
 from rtctools.optimization.pi_mixin import PIMixin
-from test_case import TestCase
 
+from ..test_case import TestCase
 from .data_path import data_path
 
 

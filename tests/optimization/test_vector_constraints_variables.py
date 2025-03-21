@@ -3,13 +3,14 @@ import unittest
 
 import casadi as ca
 import numpy as np
+
 from rtctools.optimization.collocated_integrated_optimization_problem import (
     CollocatedIntegratedOptimizationProblem,
 )
 from rtctools.optimization.modelica_mixin import ModelicaMixin
 from rtctools.optimization.timeseries import Timeseries
-from test_case import TestCase
 
+from ..test_case import TestCase
 from .data_path import data_path
 
 logger = logging.getLogger("rtctools")
@@ -504,7 +505,6 @@ class ModelConstantInputsVector(Model):
 
 
 class TestVectorConstraints(TestCase):
-
     """
     NOTE: As long as the order of constraints is the same, whether or not they are passed
     as a vector or not should not matter. Therefore we often check to see if two problems

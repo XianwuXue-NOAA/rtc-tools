@@ -4,8 +4,8 @@ import os
 
 import rtctools.data.csv as csv
 from rtctools.simulation.csv_mixin import CSVMixin
-from test_case import TestCase
 
+from ..test_case import TestCase
 from .data_path import data_path
 
 logger = logging.getLogger("rtctools")
